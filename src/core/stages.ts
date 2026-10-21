@@ -1,0 +1,88 @@
+export type EnemyKind = 'drone' | 'gunner' | 'tank' | 'diver';
+
+export type EnemyDef = {
+  name: string;
+  hp: number;
+  coin: number;
+  // Multiplies the stage's base fire chance for this kind.
+  fireWeight: number;
+};
+
+export const ENEMIES: Record<EnemyKind, EnemyDef> = {
+  drone: { name: 'Pico Drone', hp: 2, coin: 1, fireWeight: 0.6 },
+  gunner: { name: 'Gunner Girl', hp: 4, coin: 2, fireWeight: 1.6 },
+  tank: { name: 'Bulwark', hp: 10, coin: 3, fireWeight: 0.8 },
+  diver: { name: 'Kamikaze Kitsune', hp: 4, coin: 3, fireWeight: 0.4 },
+};
+
+export type BossId = 'crimsonSeraph' | 'voidEmpress';
+
+export type BossPattern = 'fanSpread' | 'aimedBurst' | 'summonDrones' | 'spiral' | 'sweepLaser' | 'bulletRain';
+
+export type BossDef = {
+  name: string;
+  hp: number;
+  // Each phase starts when boss HP falls to hpRatio or below; the boss cycles its patterns.
+  phases: readonly { hpRatio: number; patterns: readonly BossPattern[]; patternGapMs: number }[];
+};
+
+export const BOSSES: Record<BossId, BossDef> = {
+  crimsonSeraph: {
+    name: 'Crimson Seraph',
+    hp: 420,
+    phases: [
+      { hpRatio: 1, patterns: ['fanSpread', 'aimedBurst'], patternGapMs: 1800 },
+      { hpRatio: 0.5, patterns: ['fanSpread', 'summonDrones', 'aimedBurst'], patternGapMs: 1400 },
+    ],
+  },
+  voidEmpress: {
+    name: 'Void Empress',
+    hp: 1100,
+    phases: [
+      { hpRatio: 1, patterns: ['spiral', 'aimedBurst'], patternGapMs: 1600 },
+      { hpRatio: 0.66, patterns: ['sweepLaser', 'spiral', 'summonDrones'], patternGapMs: 1300 },
+      { hpRatio: 0.33, patterns: ['bulletRain', 'sweepLaser', 'spiral', 'aimedBurst'], patternGapMs: 1000 },
+    ],
+  },
+};
+
+export type WaveStage = {
+  kind: 'wave';
+  cols: number;
+  // Top row first.
+  rows: readonly EnemyKind[];
+  marchSpeed: number;
+  // Expected enemy shots per second across the whole formation.
+  fireRate: number;
+  hpMultiplier: number;
+  reward: number;
+};
+
+export type BossStage = {
+  kind: 'boss';
+  boss: BossId;
+  reward: number;
+};
+
+export type StageDef = WaveStage | BossStage;
+
+export const STAGES: readonly StageDef[] = [
+  { kind: 'wave', cols: 8, rows: ['gunner', 'drone', 'drone'], marchSpeed: 20, fireRate: 0.6, hpMultiplier: 1, reward: 30 },
+  { kind: 'wave', cols: 8, rows: ['gunner', 'drone', 'drone', 'drone'], marchSpeed: 24, fireRate: 0.8, hpMultiplier: 1, reward: 35 },
+  { kind: 'wave', cols: 9, rows: ['tank', 'gunner', 'drone', 'drone'], marchSpeed: 28, fireRate: 1.0, hpMultiplier: 1.1, reward: 40 },
+  { kind: 'wave', cols: 9, rows: ['tank', 'gunner', 'gunner', 'drone', 'drone'], marchSpeed: 32, fireRate: 1.2, hpMultiplier: 1.2, reward: 45 },
+  { kind: 'boss', boss: 'crimsonSeraph', reward: 100 },
+  { kind: 'wave', cols: 10, rows: ['tank', 'diver', 'gunner', 'drone', 'drone'], marchSpeed: 36, fireRate: 1.4, hpMultiplier: 1.4, reward: 55 },
+  { kind: 'wave', cols: 10, rows: ['tank', 'tank', 'diver', 'gunner', 'drone'], marchSpeed: 40, fireRate: 1.6, hpMultiplier: 1.6, reward: 60 },
+  { kind: 'wave', cols: 10, rows: ['tank', 'diver', 'gunner', 'gunner', 'diver', 'drone'], marchSpeed: 44, fireRate: 1.8, hpMultiplier: 1.8, reward: 65 },
+  { kind: 'wave', cols: 11, rows: ['tank', 'tank', 'diver', 'gunner', 'gunner', 'diver'], marchSpeed: 48, fireRate: 2.0, hpMultiplier: 2.0, reward: 70 },
+  { kind: 'boss', boss: 'voidEmpress', reward: 0 },
+];
+
+export const STAGE_COUNT = STAGES.length;
+
+export function stageDef(stage: number): StageDef {
+  const def = STAGES[stage - 1];
+  if (!def) throw new Error(`No stage ${stage}`);
+  return def;
+}

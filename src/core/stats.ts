@@ -1,0 +1,81 @@
+// Every system reads ship behavior from ShipStats. A zero value means the mechanic is off,
+// so perks only ever fold numbers into a fresh copy of BASE_STATS.
+export type ShipStats = {
+  maxHp: number;
+  moveSpeed: number;
+
+  fireIntervalMs: number;
+  bulletDamage: number;
+  bulletSpeed: number;
+  parallelShots: number;
+  spreadPairs: number;
+  pierce: number;
+  critChance: number;
+  critMultiplier: number;
+  homingEveryShots: number;
+  homingDamage: number;
+  overdriveMultiplier: number;
+  drones: number;
+
+  laserCooldownMs: number;
+  laserDps: number;
+  laserWidth: number;
+  laserDurationMs: number;
+  laserBurnDps: number;
+  laserErasesBullets: boolean;
+  laserErasedBulletCoin: number;
+  laserSideBeams: number;
+  laserKillRefundMs: number;
+  orbitalCooldownMs: number;
+  orbitalDamage: number;
+
+  dashCooldownMs: number;
+  dashDamage: number;
+  dashSpeed: number;
+  dashCharges: number;
+  dashShockRadius: number;
+  dashShieldMs: number;
+  dashHealEveryKills: number;
+  dashSizeMultiplier: number;
+  dashDamageMultiplier: number;
+};
+
+export const BASE_STATS: Readonly<ShipStats> = {
+  maxHp: 3,
+  moveSpeed: 220,
+
+  fireIntervalMs: 320,
+  bulletDamage: 2,
+  bulletSpeed: 420,
+  parallelShots: 1,
+  spreadPairs: 0,
+  pierce: 0,
+  critChance: 0,
+  critMultiplier: 2.5,
+  homingEveryShots: 0,
+  homingDamage: 0,
+  overdriveMultiplier: 1,
+  drones: 0,
+
+  laserCooldownMs: 0,
+  laserDps: 0,
+  laserWidth: 6,
+  laserDurationMs: 500,
+  laserBurnDps: 0,
+  laserErasesBullets: false,
+  laserErasedBulletCoin: 0,
+  laserSideBeams: 0,
+  laserKillRefundMs: 0,
+  orbitalCooldownMs: 0,
+  orbitalDamage: 0,
+
+  dashCooldownMs: 0,
+  dashDamage: 0,
+  dashSpeed: 900,
+  dashCharges: 1,
+  dashShockRadius: 0,
+  dashShieldMs: 0,
+  dashHealEveryKills: 0,
+  dashSizeMultiplier: 1,
+  dashDamageMultiplier: 1,
+};
