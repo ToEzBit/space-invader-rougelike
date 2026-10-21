@@ -1,17 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { BASE_STATS } from './stats';
-import { PERKS, PERK_IDS, deriveStats, describePerk, type PerkId } from './perks';
+import { ITEMS, ITEM_IDS, ITEM_STACK_MAX, itemForKey, withBuffs, type ItemId, type OwnedItems } from './items';
+import { PERKS, PERK_IDS, deriveStats, describePerk, type OwnedPerks, type PerkId } from './perks';
 import { STAGES } from './stages';
-import { buyOffer, clearStage, heal, leaveShop, newRun, refreshCost, refreshShop, rollOffers, takeHit, type RunState } from './run';
+import { buyOffer, clearStage, heal, leaveShop, newRun, offerCost, refreshCost, refreshShop, rollOffers, takeHit, useItem, type Offer, type RunState } from './run';
 
 function shopOf(run: RunState) {
   if (run.phase.kind !== 'shop') throw new Error(`expected shop, got ${run.phase.kind}`);
   return run.phase.shop;
 }
 
-function withOffers(run: RunState, offers: (PerkId | null)[], money: number): RunState {
+function withOffers(run: RunState, offers: (Offer | null)[], money: number): RunState {
   return { ...run, money, phase: { kind: 'shop', shop: { offers, refreshes: 0 } } };
 }
+
+const perk = (id: PerkId): Offer => ({ kind: 'perk', id });
+const item = (id: ItemId): Offer => ({ kind: 'item', id });
+
+function roll(stage: number, seed: number, perks: OwnedPerks = {}, items: OwnedItems = {}) {
+  return rollOffers({ perks, items, stage, rng: seed })[0];
+}
+
+const ALL_PERKS_MAXED: OwnedPerks = Object.fromEntries(PERK_IDS.map((id) => [id, PERKS[id].maxLevel]));
+const ALL_ITEMS_FULL: OwnedItems = Object.fromEntries(ITEM_IDS.map((id) => [id, ITEM_STACK_MAX]));
 
 describe('perk registry', () => {
   it('has 30 perks, 10 per branch, each with levels and Thai descriptions', () => {
@@ -50,12 +61,13 @@ describe('deriveStats', () => {
 describe('shop rolls', () => {
   it('after stage 1 offers only tier 1 perks with no locked prerequisites', () => {
     for (let seed = 1; seed < 200; seed++) {
-      const [offers] = rollOffers({}, 1, seed);
+      const offers = roll(1, seed);
       expect(offers).toHaveLength(3);
-      expect(new Set(offers).size).toBe(3);
-      for (const id of offers) {
-        expect(PERKS[id!].tier).toBe(1);
-        expect(PERKS[id!].requires).toBeUndefined();
+      expect(new Set(offers.map((o) => o?.id)).size).toBe(3);
+      for (const o of offers) {
+        if (o?.kind !== 'perk') continue;
+        expect(PERKS[o.id].tier).toBe(1);
+        expect(PERKS[o.id].requires).toBeUndefined();
       }
     }
   });
@@ -63,14 +75,97 @@ describe('shop rolls', () => {
   it('later shops can offer tier 4 perks, never maxed ones', () => {
     const owned = { prismLance: 3, afterburnerDash: 3, hairTrigger: 3 } as const;
     const seen = new Set<PerkId>();
-    for (let seed = 1; seed < 300; seed++) rollOffers(owned, 8, seed)[0].forEach((id) => id && seen.add(id));
+    for (let seed = 1; seed < 300; seed++) roll(8, seed, owned).forEach((o) => o?.kind === 'perk' && seen.add(o.id));
     expect([...seen].some((id) => PERKS[id].tier === 4)).toBe(true);
     expect(seen.has('hairTrigger')).toBe(false);
   });
 
-  it('leaves empty slots when the pool runs dry', () => {
-    const allMaxed = Object.fromEntries(PERK_IDS.map((id) => [id, PERKS[id].maxLevel]));
-    expect(rollOffers(allMaxed, 9, 1)[0]).toEqual([null, null, null]);
+  it('mixes items into about one slot in five, from the first shop on', () => {
+    for (const stage of [1, 5, 9]) {
+      const slots = [0, 0, 0];
+      const seeds = 4000;
+      for (let seed = 1; seed <= seeds; seed++) roll(stage, seed * 7919).forEach((o, slot) => o?.kind === 'item' && slots[slot]!++);
+      for (const count of slots) {
+        expect(count / seeds).toBeGreaterThan(0.15);
+        expect(count / seeds).toBeLessThan(0.25);
+      }
+    }
+  });
+
+  it('never offers an item held at the stack cap, nor the same item twice in one roll', () => {
+    for (let seed = 1; seed < 2000; seed++) {
+      const items = roll(3, seed, {}, { nitro: ITEM_STACK_MAX, repairKit: 2 }).flatMap((o) => (o?.kind === 'item' ? [o.id] : []));
+      expect(items).not.toContain('nitro');
+      expect(new Set(items).size).toBe(items.length);
+    }
+  });
+
+  it('fills slots with items once every perk is maxed', () => {
+    const offers = roll(9, 1, ALL_PERKS_MAXED);
+    expect(offers.every((o) => o?.kind === 'item')).toBe(true);
+  });
+
+  it('leaves empty slots only when both pools run dry', () => {
+    expect(roll(9, 1, ALL_PERKS_MAXED, ALL_ITEMS_FULL)).toEqual([null, null, null]);
+  });
+});
+
+describe('items', () => {
+  it('bind keys 1 to 5 in registry order, each with a Thai description', () => {
+    expect(ITEM_IDS.map((id) => ITEMS[id].key)).toEqual([1, 2, 3, 4, 5]);
+    for (const id of ITEM_IDS) {
+      expect(itemForKey(String(ITEMS[id].key))).toBe(id);
+      expect(ITEMS[id].desc).toMatch(/[฀-๿]/);
+    }
+    expect(itemForKey('6')).toBeNull();
+  });
+
+  it('buff folds scale the stats they boost on top of perks', () => {
+    const base = deriveStats({ heavyCaliber: 1 });
+    const boosted = withBuffs(base, ['nitro', 'powerCell', 'overclock']);
+    expect(boosted.moveSpeed).toBeCloseTo(base.moveSpeed * 1.5);
+    expect(boosted.bulletDamage).toBeCloseTo(base.bulletDamage * 1.5);
+    expect(boosted.fireIntervalMs).toBeCloseTo(base.fireIntervalMs * 0.6);
+    expect(withBuffs(base, [])).toEqual(base);
+  });
+
+  it('buying an item adds one to the stack and sells out the slot', () => {
+    const run = withOffers(clearStage(newRun(1), 0), [item('nitro'), perk('heavyCaliber'), null], 100);
+    const bought = buyOffer(run, 0);
+    if (!bought.ok) throw new Error(bought.reason);
+    expect(bought.run.items.nitro).toBe(1);
+    expect(bought.run.money).toBe(100 - ITEMS.nitro.cost);
+    expect(offerCost(run, item('nitro'))).toBe(ITEMS.nitro.cost);
+    expect(shopOf(bought.run).offers[0]).toBeNull();
+    expect(buyOffer(bought.run, 0)).toEqual({ ok: false, reason: 'soldOut' });
+  });
+
+  it('refuses to buy past the stack cap', () => {
+    const run = withOffers({ ...clearStage(newRun(1), 0), items: { nitro: ITEM_STACK_MAX } }, [item('nitro')], 100);
+    expect(buyOffer(run, 0)).toEqual({ ok: false, reason: 'stackFull' });
+  });
+
+  it('using an item spends one and reports its effect', () => {
+    const run = { ...newRun(1), items: { nitro: 2 } };
+    const used = useItem(run, 'nitro');
+    expect(used?.run.items.nitro).toBe(1);
+    expect(used?.effect).toEqual(ITEMS.nitro.effect);
+    expect(useItem(run, 'overclock')).toBeNull();
+  });
+
+  it('a repair kit heals 1 HP and is refused at full HP', () => {
+    const full = { ...newRun(1), items: { repairKit: 1 } };
+    expect(useItem(full, 'repairKit')).toBeNull();
+    const hurt = takeHit(full, 1);
+    const used = useItem(hurt, 'repairKit');
+    expect(used?.run.hp).toBe(hurt.hp + 1);
+    expect(used?.run.items.repairKit).toBe(0);
+  });
+
+  it('carry across stages and cannot be used in the shop', () => {
+    const shop = clearStage({ ...newRun(1), items: { nitro: 1 } }, 0);
+    expect(useItem(shop, 'nitro')).toBeNull();
+    expect(leaveShop(shop).items.nitro).toBe(1);
   });
 });
 
@@ -93,14 +188,14 @@ describe('run loop', () => {
   });
 
   it('buying a perk again levels it up and sells out the slot', () => {
-    let run = withOffers(clearStage(newRun(1), 0), ['heavyCaliber', 'reinforcedHull', null], 500);
+    let run = withOffers(clearStage(newRun(1), 0), [perk('heavyCaliber'), perk('reinforcedHull'), null], 500);
     const bought = buyOffer(run, 0);
     if (!bought.ok) throw new Error(bought.reason);
     expect(bought.run.perks.heavyCaliber).toBe(1);
     expect(shopOf(bought.run).offers[0]).toBeNull();
     expect(buyOffer(bought.run, 0)).toEqual({ ok: false, reason: 'soldOut' });
 
-    run = withOffers(bought.run, ['heavyCaliber'], bought.run.money);
+    run = withOffers(bought.run, [perk('heavyCaliber')], bought.run.money);
     const again = buyOffer(run, 0);
     if (!again.ok) throw new Error(again.reason);
     expect(again.run.perks.heavyCaliber).toBe(2);
@@ -109,7 +204,7 @@ describe('run loop', () => {
   });
 
   it('hull upgrades raise current HP with max HP', () => {
-    const run = withOffers(clearStage(newRun(1), 0), ['reinforcedHull'], 500);
+    const run = withOffers(clearStage(newRun(1), 0), [perk('reinforcedHull')], 500);
     const r = buyOffer(run, 0);
     if (!r.ok) throw new Error(r.reason);
     expect(r.run.hp).toBe(run.hp + 1);

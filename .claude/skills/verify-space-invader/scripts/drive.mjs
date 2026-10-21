@@ -31,7 +31,8 @@ function harness(page, outDir) {
   const core = (expr) => page.evaluate(async (expr) => {
     const run = await import('/src/core/run.ts');
     const perks = await import('/src/core/perks.ts');
-    return new Function('run', 'perks', `return (${expr})`)(run, perks);
+    const items = await import('/src/core/items.ts');
+    return new Function('run', 'perks', 'items', `return (${expr})`)(run, perks, items);
   }, expr);
 
   async function waitFor(label, pred, timeoutMs = 6000) {
@@ -97,7 +98,7 @@ function summarize(s) {
   const { run, ...restState } = s;
   return {
     ...restState,
-    run: run && { stage: run.stage, money: run.money, hp: run.hp, phase: run.phase.kind, perks: run.perks, shop: run.phase.shop },
+    run: run && { stage: run.stage, money: run.money, hp: run.hp, phase: run.phase.kind, perks: run.perks, items: run.items, shop: run.phase.shop },
   };
 }
 
@@ -149,10 +150,11 @@ const JOURNEYS = {
     h.check('R rerolls 3 offers', s1.cards.length === 3 && s1.cards.every(Boolean), { before: s0.cards, after: s1.cards });
     await h.shot('after-refresh');
 
-    const id = s1.cards[0];
-    const cost = await h.core(`run.offerCost(${JSON.stringify(s1.run)}, ${JSON.stringify(id)})`);
+    const offer = s1.cards[0];
+    const owned = (s) => (offer.kind === 'perk' ? s.run.perks : s.run.items)[offer.id] ?? 0;
+    const cost = await h.core(`run.offerCost(${JSON.stringify(s1.run)}, ${JSON.stringify(offer)})`);
     const s2 = await h.step('press 1', () => h.page.keyboard.press('1'));
-    h.check('1 buys card 1 at offerCost', s2.run.money === s1.run.money - cost && s2.run.perks[id] === 1, { id, cost, money: s2.run.money });
+    h.check('1 buys card 1 at offerCost', s2.run.money === s1.run.money - cost && owned(s2) === 1, { offer, cost, money: s2.run.money });
     h.check('bought card is sold out', s2.cards[0] === null, { cards: s2.cards });
     await sleep(700);
     await h.shot('after-buy');
@@ -162,7 +164,7 @@ const JOURNEYS = {
 
     await h.step('press Enter', () => h.page.keyboard.press('Enter'));
     const next = await h.waitFor('stage 2 fighting', (x) => x.scenes.includes('Stage') && x.run?.stage === 2);
-    h.check('Enter continues to stage 2 keeping money and perks', next.run.money === s3.run.money && next.run.perks[id] === 1, summarize(next).run);
+    h.check('Enter continues to stage 2 keeping money and what was bought', next.run.money === s3.run.money && owned(next) === 1, summarize(next).run);
   },
 
   async 'perk-mechanics'(h) {
@@ -274,6 +276,37 @@ const JOURNEYS = {
     const none = await h.startAt(1, {});
     h.check('no skill slots without skill perks', Array.isArray(none.skills) && none.skills.length === 0, { skills: none.skills });
     await h.shot('no-skills-closeup', TRAY);
+  },
+
+  async items(h) {
+    await h.startAt(1, {}, 2000);
+    await h.game('kill');
+    let s = await h.waitFor('Shop scene', (x) => x.scenes.includes('Shop'));
+    const itemSlot = (x) => x.cards.findIndex((c) => c?.kind === 'item');
+    let refreshes = 0;
+    while (itemSlot(s) < 0 && refreshes < 40) {
+      const cost = await h.core(`run.refreshCost(${JSON.stringify(s.run)})`);
+      if (s.run.money - cost < 25) break;
+      s = await h.step('press R looking for an item card', () => h.page.keyboard.press('r'));
+      refreshes++;
+    }
+    const slot = itemSlot(s);
+    h.check('an item card shows up in the shop offers', slot >= 0, { refreshes, cards: s.cards });
+    await sleep(300);
+    await h.shot('shop-item-card');
+    const offer = s.cards[slot];
+    const cost = await h.core(`run.offerCost(${JSON.stringify(s.run)}, ${JSON.stringify(offer)})`);
+    const bought = await h.step(`press ${slot + 1} to buy ${offer.id}`, () => h.page.keyboard.press(String(slot + 1)));
+    h.check('buying the item card adds one to the stack and charges its cost', (bought.run.items[offer.id] ?? 0) === (s.run.items[offer.id] ?? 0) + 1 && bought.run.money === s.run.money - cost, {
+      offer,
+      cost,
+      before: s.run.items,
+      after: bought.run.items,
+      money: [s.run.money, bought.run.money],
+    });
+    h.check('the bought item card is sold out', bought.cards[slot] === null, { cards: bought.cards });
+    await sleep(700);
+    await h.shot('shop-item-bought');
   },
 
   async bosses(h) {
@@ -388,7 +421,7 @@ const JOURNEYS = {
 };
 
 // Close-ups of small HUD art need the canvas's full backing resolution.
-const CONTEXT = { 'skill-hud': { deviceScaleFactor: 2 } };
+const CONTEXT = { 'skill-hud': { deviceScaleFactor: 2 }, items: { deviceScaleFactor: 2 } };
 
 const selected = names.includes('all') ? Object.keys(JOURNEYS).filter((n) => n !== 'doctor') : names;
 const unknown = selected.filter((n) => !JOURNEYS[n]);

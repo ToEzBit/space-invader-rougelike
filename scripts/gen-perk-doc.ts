@@ -1,9 +1,10 @@
 import { writeFileSync } from 'node:fs';
 import { BRANCH_LABEL, PERKS, PERK_IDS, TIER_BASE_COST, describePerk, perkCost, type Branch } from '../src/core/perks';
+import { ITEM_IDS, ITEM_OFFER_CHANCE, ITEM_STACK_MAX, ITEMS } from '../src/core/items';
 import { BOSSES, ENEMIES, STAGES } from '../src/core/stages';
 import { tierWeights } from '../src/core/run';
 
-const lines: string[] = ['# Perks และด่าน', '', 'ไฟล์นี้สร้างจาก `src/core/perks.ts` และ `src/core/stages.ts` ด้วย `npm run docs` ห้ามแก้ไขเอง', ''];
+const lines: string[] = ['# Perks และด่าน', '', 'ไฟล์นี้สร้างจาก `src/core/perks.ts`, `src/core/items.ts` และ `src/core/stages.ts` ด้วย `npm run docs` ห้ามแก้ไขเอง', ''];
 
 lines.push('## Perk ทั้ง 30 แบบ', '', `ราคาต่อเลเวล = ราคาฐานของ Tier x เลเวลที่ซื้อ (Tier 1-4: ${Object.values(TIER_BASE_COST).join(' / ')} เหรียญ)`, '');
 for (const branch of Object.keys(BRANCH_LABEL) as Branch[]) {
@@ -21,6 +22,20 @@ lines.push('## โอกาสออกของแต่ละ Tier ในร�
 for (let stage = 1; stage <= 9; stage++) {
   const w = tierWeights(stage);
   lines.push(`| ${stage} | ${w[1]} | ${w[2]} | ${w[3]} | ${w[4]} |`);
+}
+lines.push('');
+
+lines.push(
+  '## ไอเทมกดใช้',
+  '',
+  `ไอเทมสุ่มออกปนกับ Perk ในการ์ด 3 ใบของร้านค้า แต่ละใบมีโอกาสเป็นไอเทม ${Math.round(ITEM_OFFER_CHANCE * 100)}% (ที่เหลือเป็น Perk) ไอเทมเดียวกันไม่ออกซ้ำในการสุ่มครั้งเดียว และไม่ออกเมื่อถือครบ ${ITEM_STACK_MAX} ชิ้นแล้ว ไอเทมที่ถืออยู่ติดตัวข้ามด่าน กดปุ่มของไอเทมระหว่างต่อสู้เพื่อใช้ บัฟที่ใช้ซ้ำขณะยังทำงานอยู่จะต่อเวลาเพิ่ม บัฟหมดเมื่อจบด่าน`,
+  '',
+  '| ปุ่ม | ไอเทม | ผล | ราคา |',
+  '| --- | --- | --- | --- |',
+);
+for (const id of ITEM_IDS) {
+  const item = ITEMS[id];
+  lines.push(`| ${item.key} | **${item.name}** | ${item.desc} | ${item.cost} |`);
 }
 lines.push('');
 

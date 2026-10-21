@@ -1,11 +1,14 @@
+import { ITEM_IDS, ITEM_OFFER_CHANCE, ITEM_STACK_MAX, ITEMS, type ItemEffect, type ItemId, type OwnedItems } from './items';
 import { PERK_IDS, PERKS, deriveStats, perkCost, type OwnedPerks, type PerkId, type Tier } from './perks';
 import { STAGE_COUNT, stageDef } from './stages';
 
 export const OFFER_SLOTS = 3;
 
+export type Offer = { kind: 'perk'; id: PerkId } | { kind: 'item'; id: ItemId };
+
 export type ShopState = {
   // A bought slot becomes null so the shop shows it as sold out.
-  offers: readonly (PerkId | null)[];
+  offers: readonly (Offer | null)[];
   refreshes: number;
 };
 
@@ -21,11 +24,13 @@ export type RunState = {
   money: number;
   hp: number;
   perks: OwnedPerks;
+  // Consumables carry across stages until used.
+  items: OwnedItems;
   rng: number;
   phase: RunPhase;
 };
 
-export type ShopResult = { ok: true; run: RunState } | { ok: false; reason: 'notEnoughMoney' | 'soldOut' | 'notInShop' };
+export type ShopResult = { ok: true; run: RunState } | { ok: false; reason: 'notEnoughMoney' | 'soldOut' | 'stackFull' | 'notInShop' };
 
 // Tier weights for the shop opened after clearing a given stage. Higher stages favor stronger tiers.
 const TIER_WEIGHTS_AFTER_STAGE: readonly Record<Tier, number>[] = [
@@ -46,14 +51,14 @@ export function tierWeights(stageCleared: number): Record<Tier, number> {
 
 export function newRun(seed: number): RunState {
   const perks: OwnedPerks = {};
-  return { stage: 1, money: 0, hp: deriveStats(perks).maxHp, perks, rng: seed >>> 0, phase: { kind: 'playing' } };
+  return { stage: 1, money: 0, hp: deriveStats(perks).maxHp, perks, items: {}, rng: seed >>> 0, phase: { kind: 'playing' } };
 }
 
 export function clearStage(run: RunState, coinsEarned: number): RunState {
   const money = run.money + coinsEarned + stageDef(run.stage).reward;
   if (run.stage >= STAGE_COUNT) return { ...run, money, phase: { kind: 'victory' } };
   const hp = Math.min(run.hp + 1, deriveStats(run.perks).maxHp);
-  const [offers, rng] = rollOffers(run.perks, run.stage, run.rng);
+  const [offers, rng] = rollOffers(run);
   return { ...run, money, hp, rng, phase: { kind: 'shop', shop: { offers, refreshes: 0 } } };
 }
 
@@ -85,35 +90,52 @@ export function refreshShop(run: RunState): ShopResult {
   if (run.phase.kind !== 'shop') return { ok: false, reason: 'notInShop' };
   const cost = refreshCost(run);
   if (run.money < cost) return { ok: false, reason: 'notEnoughMoney' };
-  const [offers, rng] = rollOffers(run.perks, run.stage, run.rng);
+  const [offers, rng] = rollOffers(run);
   const shop = { offers, refreshes: run.phase.shop.refreshes + 1 };
   return { ok: true, run: { ...run, money: run.money - cost, rng, phase: { kind: 'shop', shop } } };
 }
 
-export function offerCost(run: RunState, id: PerkId): number {
-  return perkCost(PERKS[id], (run.perks[id] ?? 0) + 1);
+export function offerCost(run: RunState, offer: Offer): number {
+  switch (offer.kind) {
+    case 'perk':
+      return perkCost(PERKS[offer.id], (run.perks[offer.id] ?? 0) + 1);
+    case 'item':
+      return ITEMS[offer.id].cost;
+  }
 }
 
 export function buyOffer(run: RunState, slot: number): ShopResult {
   if (run.phase.kind !== 'shop') return { ok: false, reason: 'notInShop' };
-  const id = run.phase.shop.offers[slot];
-  if (!id) return { ok: false, reason: 'soldOut' };
-  const cost = offerCost(run, id);
+  const offer = run.phase.shop.offers[slot];
+  if (!offer) return { ok: false, reason: 'soldOut' };
+  if (offer.kind === 'item' && (run.items[offer.id] ?? 0) >= ITEM_STACK_MAX) return { ok: false, reason: 'stackFull' };
+  const cost = offerCost(run, offer);
   if (run.money < cost) return { ok: false, reason: 'notEnoughMoney' };
 
-  const perks = { ...run.perks, [id]: (run.perks[id] ?? 0) + 1 };
-  const maxHpGain = deriveStats(perks).maxHp - deriveStats(run.perks).maxHp;
   const offers = run.phase.shop.offers.map((o, i) => (i === slot ? null : o));
-  return {
-    ok: true,
-    run: {
-      ...run,
-      money: run.money - cost,
-      perks,
-      hp: run.hp + maxHpGain,
-      phase: { kind: 'shop', shop: { ...run.phase.shop, offers } },
-    },
-  };
+  return { ok: true, run: { ...grant(run, offer), money: run.money - cost, phase: { kind: 'shop', shop: { ...run.phase.shop, offers } } } };
+}
+
+function grant(run: RunState, offer: Offer): RunState {
+  switch (offer.kind) {
+    case 'perk': {
+      const perks = { ...run.perks, [offer.id]: (run.perks[offer.id] ?? 0) + 1 };
+      const maxHpGain = deriveStats(perks).maxHp - deriveStats(run.perks).maxHp;
+      return { ...run, perks, hp: run.hp + maxHpGain };
+    }
+    case 'item':
+      return { ...run, items: { ...run.items, [offer.id]: (run.items[offer.id] ?? 0) + 1 } };
+  }
+}
+
+// Spends one held item. Refused (null) outside a stage, with none held, or a heal at full HP.
+export function useItem(run: RunState, id: ItemId): { run: RunState; effect: ItemEffect } | null {
+  const held = run.items[id] ?? 0;
+  const { effect } = ITEMS[id];
+  if (run.phase.kind !== 'playing' || held === 0) return null;
+  if (effect.kind === 'heal' && run.hp >= deriveStats(run.perks).maxHp) return null;
+  const spent = { ...run, items: { ...run.items, [id]: held - 1 } };
+  return { run: effect.kind === 'heal' ? heal(spent, effect.hp) : spent, effect };
 }
 
 export function isEligible(perks: OwnedPerks, id: PerkId, stageCleared: number): boolean {
@@ -124,23 +146,31 @@ export function isEligible(perks: OwnedPerks, id: PerkId, stageCleared: number):
   return tierWeights(stageCleared)[perk.tier] > 0;
 }
 
-// Weighted draw without replacement. Slots stay null when fewer than OFFER_SLOTS perks are eligible.
-export function rollOffers(perks: OwnedPerks, stageCleared: number, rng: number): [(PerkId | null)[], number] {
-  const weights = tierWeights(stageCleared);
-  const pool = PERK_IDS.filter((id) => isEligible(perks, id, stageCleared));
-  const offers: (PerkId | null)[] = [];
-  let state = rng;
-  for (let slot = 0; slot < OFFER_SLOTS; slot++) {
-    const total = pool.reduce((sum, id) => sum + weights[PERKS[id].tier], 0);
-    if (total === 0) {
-      offers.push(null);
-      continue;
-    }
-    let roll: number;
-    [roll, state] = nextRandom(state);
+// Each slot is an item with ITEM_OFFER_CHANCE, otherwise a tier-weighted perk, drawn without
+// replacement. A slot falls back to the other pool when its own is empty and stays null when both are.
+export function rollOffers(run: Pick<RunState, 'perks' | 'items' | 'stage' | 'rng'>): [(Offer | null)[], number] {
+  const weights = tierWeights(run.stage);
+  const perkPool = PERK_IDS.filter((id) => isEligible(run.perks, id, run.stage));
+  const itemPool = ITEM_IDS.filter((id) => (run.items[id] ?? 0) < ITEM_STACK_MAX);
+  const drawPerk = (roll: number): Offer | null => {
+    const total = perkPool.reduce((sum, id) => sum + weights[PERKS[id].tier], 0);
+    if (total === 0) return null;
     let pick = roll * total;
-    const index = pool.findIndex((id) => (pick -= weights[PERKS[id].tier]) < 0);
-    offers.push(pool.splice(index, 1)[0]!);
+    const index = perkPool.findIndex((id) => (pick -= weights[PERKS[id].tier]) < 0);
+    return { kind: 'perk', id: perkPool.splice(index, 1)[0]! };
+  };
+  const drawItem = (roll: number): Offer | null =>
+    itemPool.length ? { kind: 'item', id: itemPool.splice(Math.floor(roll * itemPool.length), 1)[0]! } : null;
+
+  const offers: (Offer | null)[] = [];
+  let state = run.rng;
+  for (let slot = 0; slot < OFFER_SLOTS; slot++) {
+    let kindRoll: number;
+    let roll: number;
+    [kindRoll, state] = nextRandom(state);
+    [roll, state] = nextRandom(state);
+    const [first, second] = kindRoll < ITEM_OFFER_CHANCE ? [drawItem, drawPerk] : [drawPerk, drawItem];
+    offers.push(first(roll) ?? second(roll));
   }
   return [offers, state];
 }

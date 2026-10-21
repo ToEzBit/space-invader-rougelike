@@ -1,25 +1,34 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
-import { BRANCH_LABEL, PERKS, PERK_IDS, deriveStats, describePerk, type PerkDef, type PerkId } from '../core/perks';
+import { ITEM_IDS, ITEM_STACK_MAX, ITEMS, type ItemDef, type ItemId } from '../core/items';
+import { BRANCH_LABEL, PERKS, PERK_IDS, deriveStats, describePerk, type PerkDef } from '../core/perks';
 import { buyOffer, leaveShop, offerCost, refreshCost, refreshShop, type RunState, type ShopResult } from '../core/run';
 import { COLORS, css } from '../art/palette';
 import { setDebugHooks } from '../debug';
 import { Backdrop } from '../ui/backdrop';
 import { BRANCH_LOOK } from '../ui/branch';
+import { ITEM_LOOK } from '../ui/itemLook';
 import { label } from '../ui/text';
 import { fitCamera, VIEW } from '../view';
 import { goTo, type RunData } from './flow';
 
 type Card =
-  | { kind: 'offer'; slot: number; perk: PerkDef; level: number; cost: number; affordable: boolean }
+  | { kind: 'perk'; slot: number; perk: PerkDef; level: number; cost: number; affordable: boolean }
+  | { kind: 'item'; slot: number; id: ItemId; item: ItemDef; held: number; cost: number; affordable: boolean }
   | { kind: 'soldOut'; slot: number };
 
 function cardsOf(run: RunState): Card[] {
   if (run.phase.kind !== 'shop') return [];
-  return run.phase.shop.offers.map((id, slot): Card => {
-    if (!id) return { kind: 'soldOut', slot };
-    const cost = offerCost(run, id);
-    return { kind: 'offer', slot, perk: PERKS[id], level: run.perks[id] ?? 0, cost, affordable: run.money >= cost };
+  return run.phase.shop.offers.map((offer, slot): Card => {
+    if (!offer) return { kind: 'soldOut', slot };
+    const cost = offerCost(run, offer);
+    const affordable = run.money >= cost;
+    switch (offer.kind) {
+      case 'perk':
+        return { kind: 'perk', slot, perk: PERKS[offer.id], level: run.perks[offer.id] ?? 0, cost, affordable };
+      case 'item':
+        return { kind: 'item', slot, id: offer.id, item: ITEMS[offer.id], held: run.items[offer.id] ?? 0, cost, affordable };
+    }
   });
 }
 
@@ -57,7 +66,7 @@ export class ShopScene extends Phaser.Scene {
     (['ONE', 'TWO', 'THREE'] as const).forEach((key, slot) => kb?.on(`keydown-${key}`, () => this.buy(slot)));
     kb?.on('keydown-R', () => this.refresh());
     kb?.on('keydown-ENTER', () => this.leave());
-    setDebugHooks(this, { run: () => this.run, info: () => ({ cards: cardsOf(this.run).map((c) => (c.kind === 'offer' ? c.perk.id : null)) }) });
+    setDebugHooks(this, { run: () => this.run, info: () => ({ cards: this.run.phase.kind === 'shop' ? this.run.phase.shop.offers : [] }) });
   }
 
   update(_time: number, delta: number): void {
@@ -88,7 +97,32 @@ export class ShopScene extends Phaser.Scene {
       return box;
     }
 
-    const { perk, level, cost, affordable } = card;
+    if (card.kind === 'item') this.drawItem(box, g, card);
+    else this.drawPerk(box, g, card);
+    const { cost, affordable } = card;
+    const coin = this.add.image(left + CARD.w - 22, top + CARD.h - 24, 'coin0').setScale(1.4);
+    const price = label(this, left + CARD.w - 36, top + CARD.h - 38, String(cost), {
+      size: 20,
+      bold: true,
+      color: affordable ? css(COLORS.yellow) : css(COLORS.red),
+      align: 'right',
+    });
+    box.add([coin, price, key]);
+    if (!affordable) box.add(label(this, left + CARD.w - 14, top + CARD.h - 56, 'เงินไม่พอ', { size: 11, color: css(COLORS.red), align: 'right' }));
+    box.setAlpha(affordable ? 1 : 0.78);
+
+    const hit = this.add.zone(0, 0, CARD.w, CARD.h).setInteractive({ useHandCursor: true });
+    box.add(hit);
+    hit.on('pointerover', () => this.tweens.add({ targets: box, scale: 1.03, duration: 90 }));
+    hit.on('pointerout', () => this.tweens.add({ targets: box, scale: 1, duration: 90 }));
+    hit.on('pointerdown', () => this.buy(card.slot));
+    return box;
+  }
+
+  private drawPerk(box: Phaser.GameObjects.Container, g: Phaser.GameObjects.Graphics, card: Extract<Card, { kind: 'perk' }>): void {
+    const left = -CARD.w / 2;
+    const top = -CARD.h / 2;
+    const { perk, level, affordable } = card;
     const look = BRANCH_LOOK[perk.branch];
     g.fillStyle(0x0d0b26, 0.92).fillRoundedRect(left, top, CARD.w, CARD.h, 10);
     g.fillStyle(look.color, 0.9).fillRoundedRect(left, top, 52, CARD.h, { tl: 10, bl: 10, tr: 0, br: 0 });
@@ -104,23 +138,35 @@ export class ShopScene extends Phaser.Scene {
     });
     const branch = label(this, tx, top + 30, BRANCH_LABEL[perk.branch], { size: 11, color: '#8a96c8' });
     const desc = label(this, tx, top + 50, describePerk(perk, level + 1), { size: 13, color: '#ffffff', wrap: CARD.w - 66 - 96 });
-    const coin = this.add.image(left + CARD.w - 22, top + CARD.h - 24, 'coin0').setScale(1.4);
-    const price = label(this, left + CARD.w - 36, top + CARD.h - 38, String(cost), {
-      size: 20,
-      bold: true,
-      color: affordable ? css(COLORS.yellow) : css(COLORS.red),
-      align: 'right',
-    });
-    box.add([icon, tier, name, lv, branch, desc, coin, price, key]);
-    if (!affordable) box.add(label(this, left + CARD.w - 14, top + CARD.h - 56, 'เงินไม่พอ', { size: 11, color: css(COLORS.red), align: 'right' }));
-    box.setAlpha(affordable ? 1 : 0.78);
+    box.add([icon, tier, name, lv, branch, desc]);
+  }
 
-    const hit = this.add.zone(0, 0, CARD.w, CARD.h).setInteractive({ useHandCursor: true });
-    box.add(hit);
-    hit.on('pointerover', () => this.tweens.add({ targets: box, scale: 1.03, duration: 90 }));
-    hit.on('pointerout', () => this.tweens.add({ targets: box, scale: 1, duration: 90 }));
-    hit.on('pointerdown', () => this.buy(card.slot));
-    return box;
+  // Items read as a different kind of goods: gold frame, round icon well like the HUD tray, ITEM corner ribbon.
+  private drawItem(box: Phaser.GameObjects.Container, g: Phaser.GameObjects.Graphics, card: Extract<Card, { kind: 'item' }>): void {
+    const left = -CARD.w / 2;
+    const top = -CARD.h / 2;
+    const { item, id, held, affordable } = card;
+    const look = ITEM_LOOK[id];
+    g.fillStyle(0x1f1606, 0.94).fillRoundedRect(left, top, CARD.w, CARD.h, 10);
+    g.lineStyle(2, COLORS.gold, affordable ? 1 : 0.45).strokeRoundedRect(left, top, CARD.w, CARD.h, 10);
+    g.lineStyle(1, COLORS.gold, 0.35).strokeRoundedRect(left + 4, top + 4, CARD.w - 8, CARD.h - 8, 7);
+    const well = { x: left + 36, y: 4 };
+    g.fillStyle(COLORS.ink, 0.9).fillCircle(well.x, well.y, 25);
+    g.fillStyle(look.color, 0.3).fillCircle(well.x, well.y, 22);
+    g.lineStyle(2, look.color, 1).strokeCircle(well.x, well.y, 22);
+    g.fillStyle(COLORS.gold, 1).beginPath();
+    g.moveTo(left + 2, top + 26).lineTo(left + 26, top + 2).lineTo(left + 46, top + 2).lineTo(left + 2, top + 46);
+    g.closePath().fillPath();
+    const ribbon = label(this, left + 18, top + 18, 'ITEM', { size: 10, bold: true, color: css(COLORS.ink), align: 'center' })
+      .setOrigin(0.5)
+      .setRotation(-Math.PI / 4);
+    const icon = this.add.image(well.x, well.y, look.icon).setScale(2);
+    const tx = left + 76;
+    const name = label(this, tx, top + 6, item.name, { size: 17, bold: true, color: css(COLORS.gold) });
+    const stack = label(this, tx + name.width + 10, top + 10, `ถืออยู่ ${held}/${ITEM_STACK_MAX}`, { size: 12, bold: true, color: held ? '#ffffff' : css(COLORS.green) });
+    const use = label(this, tx, top + 30, `ไอเทมกดใช้ · ปุ่ม ${item.key} ระหว่างด่าน`, { size: 11, color: '#c9a86a' });
+    const desc = label(this, tx, top + 50, item.desc, { size: 13, color: '#ffffff', wrap: CARD.w - 76 - 96 });
+    box.add([icon, ribbon, name, stack, use, desc]);
   }
 
   private drawButtons(): void {
@@ -155,15 +201,18 @@ export class ShopScene extends Phaser.Scene {
     this.layer.add(this.add.image(VIEW.w - 40, y + 18, 'coin0').setScale(1.3));
     this.layer.add(label(this, VIEW.w - 54, y + 7, String(this.run.money), { size: 17, bold: true, color: css(COLORS.yellow), align: 'right' }));
 
-    const owned = PERK_IDS.filter((id) => this.run.perks[id]);
+    const owned = [
+      ...PERK_IDS.filter((id) => this.run.perks[id]).map((id) => ({ text: `${PERKS[id].name} ${this.run.perks[id]}`, color: BRANCH_LOOK[PERKS[id].branch].color })),
+      ...ITEM_IDS.filter((id) => this.run.items[id]).map((id) => ({ text: `${ITEMS[id].name} x${this.run.items[id]}`, color: COLORS.gold })),
+    ];
     if (!owned.length) {
       this.layer.add(label(this, 34, y + 40, 'ยังไม่มีอัปเกรด เลือกซื้อการ์ดด้านบนได้เลย', { size: 12, color: '#8a96c8' }));
       return;
     }
     let cx = 34;
     let cy = y + 36;
-    for (const [i, id] of owned.entries()) {
-      const { bg, text } = this.chip(id);
+    for (const [i, chip] of owned.entries()) {
+      const { bg, text } = this.chip(chip.text, chip.color);
       if (cx + bg.width > VIEW.w - 30) [cx, cy] = [34, cy + CHIP_ROW];
       if (cy + CHIP_ROW > y + STATUS_H) {
         bg.destroy();
@@ -176,10 +225,8 @@ export class ShopScene extends Phaser.Scene {
     }
   }
 
-  private chip(id: PerkId): { bg: Phaser.GameObjects.Rectangle; text: Phaser.GameObjects.Text } {
-    const perk = PERKS[id];
-    const color = BRANCH_LOOK[perk.branch].color;
-    const text = label(this, 0, 0, `${perk.name} ${this.run.perks[id]}`, { size: 10, bold: true, color: css(color) });
+  private chip(chipText: string, color: number): { bg: Phaser.GameObjects.Rectangle; text: Phaser.GameObjects.Text } {
+    const text = label(this, 0, 0, chipText, { size: 10, bold: true, color: css(color) });
     const bg = this.add.rectangle(0, 0, text.width + 10, 16, color, 0.15).setOrigin(0).setStrokeStyle(1, color, 0.7);
     this.layer.add([bg, text]);
     return { bg, text };
@@ -190,10 +237,11 @@ export class ShopScene extends Phaser.Scene {
     const card = cardsOf(this.run)[slot];
     const result = buyOffer(this.run, slot);
     this.apply(result, slot);
-    if (result.ok && card?.kind === 'offer') {
+    if (result.ok && card && card.kind !== 'soldOut') {
       const box = this.cards[slot];
       if (!box) return;
-      const color = BRANCH_LOOK[card.perk.branch].color;
+      const color = card.kind === 'perk' ? BRANCH_LOOK[card.perk.branch].color : ITEM_LOOK[card.id].color;
+      const text = card.kind === 'perk' ? `${card.perk.name} Lv ${card.level + 1}!` : `${card.item.name} x${card.held + 1}!`;
       const burst = this.add.particles(box.x, box.y, 'spark', {
         lifespan: 500,
         speed: { min: 80, max: 260 },
@@ -204,7 +252,7 @@ export class ShopScene extends Phaser.Scene {
       });
       burst.explode(40);
       this.time.delayedCall(700, () => burst.destroy());
-      const msg = label(this, box.x, box.y - 20, `${card.perk.name} Lv ${card.level + 1}!`, { size: 20, bold: true, color: css(color), align: 'center', stroke: '#0d0b26' });
+      const msg = label(this, box.x, box.y - 20, text, { size: 20, bold: true, color: css(color), align: 'center', stroke: '#0d0b26' });
       this.tweens.add({ targets: msg, y: box.y - 60, alpha: 0, duration: 900, onComplete: () => msg.destroy() });
       this.cameras.main.flash(120, 255, 255, 255);
     }

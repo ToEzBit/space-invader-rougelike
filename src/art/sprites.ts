@@ -138,6 +138,23 @@ const ICON_LASER = sym(['..kw', '..kc', '..kc', '.kcw', '.kcw', 'kcww', 'kcww', 
 const ICON_RAM = sym(['...k', '..ko', '.koy', '.koy', 'koyw', 'koyw', '.kOo', '..kO']);
 const ICON_ORBITAL = sym(['CCsw', '.Csy', '...y', '..yw', 'r.yw', 'r.yw', 'r.yw', 'rryw']);
 
+const ITEM_REPAIR_KIT = sym(['..ss', '.s..', 'kkkk', 'kGgw', 'kwww', 'kGgw', 'kGGg', 'kkkk']);
+const ITEM_NITRO = sym(['...y', '..yo', '..ss', '.kVl', '.kvv', '.kVv', '.kVV', '..kk']);
+const ITEM_POWER_CELL = [
+  '..sss..',
+  'kkkkkkk',
+  'kRrrwyk',
+  'kRrwyrk',
+  'kRwyyyk',
+  'kRryyrk',
+  'kRyyrrk',
+  'kyyrrrk',
+  'kRrrrrk',
+  'kkkkkkk',
+];
+const ITEM_OVERCLOCK = ['...k...', '..kyk..', '.kkkkk.', 'kYyyyYk', 'kyywyyk', 'kyywyyk', 'kyyywwk', 'kYyyyYk', '.kkkkk.'];
+const ITEM_BARRIER = sym(['kkkk', 'kwcc', 'kwcc', 'kcCc', '.kCc', '.kCC', '..kC', '...k']);
+
 const SPARK = ['w'];
 const PIXEL = ['ww', 'ww'];
 
@@ -169,6 +186,11 @@ export const SPRITES = {
   iconLaser: ICON_LASER,
   iconRam: ICON_RAM,
   iconOrbital: ICON_ORBITAL,
+  itemRepairKit: ITEM_REPAIR_KIT,
+  itemNitro: ITEM_NITRO,
+  itemPowerCell: ITEM_POWER_CELL,
+  itemOverclock: ITEM_OVERCLOCK,
+  itemBarrier: ITEM_BARRIER,
   spark: SPARK,
   pixel: PIXEL,
 } satisfies Record<string, Grid>;
