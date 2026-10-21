@@ -1,4 +1,4 @@
-import { OVERDRIVE_HOLD_MS } from '../core/perks';
+import { OVERDRIVE_CALM_MS } from '../core/perks';
 import type { ShipStats } from '../core/stats';
 
 export type Barrel = { dx: number; angle: number };
@@ -14,6 +14,6 @@ export function volley(stats: Pick<ShipStats, 'parallelShots' | 'spreadPairs'>):
   return barrels;
 }
 
-export function fireInterval(stats: Pick<ShipStats, 'fireIntervalMs' | 'overdriveMultiplier'>, heldMs: number): number {
-  return stats.fireIntervalMs * (heldMs >= OVERDRIVE_HOLD_MS ? stats.overdriveMultiplier : 1);
+export function fireInterval(stats: Pick<ShipStats, 'fireIntervalMs' | 'overdriveMultiplier'>, msSinceHit: number): number {
+  return stats.fireIntervalMs * (msSinceHit >= OVERDRIVE_CALM_MS ? stats.overdriveMultiplier : 1);
 }

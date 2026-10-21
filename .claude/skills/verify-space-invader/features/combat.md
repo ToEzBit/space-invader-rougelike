@@ -1,11 +1,11 @@
 # Stage combat
 
-In a wave stage the player moves the ship left and right along the bottom row and holds Space to shoot a marching invader formation. Killed invaders drop coins that count toward the stage reward.
+In a wave stage the player moves the ship left and right along the bottom row while the gun fires on its own at a marching invader formation. Killed invaders drop coins that count toward the stage reward.
 
 ## Sub-features
 
 - `combat-move` moves the ship with arrow keys and A/D.
-- `combat-fire` shoots while Space is held and kills invaders.
+- `combat-fire` auto-fires once the intro banner ends and kills invaders with no key pressed.
 - `combat-coins` counts coins from kills.
 - `combat-clear` ends the stage and opens the shop when the formation is gone.
 - `combat-breach` ends the run if the formation reaches the player's row.
@@ -13,7 +13,7 @@ In a wave stage the player moves the ship left and right along the bottom row an
 ## How to get to it (user POV)
 
 - Start a run from the title and wait for the `STAGE 1` banner to fade.
-- Use `ArrowLeft`/`ArrowRight` or `a`/`d` to move and hold `Space` to fire.
+- Use `ArrowLeft`/`ArrowRight` or `a`/`d` to move. Firing is automatic.
 
 ## Driving it with drive.mjs
 
@@ -22,7 +22,7 @@ Preconditions:
 - `doctor.sh <run-id>` passes.
 
 - **Move.** Hold `ArrowLeft`, then hold `d`. Run `drive.mjs <run-id> combat`. `player.x` decreases, then increases.
-- **Fire.** Hold `Space` for 4 seconds. `foes` drops below its starting value and `coins` is above 0.
+- **Fire.** Press nothing for 4 seconds after the moves. `foes` drops below its value when the keys were released and `coins` is above 0.
 - **Proof.** `combat/01-firing.png` shows player shots in flight and gaps in the formation.
 
 ## Gotchas

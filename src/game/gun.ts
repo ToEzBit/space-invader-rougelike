@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { OVERDRIVE_HOLD_MS } from '../core/perks';
+import { OVERDRIVE_CALM_MS } from '../core/perks';
 import { rayEnd } from './geometry';
 import { DEPTH } from './layout';
 import { fireInterval, volley, type Barrel } from './volley';
@@ -10,7 +10,6 @@ const DRONE_OFFSETS = [-36, 36] as const;
 
 export class Gun {
   private cooldownMs = 0;
-  private heldMs = 0;
   private shots = 0;
   private bobMs = 0;
   private readonly barrels: Barrel[];
@@ -24,16 +23,15 @@ export class Gun {
   }
 
   get overdriven(): boolean {
-    return this.world.stats.overdriveMultiplier < 1 && this.heldMs >= OVERDRIVE_HOLD_MS;
+    return this.world.stats.overdriveMultiplier < 1 && this.world.player.msSinceHit >= OVERDRIVE_CALM_MS;
   }
 
-  update(dtMs: number, fireHeld: boolean): void {
+  update(dtMs: number, firing: boolean): void {
     const { player } = this.world;
-    this.heldMs = fireHeld ? this.heldMs + dtMs : 0;
-    this.cooldownMs = Math.max(this.cooldownMs - dtMs, fireHeld ? -dtMs : 0);
-    if (fireHeld && this.cooldownMs <= 0) {
+    this.cooldownMs = Math.max(this.cooldownMs - dtMs, firing ? -dtMs : 0);
+    if (firing && this.cooldownMs <= 0) {
       this.fire();
-      this.cooldownMs += fireInterval(this.world.stats, this.heldMs);
+      this.cooldownMs += fireInterval(this.world.stats, player.msSinceHit);
     }
     this.bobMs += dtMs;
     this.drones.forEach((d, i) => {

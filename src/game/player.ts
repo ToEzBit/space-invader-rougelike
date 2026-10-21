@@ -15,6 +15,7 @@ export class Player {
   readonly bodyRadius = 14;
   invulnMs = 0;
   shieldMs = 0;
+  msSinceHit = 0;
   private flameMs = 0;
 
   constructor(private readonly world: World) {
@@ -46,6 +47,7 @@ export class Player {
 
   update(dtMs: number): void {
     if (!this.sprite.active) return;
+    this.msSinceHit += dtMs;
     this.invulnMs = Math.max(0, this.invulnMs - dtMs);
     this.shieldMs = Math.max(0, this.shieldMs - dtMs);
     this.sprite.setAlpha(this.invulnMs > 0 && Math.floor(this.invulnMs / 80) % 2 === 0 ? 0.35 : 1);
@@ -63,6 +65,7 @@ export class Player {
 
   onHit(): void {
     this.invulnMs = HIT_INVULN_MS;
+    this.msSinceHit = 0;
     this.world.fx.explode(this.x, this.y);
   }
 

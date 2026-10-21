@@ -84,18 +84,18 @@ export class StageScene extends Phaser.Scene {
     const life = this.life;
     switch (life.kind) {
       case 'intro':
-        this.world.update(dtMs, input);
+        this.world.update(dtMs, input, false);
         this.world.resolveCollisions();
         if ((life.msLeft -= dtMs) <= 0) this.life = { kind: 'fighting' };
         break;
       case 'fighting':
-        this.world.update(dtMs, input);
+        this.world.update(dtMs, input, true);
         this.encounter.update(dtMs);
         this.world.resolveCollisions();
         this.checkEnd();
         break;
       case 'ending':
-        this.world.update(dtMs, { ...input, fire: false, dash: false });
+        this.world.update(dtMs, { ...input, dash: false }, false);
         if ((life.msLeft -= dtMs) <= 0) {
           this.life = { kind: 'leaving' };
           goTo(this, life.next);

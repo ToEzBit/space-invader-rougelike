@@ -11,7 +11,7 @@ export const BRANCH_LABEL: Record<Branch, string> = {
 
 export const TIER_BASE_COST: Record<Tier, number> = { 1: 20, 2: 35, 3: 55, 4: 80 };
 
-export const OVERDRIVE_HOLD_MS = 1500;
+export const OVERDRIVE_CALM_MS = 3000;
 
 type PerkSpec = {
   branch: Branch;
@@ -81,7 +81,7 @@ const PERK_SPECS = {
   overdrive: {
     branch: 'rapid', tier: 3, name: 'Overdrive',
     values: [0.6, 0.45],
-    desc: (v) => `กดยิงค้าง ${sec(OVERDRIVE_HOLD_MS)} แล้วยิงเร็วขึ้นอีก (ช่วงห่างเหลือ ${pct(v)})`,
+    desc: (v) => `ไม่โดนโจมตีต่อเนื่อง ${sec(OVERDRIVE_CALM_MS)} ยิงเร็วขึ้นอีก (ช่วงห่างเหลือ ${pct(v)})`,
     apply: (s, v) => { s.overdriveMultiplier = v; },
   },
   optionDrones: {
@@ -95,7 +95,7 @@ const PERK_SPECS = {
   prismLance: {
     branch: 'laser', tier: 1, name: 'Prism Lance',
     values: [4000, 3400, 2800],
-    desc: (v) => `ปลดล็อกเลเซอร์ ยิงลำแสงทะลุทั้งแนวอัตโนมัติขณะกดยิง ทุก ${sec(v)}`,
+    desc: (v) => `ปลดล็อกเลเซอร์ ยิงลำแสงทะลุทั้งแนวอัตโนมัติ ทุก ${sec(v)}`,
     apply: (s, v) => { s.laserCooldownMs = v; s.laserDps = 14; },
   },
   focusLens: {

@@ -121,13 +121,11 @@ const JOURNEYS = {
     h.check('ArrowLeft moves the ship left', left.player.x < s0.player.x, { from: s0.player.x, to: left.player.x });
     const right = await h.step('hold D 900ms', () => h.hold('d', 900));
     h.check('D moves the ship right', right.player.x > left.player.x, { from: left.player.x, to: right.player.x });
-    await h.page.keyboard.down('Space');
     await sleep(2500);
     await h.shot('firing');
     await sleep(1500);
-    await h.page.keyboard.up('Space');
     const fired = await h.state();
-    h.check('holding Space kills invaders', fired.foes < s0.foes, { before: s0.foes, after: fired.foes });
+    h.check('the ship auto-fires and kills invaders with no key pressed', fired.foes < right.foes, { before: right.foes, after: fired.foes });
     h.check('kills drop coins', fired.coins > 0, { coins: fired.coins });
   },
 
@@ -161,14 +159,25 @@ const JOURNEYS = {
   },
 
   async 'perk-mechanics'(h) {
-    const l0 = await h.startAt(1, { prismLance: 1 });
-    await h.page.keyboard.down('Space');
+    await h.openTitle();
+    await h.game('start', 1, { prismLance: 1 });
+    const i0 = await h.waitFor('stage 1 intro', (x) => x.scenes.includes('Stage') && x.life === 'intro');
+    const intro = [];
+    let s = i0;
+    while (s.life === 'intro') {
+      intro.push({ foes: s.foes, laserFiring: s.laserFiring });
+      await sleep(40);
+      s = await h.state();
+    }
+    h.check('nothing fires during the intro banner', intro.length > 3 && intro.every((x) => !x.laserFiring && x.foes === i0.foes), { samples: intro.length, foes: i0.foes, fired: intro.filter((x) => x.laserFiring || x.foes !== i0.foes) });
+    const l0 = await h.waitFor('stage 1 fighting', (x) => x.life === 'fighting');
     await h.waitFor('laser firing', (x) => x.laserFiring, 3000);
+    // The beam is first drawn on the frame after the laser arms.
+    await sleep(120);
     await h.game('pause');
     await h.shot('laser');
     await h.game('resume');
     await sleep(1500);
-    await h.page.keyboard.up('Space');
     const l1 = await h.state();
     h.check('laser stage kills invaders', l1.foes < l0.foes, { before: l0.foes, after: l1.foes });
 
@@ -192,9 +201,7 @@ const JOURNEYS = {
   async bosses(h) {
     const b0 = await h.startAt(5);
     h.check('stage 5 is Crimson Seraph at full HP', b0.boss?.name === 'Crimson Seraph' && b0.boss.hpRatio === 1 && b0.boss.phase === 0, { boss: b0.boss });
-    await h.page.keyboard.down('Space');
     await sleep(3000);
-    await h.page.keyboard.up('Space');
     const b1 = await h.state();
     h.check('player fire damages the boss', b1.boss.hpRatio < 1, { hpRatio: b1.boss.hpRatio });
     await h.game('bossHp', 0.45);

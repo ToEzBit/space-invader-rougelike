@@ -70,7 +70,7 @@ export class Laser {
     return beams;
   }
 
-  update(dtMs: number, fireHeld: boolean): void {
+  update(dtMs: number, firing: boolean): void {
     const { stats } = this.world;
     const s = this.state;
     this.gfx.clear();
@@ -78,7 +78,7 @@ export class Laser {
       case 'locked':
         break;
       case 'ready':
-        if (!fireHeld) break;
+        if (!firing) break;
         this.state = { kind: 'firing', msLeft: stats.laserDurationMs, refundMs: 0 };
         sfx('laser');
         break;

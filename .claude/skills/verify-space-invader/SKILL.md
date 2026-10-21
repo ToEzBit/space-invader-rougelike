@@ -39,7 +39,7 @@ Journeys: `doctor`, `title-start`, `combat`, `shop`, `perk-mechanics`, `bosses`,
 
 Stable handles (there are no selectors on a canvas):
 
-- Keys: `ArrowLeft`/`ArrowRight` or `a`/`d` move, hold `Space` fires (laser auto-fires while held once unlocked), `Shift` dashes once unlocked, `Enter` starts from Title, continues from Shop, and restarts from End. In the shop `1`/`2`/`3` buy a card, `r` refreshes.
+- Keys: `ArrowLeft`/`ArrowRight` or `a`/`d` move, `Shift` dashes once unlocked, `Enter` starts from Title, continues from Shop, and restarts from End. In the shop `1`/`2`/`3` buy a card, `r` refreshes. There is no fire key. The gun, and the laser once unlocked, fire on their own while `life` is `fighting`, never during `intro` or `ending`.
 - State: `window.__game.state()` returns `{ scenes, run, ... }`. `scenes` holds the active scene keys (`Boot`, `Title`, `Stage`, `Shop`, `End`). `run` is the `RunState` from `src/core/run.ts` (`stage`, `money`, `hp`, `perks`, `phase.kind`, `phase.shop`). In `Stage` it adds `life` (`intro|fighting|ending|leaving`), `foes`, `coins`, `player {x,y}`, `laserFiring`, `dashing`, `boss {name,hpRatio,phase}`. In `Shop` it adds `cards` (perk id per slot, `null` when sold out).
 - Precondition shortcuts: `__game.start(stage, perks?, money?)` jumps to a stage with a loadout, `kill()` kills everything on the current stage, `hurt()` forces one hit, `bossHp(ratio)` sets boss HP, `pause()`/`resume()` freeze the stage for a crisp screenshot.
 - Expected values come from the game's own modules. The page can `import('/src/core/run.ts')` under Vite dev, and `drive.mjs`'s `h.core(expr)` uses that for `refreshCost` and `offerCost`.

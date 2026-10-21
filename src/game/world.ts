@@ -124,12 +124,12 @@ export class World {
     if (this.run.hp > before) this.fx.float(this.player.x, this.player.y - 30, '+1 HP', 0x5dff9b);
   }
 
-  update(dtMs: number, input: Controls): void {
+  update(dtMs: number, input: Controls, firing: boolean): void {
     const dt = dtMs / 1000;
     if (!this.dash.active) this.player.steer(input, dt);
     this.player.update(dtMs);
-    this.gun.update(dtMs, input.fire);
-    this.laser.update(dtMs, input.fire);
+    this.gun.update(dtMs, firing);
+    this.laser.update(dtMs, firing);
     this.dash.update(dtMs, input.dash);
     this.playerShots.update(dt, this.foes);
     this.enemyShots.update(dt, this.foes);
