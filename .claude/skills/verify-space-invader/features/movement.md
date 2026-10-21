@@ -23,7 +23,7 @@ Preconditions:
 - **Down.** Holding `s` 1.2s brings `player.y` back to exactly `PLAYER_Y`.
 - **Diagonal.** `ArrowUp` and `ArrowRight` held together for about 300ms move x and y by the same amount (within 8px, since the two keydowns can land a frame apart). The distance over `stats.moveSpeed` x the hold time, measured in Node around the key events, is between 0.85 and 1.15. Unnormalized input would give about 1.41.
 - **Dash from raised.** With Afterburner Dash, `w` held 1.2s raises the ship to 384. `Shift` makes `dashing` true with `player.y` above 344, and the first state with `dashing` false has `player.y` within 1px of 384.
-- **Proof.** The journey runs at device scale 2. `01-moving-up-closeup.png` shows the stretched exhaust mid-climb (taken live, see Gotchas). `02-raised.png` shows the ship parked high in the zone. `03-dash-from-raised.png` shows the ship climbing from there with its afterimage. `04` and `05` show it back at the raised y.
+- **Proof.** The journey runs at device scale 2. `01-moving-up-closeup.png` shows the exhaust mid-climb, about 1.4x as long as the idle one in `05` (taken live, see Gotchas). `02-raised.png` shows the ship parked high in the zone. `03-dash-from-raised.png` shows the ship climbing from there with its afterimage. `04` and `05` show it back at the raised y.
 
 ## Gotchas
 

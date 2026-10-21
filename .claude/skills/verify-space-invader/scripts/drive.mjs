@@ -481,6 +481,109 @@ const JOURNEYS = {
     await h.shot('empress-phase3');
   },
 
+  async 'enemy-hp'(h) {
+    const around = (e) => ({ x: e.x - 50, y: e.y - 30, w: 100, h: 56 });
+    const pausedShots = async (name, e) => {
+      await h.game('pause');
+      await h.shot(name);
+      await h.shot(`${name}-closeup`, around(e));
+      await h.game('resume');
+    };
+    await h.openTitle();
+    await h.game('start', 3, {});
+    const intro = await h.waitFor('stage 3 intro', (x) => x.scenes.includes('Stage') && x.run?.stage === 3 && x.life === 'intro');
+    const f0 = await h.waitFor('stage 3 fighting', (x) => x.life === 'fighting');
+    h.check('no foe has a bar before any hit', intro.hpBars.length === 0 && f0.hpBars.length === 0, { intro: intro.hpBars, fighting: f0.hpBars });
+    const { tankHp, holdMs } = await h.page.evaluate(async () => {
+      const stages = await import('/src/core/stages.ts');
+      const bar = await import('/src/game/hpBar.ts');
+      return { tankHp: Math.ceil(stages.ENEMIES.tank.hp * stages.stageDef(3).hpMultiplier), holdMs: bar.HP_BAR_MS };
+    });
+
+    let chip = null;
+    let tank = null;
+    let tankAfterMs = null;
+    const fightAt = Date.now();
+    const end = fightAt + 40000;
+    while (Date.now() < end && !(chip && tank)) {
+      const s = await h.state();
+      if (s.life !== 'fighting') throw new Error(`stage stopped before a tank was hit: life ${s.life}, hp ${s.run.hp}`);
+      const shown = s.hpBars.filter((e) => e.bar === 'shown');
+      const chipping = shown.find((e) => e.chipRatio - e.hpRatio > 0.1);
+      if (!chip && chipping) {
+        await h.game('pause');
+        const still = (await h.state()).hpBars.find((e) => e.id === chipping.id && e.chipRatio - e.hpRatio > 0.1);
+        if (still) {
+          chip = still;
+          await h.shot('chip');
+          await h.shot('chip-closeup', around(still));
+        }
+        await h.game('resume');
+      }
+      const hitTank = shown.find((e) => e.maxHp === tankHp && e.hpRatio < 1);
+      if (!tank && hitTank) {
+        tank = hitTank;
+        tankAfterMs = Date.now() - fightAt;
+        await pausedShots('tank-hit', hitTank);
+      }
+      await sleep(30);
+    }
+    h.check('a hit shows a white chip above the new HP', chip !== null, { chip });
+    h.check('auto-fire damages a tank without killing it and its bar shows', tank !== null && tank.hpRatio < 1, { tank, tankHp, tankAfterMs });
+
+    const away = tank.x < 240 ? 'ArrowRight' : 'ArrowLeft';
+    await h.page.keyboard.down(away);
+    const t0 = Date.now();
+    let held = true;
+    let lastHitAt = t0 - (holdMs - tank.msLeft);
+    let hiddenAt = null;
+    let last = tank;
+    let killed = false;
+    while (Date.now() - t0 < 8000) {
+      const now = Date.now();
+      if (held && now - t0 > 1300) {
+        await h.page.keyboard.up(away);
+        held = false;
+      }
+      const e = (await h.state()).hpBars.find((x) => x.id === tank.id);
+      if (!e) {
+        killed = true;
+        break;
+      }
+      last = e;
+      if (e.bar === 'shown') {
+        lastHitAt = Math.max(lastHitAt, now - (holdMs - e.msLeft));
+        hiddenAt = null;
+      } else hiddenAt ??= now;
+      if (!held && hiddenAt !== null && now - hiddenAt > 1000) break;
+      await sleep(40);
+    }
+    if (held) await h.page.keyboard.up(away);
+    const s1 = await h.state();
+    const fadeMs = hiddenAt && hiddenAt - lastHitAt;
+    h.check(`the ship flew to the wall far from the tank (${away})`, Math.abs(s1.player.x - last.x) > 150, { ship: s1.player.x, tank: last.x });
+    h.check('the tank survives, still damaged', !killed && last.hpRatio < 1, { last, killed });
+    h.check('its bar hides about HP_BAR_MS after the last hit, within 2s, and stays hidden', hiddenAt !== null && last.bar === 'hidden' && fadeMs > holdMs - 250 && fadeMs < 2000, { fadeMs, holdMs, last });
+    await pausedShots('tank-bar-gone', last);
+
+    await h.startAt(5);
+    await sleep(3000);
+    const samples = [];
+    for (let i = 0; i < 12; i++) {
+      const s = await h.state();
+      const entry = s.hpBars.find((e) => e.bar === 'hud');
+      samples.push({ hpRatio: s.boss.hpRatio, bar: entry?.bar ?? null, entryRatio: entry?.hpRatio ?? null, x: entry?.x, y: entry?.y });
+      await sleep(120);
+    }
+    const lastSample = samples.at(-1);
+    h.check('the boss takes damage', lastSample.hpRatio < 1, { hpRatio: lastSample.hpRatio });
+    h.check('the damaged boss never gets a bar over its sprite, only the HUD bar', samples.every((x) => x.hpRatio === 1 || (x.bar === 'hud' && x.entryRatio === x.hpRatio)), { samples });
+    await h.game('pause');
+    await h.shot('boss-no-bar');
+    await h.shot('boss-no-bar-closeup', { x: lastSample.x - 90, y: 30, w: 180, h: lastSample.y + 70 - 30 });
+    await h.game('resume');
+  },
+
   async 'run-end'(h) {
     await h.startAt(10);
     await h.game('kill');
@@ -574,7 +677,7 @@ const JOURNEYS = {
 };
 
 // Close-ups of small HUD art need the canvas's full backing resolution.
-const CONTEXT = { 'skill-hud': { deviceScaleFactor: 2 }, items: { deviceScaleFactor: 2 }, movement: { deviceScaleFactor: 2 } };
+const CONTEXT = { 'skill-hud': { deviceScaleFactor: 2 }, items: { deviceScaleFactor: 2 }, movement: { deviceScaleFactor: 2 }, 'enemy-hp': { deviceScaleFactor: 2 } };
 
 const selected = names.includes('all') ? Object.keys(JOURNEYS).filter((n) => n !== 'doctor') : names;
 const unknown = selected.filter((n) => !JOURNEYS[n]);

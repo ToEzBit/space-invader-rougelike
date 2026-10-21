@@ -8,6 +8,7 @@ import type { BulletKind } from './bullets';
 import type { Encounter } from './encounter';
 import { enemyFire } from './formation';
 import { distanceToSegment, rayEnd, type Point } from './geometry';
+import { hpRatio } from './hpBar';
 import { DEPTH } from './layout';
 import { bossPhaseIndex } from './phases';
 import type { Foe, World } from './world';
@@ -85,6 +86,7 @@ export class BossFight implements Encounter {
     this.look = BOSS_LOOK[stage.boss];
     this.foe = world.addFoe(BOSS_SPRITE[stage.boss], VIEW.w / 2, -70, this.def.hp, 0, 'big');
     this.foe.radius = 42;
+    this.foe.hpBar = { kind: 'hud' };
     this.halo = world.scene.add
       .image(VIEW.w / 2, -70, BOSS_SPRITE[stage.boss])
       .setTint(this.look.glow)
@@ -101,7 +103,7 @@ export class BossFight implements Encounter {
   }
 
   get hpRatio(): number {
-    return Math.max(0, this.foe.hp / this.foe.maxHp);
+    return hpRatio(this.foe);
   }
 
   get cleared(): boolean {

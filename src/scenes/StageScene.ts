@@ -5,7 +5,8 @@ import { COLORS, css } from '../art/palette';
 import { setDebugHooks } from '../debug';
 import { KeyboardControls } from '../game/controls';
 import { createEncounter, type Encounter } from '../game/encounter';
-import { World } from '../game/world';
+import { hpRatio, visibleBar } from '../game/hpBar';
+import { World, type Foe } from '../game/world';
 import { Backdrop } from '../ui/backdrop';
 import { banner } from '../ui/banner';
 import { Hud, SKILL_SLOTS } from '../ui/hud';
@@ -57,6 +58,12 @@ export class StageScene extends Phaser.Scene {
       css(def.kind === 'boss' ? COLORS.red : COLORS.cyan),
       INTRO_MS - 300,
     );
+    const foeIds = new WeakMap<Foe, number>();
+    let nextFoeId = 0;
+    const foeId = (foe: Foe) => {
+      if (!foeIds.has(foe)) foeIds.set(foe, nextFoeId++);
+      return foeIds.get(foe)!;
+    };
     setDebugHooks(this, {
       run: () => this.world.run,
       info: () => ({
@@ -69,6 +76,13 @@ export class StageScene extends Phaser.Scene {
         items: this.world.run.items,
         buffs: this.world.activeBuffs.map(({ buff, msLeft }) => ({ buff, msLeft })),
         shieldMs: this.world.player.shieldMs,
+        hpBars: this.world.foes
+          .filter((foe) => !foe.dead && foe.hp < foe.maxHp)
+          .map((foe) => {
+            const bar = visibleBar(foe);
+            const { x, y } = foe.sprite;
+            return { id: foeId(foe), x, y, maxHp: foe.maxHp, hpRatio: hpRatio(foe), bar: foe.hpBar.kind, ...(bar && { chipRatio: bar.chip, msLeft: bar.msLeft }) };
+          }),
         stats: { moveSpeed: this.world.stats.moveSpeed, bulletDamage: this.world.stats.bulletDamage, fireIntervalMs: this.world.stats.fireIntervalMs },
         boss: this.encounter.boss && { name: this.encounter.boss.name, hpRatio: this.encounter.boss.hpRatio, phase: this.encounter.boss.phase },
         skills: SKILL_SLOTS.flatMap(({ id, meter }) => {

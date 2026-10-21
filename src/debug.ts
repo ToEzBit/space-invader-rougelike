@@ -59,7 +59,13 @@ export function installDebug(game: Phaser.Game): void {
     hurt: () => hooks?.hooks.hurt?.(),
     hit: () => hooks?.hooks.hit?.(),
     bossHp: (ratio) => hooks?.hooks.bossHp?.(ratio),
-    pause: () => hooks?.scene.scene.pause(),
-    resume: () => hooks?.scene.scene.resume(),
+    // Systems applies these at once, where ScenePlugin would queue them for the next step and drop a key pressed
+    // in between. Braces keep Systems out of the return value, which Playwright would serialize whole.
+    pause: () => {
+      hooks?.scene.sys.pause();
+    },
+    resume: () => {
+      hooks?.scene.sys.resume();
+    },
   };
 }

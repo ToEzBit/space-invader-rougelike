@@ -5,6 +5,7 @@ import { STAGE_COUNT } from '../core/stages';
 import { COLORS, css } from '../art/palette';
 import type { SpriteKey } from '../art/sprites';
 import { MONEY_ANCHOR } from '../game/fx';
+import { barAlpha, hpBarColor, hpRatio, visibleBar } from '../game/hpBar';
 import { DEPTH } from '../game/layout';
 import type { BossFight } from '../game/boss';
 import { sweepAngle, type SkillMeter } from '../game/skills';
@@ -19,6 +20,7 @@ export class Hud {
   private shownMoney = -1;
   private shownHp = '';
   private readonly bossBar: Phaser.GameObjects.Graphics;
+  private readonly foeBars: Phaser.GameObjects.Graphics;
   private readonly skills: SkillSlot[];
   private readonly items: Map<ItemId, SkillSlot>;
 
@@ -34,6 +36,7 @@ export class Hud {
     scene.add.image(MONEY_ANCHOR.x, MONEY_ANCHOR.y, 'coin0').setDepth(d);
     this.money = label(scene, MONEY_ANCHOR.x - 14, 7, '0', { size: 14, bold: true, align: 'right' }).setDepth(d);
     this.bossBar = scene.add.graphics().setDepth(d);
+    this.foeBars = scene.add.graphics().setDepth(DEPTH.hpBar);
     if (boss) label(scene, VIEW.w / 2, 40, boss.name.toUpperCase(), { size: 13, bold: true, color: css(COLORS.red), align: 'center', stroke: '#0d0b26' }).setDepth(d);
     this.skills = SKILL_SLOTS.filter((def) => def.meter(world)).map((def, i) => new SkillSlot(scene, TRAY.x + i * TRAY.gap, TRAY.y, def));
     // Items can only be spent during a stage, so the slots held at the start stay put (dimmed at x0) until it ends.
@@ -59,6 +62,7 @@ export class Hud {
         this.hearts.push(this.scene.add.image(16 + i * 18, 17, i < run.hp ? 'heart' : 'heartEmpty').setDepth(DEPTH.hud));
     }
     this.drawBossBar();
+    this.drawFoeBars();
     for (const slot of this.skills) slot.update(this.world);
     for (const slot of this.items.values()) slot.update(this.world);
     const money = run.money + coins;
@@ -66,6 +70,24 @@ export class Hud {
       if (this.shownMoney >= 0) this.scene.tweens.add({ targets: this.money, scale: { from: 1.3, to: 1 }, duration: 160 });
       this.shownMoney = money;
       this.money.setText(String(money));
+    }
+  }
+
+  private drawFoeBars(): void {
+    const g = this.foeBars.clear();
+    for (const foe of this.world.foes) {
+      const bar = visibleBar(foe);
+      if (!bar) continue;
+      const s = foe.sprite;
+      const w = Math.round(s.displayWidth);
+      const x = Math.round(s.x - w / 2);
+      const y = Math.round(s.y - s.displayHeight / 2) - FOE_BAR.gap - FOE_BAR.h;
+      const ratio = hpRatio(foe);
+      const a = barAlpha(bar);
+      g.fillStyle(COLORS.ink, 0.9 * a).fillRect(x - 1, y - 1, w + 2, FOE_BAR.h + 2);
+      g.fillStyle(0x2a2650, a).fillRect(x, y, w, FOE_BAR.h);
+      g.fillStyle(COLORS.white, a).fillRect(x, y, Math.round(w * bar.chip), FOE_BAR.h);
+      g.fillStyle(hpBarColor(ratio), a).fillRect(x, y, Math.max(1, Math.round(w * ratio)), FOE_BAR.h);
     }
   }
 
@@ -101,6 +123,7 @@ const ITEM_SLOTS = Object.fromEntries(
 ) as Record<ItemId, SlotDef>;
 
 const TRAY = { x: 32, y: 604, gap: 56, r: 22 } as const;
+const FOE_BAR = { h: 3, gap: 3 } as const;
 const ITEM_TRAY_RIGHT = VIEW.w - TRAY.x;
 const FULL_TURN = sweepAngle(1);
 

@@ -10,6 +10,7 @@ import { Dash } from './dash';
 import { Fx } from './fx';
 import { circlesOverlap } from './geometry';
 import { Gun } from './gun';
+import { HIDDEN, hitBar, hpRatio, tickBar, type HpBar } from './hpBar';
 import { Laser } from './laser';
 import { DEPTH } from './layout';
 import type { Controls } from './controls';
@@ -27,13 +28,15 @@ export type Foe = {
   size: 'small' | 'big';
   burn: { dps: number; msLeft: number } | null;
   flashMs: number;
+  hpBar: HpBar;
   dead: boolean;
 };
 
 const FLASH_MS = 70;
 const BURN_TINT = 0xffa070;
-// Continuous damage would keep a foe flashed solid white, so only discrete hits flash.
-const FLASHES: Record<DamageSource, boolean> = {
+// Continuous damage lands every frame: flashing on it would keep a foe solid white and would pin the HP bar's
+// chip in place, so only discrete hits flash and hold the chip.
+const DISCRETE: Record<DamageSource, boolean> = {
   bullet: true,
   missile: true,
   laser: false,
@@ -148,7 +151,7 @@ export class World {
 
   addFoe(texture: SpriteKey, x: number, y: number, hp: number, coin: number, size: Foe['size'] = 'small'): Foe {
     const sprite = this.scene.add.image(x, y, texture).setDepth(DEPTH.foe);
-    const foe: Foe = { sprite, hp, maxHp: hp, coin, radius: Math.min(sprite.width, sprite.height) * 0.45, size, burn: null, flashMs: 0, dead: false };
+    const foe: Foe = { sprite, hp, maxHp: hp, coin, radius: Math.min(sprite.width, sprite.height) * 0.45, size, burn: null, flashMs: 0, hpBar: HIDDEN, dead: false };
     this.foes.push(foe);
     return foe;
   }
@@ -156,12 +159,16 @@ export class World {
   // Returns true when this hit killed the foe.
   damage(foe: Foe, amount: number, source: DamageSource): boolean {
     if (foe.dead || amount <= 0) return false;
+    const ratioBefore = hpRatio(foe);
     foe.hp -= amount;
-    if (FLASHES[source] && foe.flashMs <= 0) {
+    if (DISCRETE[source] && foe.flashMs <= 0) {
       foe.flashMs = FLASH_MS;
       foe.sprite.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
     }
-    if (foe.hp > 0) return false;
+    if (foe.hp > 0) {
+      foe.hpBar = hitBar(foe.hpBar, ratioBefore, DISCRETE[source]);
+      return false;
+    }
     foe.dead = true;
     this.coins += foe.coin;
     this.fx.explode(foe.sprite.x, foe.sprite.y, foe.size);
@@ -244,6 +251,7 @@ export class World {
 
   private tickFoes(dtMs: number): void {
     for (const foe of this.foes) {
+      foe.hpBar = tickBar(foe.hpBar, hpRatio(foe), dtMs);
       if (foe.burn) {
         this.damage(foe, (foe.burn.dps * dtMs) / 1000, 'burn');
         foe.burn.msLeft -= dtMs;
