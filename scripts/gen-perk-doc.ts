@@ -1,0 +1,39 @@
+import { writeFileSync } from 'node:fs';
+import { BRANCH_LABEL, PERKS, PERK_IDS, TIER_BASE_COST, describePerk, perkCost, type Branch } from '../src/core/perks';
+import { BOSSES, ENEMIES, STAGES } from '../src/core/stages';
+import { tierWeights } from '../src/core/run';
+
+const lines: string[] = ['# Perks และด่าน', '', 'ไฟล์นี้สร้างจาก `src/core/perks.ts` และ `src/core/stages.ts` ด้วย `npm run docs` ห้ามแก้ไขเอง', ''];
+
+lines.push('## Perk ทั้ง 30 แบบ', '', `ราคาต่อเลเวล = ราคาฐานของ Tier x เลเวลที่ซื้อ (Tier 1-4: ${Object.values(TIER_BASE_COST).join(' / ')} เหรียญ)`, '');
+for (const branch of Object.keys(BRANCH_LABEL) as Branch[]) {
+  lines.push(`### ${BRANCH_LABEL[branch]}`, '', '| Perk | Tier | ต้องมี | เลเวล 1 | เลเวลสูงสุด | ราคา |', '| --- | --- | --- | --- | --- | --- |');
+  for (const id of PERK_IDS.filter((p) => PERKS[p].branch === branch)) {
+    const p = PERKS[id];
+    const costs = Array.from({ length: p.maxLevel }, (_, i) => perkCost(p, i + 1)).join(' / ');
+    const req = p.requires ? PERKS[p.requires].name : '-';
+    lines.push(`| **${p.name}** | ${p.tier} | ${req} | ${describePerk(p, 1)} | Lv${p.maxLevel}: ${describePerk(p, p.maxLevel)} | ${costs} |`);
+  }
+  lines.push('');
+}
+
+lines.push('## โอกาสออกของแต่ละ Tier ในร้านค้า', '', '| หลังจบด่าน | T1 | T2 | T3 | T4 |', '| --- | --- | --- | --- | --- |');
+for (let stage = 1; stage <= 9; stage++) {
+  const w = tierWeights(stage);
+  lines.push(`| ${stage} | ${w[1]} | ${w[2]} | ${w[3]} | ${w[4]} |`);
+}
+lines.push('');
+
+lines.push('## ด่านทั้ง 10', '', '| ด่าน | ประเภท | ศัตรู | ความเร็ว | ยิง/วิ | HP x | รางวัล |', '| --- | --- | --- | --- | --- | --- | --- |');
+STAGES.forEach((s, i) => {
+  if (s.kind === 'boss') {
+    const b = BOSSES[s.boss];
+    lines.push(`| ${i + 1} | **BOSS** | ${b.name} (HP ${b.hp}, ${b.phases.length} เฟส) | - | - | - | ${s.reward} |`);
+  } else {
+    const rows = s.rows.map((r) => ENEMIES[r].name).join(', ');
+    lines.push(`| ${i + 1} | ${s.rows.length}x${s.cols} | ${rows} | ${s.marchSpeed} | ${s.fireRate} | ${s.hpMultiplier} | ${s.reward} |`);
+  }
+});
+lines.push('');
+
+writeFileSync(new URL('../docs/PERKS.md', import.meta.url), lines.join('\n'));

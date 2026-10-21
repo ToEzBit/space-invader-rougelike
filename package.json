@@ -7,12 +7,14 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "docs": "tsx scripts/gen-perk-doc.ts"
   },
   "dependencies": {
     "phaser": "4.2.1"
   },
   "devDependencies": {
+    "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vite": "8.3.5",
     "vitest": "5.0.5"
