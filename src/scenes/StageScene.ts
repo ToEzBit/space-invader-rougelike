@@ -117,6 +117,7 @@ export class StageScene extends Phaser.Scene {
     if (next.phase.kind === 'defeat') {
       this.world.fx.explode(this.world.player.x, this.world.player.y, 'big');
       this.world.player.vanish();
+      for (const drone of this.world.gun.drones) drone.setVisible(false);
       banner(this, 'SHIP DOWN', 'ยานของคุณถูกทำลาย', css(COLORS.red), OUTRO_MS - 600);
       return;
     }

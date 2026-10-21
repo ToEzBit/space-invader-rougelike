@@ -64,8 +64,8 @@ export class Gun {
       playerShots.spawn({ kind: 'droneShot', x: d.x, y: d.y - 8, vx: 0, vy: -stats.bulletSpeed, damage: stats.bulletDamage, pierce: stats.pierce });
     this.shots++;
     if (stats.homingEveryShots > 0 && this.shots % stats.homingEveryShots === 0) {
-      for (const side of [-1, 1])
-        playerShots.spawn({ kind: 'missile', x: player.x + side * 14, y: player.y, vx: side * 140, vy: -MISSILE_SPEED, damage: stats.homingDamage / 2, source: 'missile' });
+      const side = this.shots % (2 * stats.homingEveryShots) === 0 ? 1 : -1;
+      playerShots.spawn({ kind: 'missile', x: player.x + side * 14, y: player.y, vx: side * 140, vy: -MISSILE_SPEED, damage: stats.homingDamage, source: 'missile' });
     }
   }
 }

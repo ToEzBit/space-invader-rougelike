@@ -67,7 +67,7 @@ export class BossFight implements Encounter {
   readonly look: (typeof BOSS_LOOK)[BossId];
   readonly breached = false;
   phase = 0;
-  private stance: 'entering' | 'fighting' = 'entering';
+  private stance: 'entering' | 'fighting' | 'dead' = 'entering';
   private patternIndex = 0;
   private gapMs = 1200;
   private t = 0;
@@ -228,7 +228,8 @@ export class BossFight implements Encounter {
   }
 
   private die(): void {
-    if (!this.halo.visible) return;
+    if (this.stance === 'dead') return;
+    this.stance = 'dead';
     this.halo.setVisible(false);
     this.sweep = { kind: 'idle' };
     this.gfx.clear();

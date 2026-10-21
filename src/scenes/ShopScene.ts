@@ -25,6 +25,9 @@ function cardsOf(run: RunState): Card[] {
 
 const CARD = { x: 20, w: VIEW.w - 40, h: 116, top: 92, gap: 10 };
 const BUTTON_Y = 482;
+const STATUS_Y = 510;
+const STATUS_H = 124;
+const CHIP_ROW = 18;
 
 export class ShopScene extends Phaser.Scene {
   private run!: RunState;
@@ -143,10 +146,10 @@ export class ShopScene extends Phaser.Scene {
 
   private drawStatus(): void {
     const stats = deriveStats(this.run.perks);
-    const y = 516;
+    const y = STATUS_Y;
     const g = this.add.graphics();
-    g.fillStyle(0x0d0b26, 0.8).fillRoundedRect(20, y, VIEW.w - 40, 112, 10);
-    g.lineStyle(1, COLORS.violet, 0.6).strokeRoundedRect(20, y, VIEW.w - 40, 112, 10);
+    g.fillStyle(0x0d0b26, 0.8).fillRoundedRect(20, y, VIEW.w - 40, STATUS_H, 10);
+    g.lineStyle(1, COLORS.violet, 0.6).strokeRoundedRect(20, y, VIEW.w - 40, STATUS_H, 10);
     this.layer.add(g);
     for (let i = 0; i < stats.maxHp; i++) this.layer.add(this.add.image(38 + i * 18, y + 18, i < this.run.hp ? 'heart' : 'heartEmpty'));
     this.layer.add(this.add.image(VIEW.w - 40, y + 18, 'coin0').setScale(1.3));
@@ -158,21 +161,26 @@ export class ShopScene extends Phaser.Scene {
       return;
     }
     let cx = 34;
-    let cy = y + 38;
-    for (const id of owned) {
+    let cy = y + 36;
+    for (const [i, id] of owned.entries()) {
       const { bg, text } = this.chip(id);
-      if (cx + bg.width > VIEW.w - 30) [cx, cy] = [34, cy + 22];
+      if (cx + bg.width > VIEW.w - 30) [cx, cy] = [34, cy + CHIP_ROW];
+      if (cy + CHIP_ROW > y + STATUS_H) {
+        bg.destroy();
+        text.setText(`+${owned.length - i} more`).setOrigin(0.5, 0).setPosition(VIEW.w / 2, y + 10);
+        return;
+      }
       bg.setPosition(cx, cy + 2);
-      text.setPosition(cx + 6, cy);
-      cx += bg.width + 6;
+      text.setPosition(cx + 5, cy);
+      cx += bg.width + 4;
     }
   }
 
   private chip(id: PerkId): { bg: Phaser.GameObjects.Rectangle; text: Phaser.GameObjects.Text } {
     const perk = PERKS[id];
     const color = BRANCH_LOOK[perk.branch].color;
-    const text = label(this, 0, 0, `${perk.name} ${this.run.perks[id]}`, { size: 11, bold: true, color: css(color) });
-    const bg = this.add.rectangle(0, 0, text.width + 12, 18, color, 0.15).setOrigin(0).setStrokeStyle(1, color, 0.7);
+    const text = label(this, 0, 0, `${perk.name} ${this.run.perks[id]}`, { size: 10, bold: true, color: css(color) });
+    const bg = this.add.rectangle(0, 0, text.width + 10, 16, color, 0.15).setOrigin(0).setStrokeStyle(1, color, 0.7);
     this.layer.add([bg, text]);
     return { bg, text };
   }
