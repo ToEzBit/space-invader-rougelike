@@ -12,6 +12,7 @@ export type DebugHooks = {
   hurt?: () => void;
   hit?: () => void;
   bossHp?: (ratio: number) => void;
+  god?: (on: boolean) => void;
 };
 
 type DebugApi = {
@@ -23,6 +24,8 @@ type DebugApi = {
   // One hit through the normal damage path, so i-frames and shields still apply.
   hit(): void;
   bossHp(ratio: number): void;
+  // For measurement only: the ship keeps its i-frames and shields but never loses HP. Resets with each stage.
+  god(on: boolean): void;
   pause(): void;
   resume(): void;
 };
@@ -59,6 +62,7 @@ export function installDebug(game: Phaser.Game): void {
     hurt: () => hooks?.hooks.hurt?.(),
     hit: () => hooks?.hooks.hit?.(),
     bossHp: (ratio) => hooks?.hooks.bossHp?.(ratio),
+    god: (on) => hooks?.hooks.god?.(on),
     // Systems applies these at once, where ScenePlugin would queue them for the next step and drop a key pressed
     // in between. Braces keep Systems out of the return value, which Playwright would serialize whole.
     pause: () => {

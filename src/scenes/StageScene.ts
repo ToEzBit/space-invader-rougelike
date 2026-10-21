@@ -32,6 +32,8 @@ export class StageScene extends Phaser.Scene {
   private backdrop!: Backdrop;
   private controls!: KeyboardControls;
   private life: Life = { kind: 'fighting' };
+  // Dev-only: game time spent fighting, in capped frame deltas, and how many frames hit the cap.
+  private clock = { fightMs: 0, frames: 0, capped: 0 };
 
   constructor() {
     super('Stage');
@@ -84,7 +86,17 @@ export class StageScene extends Phaser.Scene {
             return { id: foeId(foe), x, y, maxHp: foe.maxHp, hpRatio: hpRatio(foe), bar: foe.hpBar.kind, ...(bar && { chipRatio: bar.chip, msLeft: bar.msLeft }) };
           }),
         stats: { moveSpeed: this.world.stats.moveSpeed, bulletDamage: this.world.stats.bulletDamage, fireIntervalMs: this.world.stats.fireIntervalMs },
-        boss: this.encounter.boss && { name: this.encounter.boss.name, hpRatio: this.encounter.boss.hpRatio, phase: this.encounter.boss.phase },
+        boss: this.encounter.boss && {
+          name: this.encounter.boss.name,
+          hpRatio: this.encounter.boss.hpRatio,
+          phase: this.encounter.boss.phase,
+          x: this.encounter.boss.foe.sprite.x,
+          y: this.encounter.boss.foe.sprite.y,
+          maxHp: this.encounter.boss.foe.maxHp,
+        },
+        god: this.world.god,
+        tally: this.world.tally,
+        clock: this.clock,
         skills: SKILL_SLOTS.flatMap(({ id, meter }) => {
           const m = meter(this.world);
           return m ? [{ id, kind: m.kind, ...(m.kind === 'cooling' && { msLeft: m.msLeft }) }] : [];
@@ -96,6 +108,9 @@ export class StageScene extends Phaser.Scene {
       bossHp: (ratio) => {
         const boss = this.encounter.boss;
         if (boss) boss.foe.hp = boss.foe.maxHp * ratio;
+      },
+      god: (on) => {
+        this.world.god = on;
       },
     });
   }
@@ -112,6 +127,9 @@ export class StageScene extends Phaser.Scene {
         if ((life.msLeft -= dtMs) <= 0) this.life = { kind: 'fighting' };
         break;
       case 'fighting':
+        this.clock.fightMs += dtMs;
+        this.clock.frames++;
+        if (delta > MAX_FRAME_MS) this.clock.capped++;
         for (const id of input.useItems) if (!this.world.useItem(id)) this.hud.refuseItem(id);
         this.world.update(dtMs, input, true);
         this.encounter.update(dtMs);

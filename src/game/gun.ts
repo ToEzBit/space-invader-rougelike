@@ -45,9 +45,11 @@ export class Gun {
   private fire(): void {
     const { stats, player, playerShots } = this.world;
     const noseY = player.y - player.sprite.displayHeight / 2;
+    const { tally } = this.world;
     for (const barrel of this.barrels) {
       const crit = Math.random() < stats.critChance;
       const dir = rayEnd({ x: 0, y: 0 }, barrel.angle, stats.bulletSpeed);
+      tally.fired += stats.bulletDamage * (crit ? stats.critMultiplier : 1);
       playerShots.spawn({
         kind: crit ? 'crit' : 'shot',
         x: player.x + barrel.dx,
@@ -58,11 +60,13 @@ export class Gun {
         pierce: stats.pierce,
       });
     }
+    tally.fired += this.drones.length * stats.bulletDamage;
     for (const d of this.drones)
       playerShots.spawn({ kind: 'droneShot', x: d.x, y: d.y - 8, vx: 0, vy: -stats.bulletSpeed, damage: stats.bulletDamage, pierce: stats.pierce });
     this.shots++;
     if (stats.homingEveryShots > 0 && this.shots % stats.homingEveryShots === 0) {
       const side = this.shots % (2 * stats.homingEveryShots) === 0 ? 1 : -1;
+      tally.fired += stats.homingDamage;
       playerShots.spawn({ kind: 'missile', x: player.x + side * 14, y: player.y, vx: side * 140, vy: -MISSILE_SPEED, damage: stats.homingDamage, source: 'missile' });
     }
   }

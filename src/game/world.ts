@@ -71,6 +71,12 @@ export class World {
   coins = 0;
   // Source-specific perks hook kills here (laser refunds, dash lifesteal).
   readonly onKill: Partial<Record<DamageSource, (foe: Foe) => void>> = {};
+  // Dev-only measurement. God mode skips only the HP loss, so `hits` still counts what a real ship would take.
+  god = false;
+  readonly tally = { fired: 0, dealt: {} as Partial<Record<DamageSource, number>>, hits: 0, contacts: 0 };
+  // A contact is a run of consecutive frames with any damaging touch, so a beam held on the ship counts once.
+  private touchedLastFrame = false;
+  private touchedThisFrame = false;
 
   constructor(
     readonly scene: Phaser.Scene,
@@ -161,6 +167,7 @@ export class World {
     if (foe.dead || amount <= 0) return false;
     const ratioBefore = hpRatio(foe);
     foe.hp -= amount;
+    this.tally.dealt[source] = (this.tally.dealt[source] ?? 0) + amount;
     if (DISCRETE[source] && foe.flashMs <= 0) {
       foe.flashMs = FLASH_MS;
       foe.sprite.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
@@ -186,8 +193,12 @@ export class World {
   hurtPlayer(force = false): void {
     const p = this.player;
     if (this.run.phase.kind !== 'playing') return;
+    if (!this.touchedLastFrame && !this.touchedThisFrame) this.tally.contacts++;
+    this.touchedThisFrame = true;
     if (!force && (p.invulnMs > 0 || this.dash.active)) return;
     if (!force && p.shieldMs > 0) return p.breakShield();
+    this.tally.hits++;
+    if (this.god) return p.onHit();
     this.run = takeHit(this.run, 1);
     p.onHit();
     sfx('hurt');
@@ -203,6 +214,8 @@ export class World {
 
   update(dtMs: number, input: Controls, firing: boolean): void {
     const dt = dtMs / 1000;
+    this.touchedLastFrame = this.touchedThisFrame;
+    this.touchedThisFrame = false;
     this.tickBuffs(dtMs);
     if (!this.dash.active) this.player.steer(input, dt);
     this.player.update(dtMs);
