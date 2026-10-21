@@ -195,7 +195,7 @@ const JOURNEYS = {
 
     const d0 = await h.startAt(3, { afterburnerDash: 1 });
     await h.page.keyboard.press('Shift');
-    const mid = await h.waitFor('dashing', (x) => x.dashing, 1000);
+    const mid = await h.waitFor('dashing ship lifting off', (x) => x.dashing && x.player.y < d0.player.y, 1000);
     await h.game('pause');
     await h.shot('dash');
     await h.game('resume');
