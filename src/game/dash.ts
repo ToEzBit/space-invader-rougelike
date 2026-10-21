@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { sfx } from '../audio/sfx';
 import { COLORS } from '../art/palette';
 import { rechargeTick, type Charges } from './charges';
 import { circlesOverlap } from './geometry';
@@ -55,6 +56,7 @@ export class Dash {
     player.sprite.setScale(stats.dashSizeMultiplier).setRotation(0);
     fx.spark(player.x, player.y + 20, 12);
     fx.shake(0.004, 100);
+    sfx('dash');
   }
 
   private fly(s: Extract<DashState, { kind: 'active' }>, dtMs: number): void {

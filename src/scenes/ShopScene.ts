@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { sfx } from '../audio/sfx';
 import { BRANCH_LABEL, PERKS, PERK_IDS, deriveStats, describePerk, type PerkDef, type PerkId } from '../core/perks';
 import { buyOffer, leaveShop, offerCost, refreshCost, refreshShop, type RunState, type ShopResult } from '../core/run';
 import { COLORS, css } from '../art/palette';
@@ -209,6 +210,7 @@ export class ShopScene extends Phaser.Scene {
   }
 
   private apply(result: ShopResult, slot: number | null): void {
+    sfx(result.ok ? 'buy' : 'deny');
     if (!result.ok) {
       const target = slot === null ? this.layer : this.cards[slot];
       if (target) this.tweens.add({ targets: target, x: target.x + 6, duration: 40, yoyo: true, repeat: 3 });

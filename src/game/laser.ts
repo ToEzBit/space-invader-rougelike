@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { sfx } from '../audio/sfx';
 import { COLORS } from '../art/palette';
 import { VIEW } from '../view';
 import { distanceToSegment, rayEnd, type Point } from './geometry';
@@ -77,7 +78,9 @@ export class Laser {
       case 'locked':
         break;
       case 'ready':
-        if (fireHeld) this.state = { kind: 'firing', msLeft: stats.laserDurationMs, refundMs: 0 };
+        if (!fireHeld) break;
+        this.state = { kind: 'firing', msLeft: stats.laserDurationMs, refundMs: 0 };
+        sfx('laser');
         break;
       case 'firing':
         this.burn(dtMs);

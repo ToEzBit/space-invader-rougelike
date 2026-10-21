@@ -40,7 +40,7 @@ export class EndScene extends Phaser.Scene {
 
     const title = label(this, cx, 70, look.title, { size: 48, bold: true, color: css(look.color), align: 'center', stroke: '#0d0b26' });
     this.tweens.add({ targets: title, scale: { from: 0.4, to: 1 }, duration: 500, ease: 'Back.easeOut' });
-    label(this, cx, 136, look.subtitle, { size: 16, color: '#ffffff', align: 'center' });
+    label(this, cx, 146, look.subtitle, { size: 16, color: '#ffffff', align: 'center' });
 
     const hero = this.add.image(cx, look.heroY, look.hero).setScale(ending === 'victory' ? 1 : 2.5);
     if (ending === 'victory') {

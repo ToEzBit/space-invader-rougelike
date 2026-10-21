@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { sfx } from '../audio/sfx';
 import { deriveStats } from '../core/perks';
 import { heal, takeHit, type RunState } from '../core/run';
 import type { ShipStats } from '../core/stats';
@@ -28,6 +29,18 @@ export type Foe = {
 };
 
 const FLASH_MS = 70;
+const BURN_TINT = 0xffa070;
+// Continuous damage would keep a foe flashed solid white, so only discrete hits flash.
+const FLASHES: Record<DamageSource, boolean> = {
+  bullet: true,
+  missile: true,
+  laser: false,
+  burn: false,
+  orbital: true,
+  dash: true,
+  shock: true,
+  collision: true,
+};
 const BURN_MS = 2000;
 
 // The live simulation of one stage: the ship's systems, every foe, and both bullet pools.
@@ -74,7 +87,7 @@ export class World {
   damage(foe: Foe, amount: number, source: DamageSource): boolean {
     if (foe.dead || amount <= 0) return false;
     foe.hp -= amount;
-    if (source !== 'burn' && foe.flashMs <= 0) {
+    if (FLASHES[source] && foe.flashMs <= 0) {
       foe.flashMs = FLASH_MS;
       foe.sprite.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
     }
@@ -82,6 +95,7 @@ export class World {
     foe.dead = true;
     this.coins += foe.coin;
     this.fx.explode(foe.sprite.x, foe.sprite.y, foe.size);
+    sfx(foe.size === 'big' ? 'boom' : 'pop');
     if (foe.coin > 0) this.fx.coin(foe.sprite.x, foe.sprite.y);
     if (foe.size === 'big') this.fx.shake(0.012, 400);
     this.onKill[source]?.(foe);
@@ -99,6 +113,7 @@ export class World {
     if (!force && p.shieldMs > 0) return p.breakShield();
     this.run = takeHit(this.run, 1);
     p.onHit();
+    sfx('hurt');
     this.fx.shake(0.01, 200);
     this.fx.flash(90, 255, 60, 90);
   }
@@ -163,7 +178,9 @@ export class World {
         foe.burn.msLeft -= dtMs;
         if (foe.burn.msLeft <= 0) foe.burn = null;
       }
-      if (foe.flashMs > 0 && (foe.flashMs -= dtMs) <= 0) foe.sprite.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
+      if (foe.flashMs > 0 && (foe.flashMs -= dtMs) > 0) continue;
+      foe.flashMs = 0;
+      foe.sprite.setTintMode(Phaser.TintModes.MULTIPLY).setTint(foe.burn ? BURN_TINT : 0xffffff);
     }
     for (let i = this.foes.length - 1; i >= 0; i--) {
       const foe = this.foes[i]!;

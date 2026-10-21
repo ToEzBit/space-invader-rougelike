@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { sfx } from '../audio/sfx';
 import { BOSSES, ENEMIES, type BossDef, type BossId, type BossPattern, type BossStage } from '../core/stages';
 import { BOSS_SPRITE, ENEMY_FRAMES } from '../art/sprites';
 import { COLORS } from '../art/palette';
@@ -120,7 +121,8 @@ export class BossFight implements Encounter {
       s.y = Math.min(HOME_Y, s.y + (ENTER_SPEED * dtMs) / 1000);
       if (s.y >= HOME_Y) [this.stance, this.t] = ['fighting', 0];
     } else {
-      s.x = VIEW.w / 2 + Math.sin(this.t / 1500) * (120 + this.phase * 20);
+      const reach = Math.min(110 + this.phase * 15, VIEW.w / 2 - this.halo.displayWidth / 2 - 6);
+      s.x = VIEW.w / 2 + Math.sin(this.t / 1500) * reach;
       s.y = HOME_Y + Math.sin(this.t / 700) * 10;
       this.advancePhase();
       this.nextPattern(dtMs);
@@ -174,6 +176,7 @@ export class BossFight implements Encounter {
     this.gapMs = 900;
     const { fx } = this.world;
     fx.flash(200, 255, 255, 255);
+    sfx('phase');
     fx.shake(0.015, 450);
     fx.explode(this.foe.sprite.x, this.foe.sprite.y, 'big');
     fx.float(this.foe.sprite.x, this.foe.sprite.y - 60, `PHASE ${next + 1}`, COLORS.red);
