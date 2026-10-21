@@ -1,6 +1,6 @@
 # Laser and dash perks
 
-Two perk branches add new mechanics instead of stat bumps. Prism Lance unlocks a beam that fires automatically whenever its cooldown is ready during a fight. Afterburner Dash unlocks Shift, which launches the ship straight up through the formation, invulnerable, and brings it back to its row.
+Two perk branches add new mechanics instead of stat bumps. Prism Lance unlocks a beam that fires automatically whenever its cooldown is ready during a fight. Afterburner Dash unlocks Shift, which launches the ship straight up through the formation, invulnerable, and brings it back to the y it launched from.
 
 ## Sub-features
 

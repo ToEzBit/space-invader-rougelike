@@ -137,6 +137,69 @@ const JOURNEYS = {
     h.check('kills drop coins', fired.coins > 0, { coins: fired.coins });
   },
 
+  async movement(h) {
+    const shipBox = (s) => ({ x: s.player.x - 40, y: s.player.y - 40, w: 80, h: 90 });
+    const s0 = await h.startAt(1);
+    const { zone, playerY } = await h.page.evaluate(() => import('/src/game/layout.ts').then((m) => ({ zone: m.PLAYER_ZONE, playerY: m.PLAYER_Y })));
+    h.check('the ship spawns on the bottom row', s0.player.y === playerY, { y: s0.player.y, playerY });
+
+    const top = await h.step('hold ArrowUp 1200ms, then 300ms more', async () => {
+      await h.page.keyboard.down('ArrowUp');
+      await sleep(300);
+      const mid = await h.state();
+      h.check('ArrowUp moves the ship up', mid.player.y < s0.player.y && mid.player.y > zone.top, { from: s0.player.y, mid: mid.player.y });
+      // Pausing the scene releases held keys, so this one shot is taken live.
+      await h.shot('moving-up-closeup', shipBox(mid));
+      await sleep(900);
+      const reached = await h.state();
+      await sleep(300);
+      const held = await h.state();
+      await h.page.keyboard.up('ArrowUp');
+      h.check('the ship stops at the top of its zone', reached.player.y === zone.top && held.player.y === zone.top, { reached: reached.player.y, held: held.player.y, top: zone.top });
+    });
+    await h.game('pause');
+    await h.shot('raised');
+    await h.game('resume');
+    h.check('moving up keeps x', top.player.x === s0.player.x, { x: [s0.player.x, top.player.x] });
+
+    const down = await h.step('hold s 1200ms', () => h.hold('s', 1200));
+    h.check('S brings the ship back down and it stops on the bottom row', down.player.y === playerY, { y: down.player.y, playerY });
+
+    const d0 = await h.state();
+    let ms = 0;
+    const diag = await h.step('hold ArrowUp+ArrowRight 300ms', async () => {
+      await h.page.keyboard.down('ArrowUp');
+      await h.page.keyboard.down('ArrowRight');
+      const t0 = performance.now();
+      await sleep(300);
+      await h.page.keyboard.up('ArrowUp');
+      await h.page.keyboard.up('ArrowRight');
+      ms = performance.now() - t0;
+    });
+    const dx = diag.player.x - d0.player.x;
+    const dy = d0.player.y - diag.player.y;
+    const ratio = Math.hypot(dx, dy) / ((d0.stats.moveSpeed * ms) / 1000);
+    h.check('a diagonal moves both axes equally', dx > 20 && dy > 20 && Math.abs(dx - dy) < 8, { dx, dy });
+    h.check('diagonal speed is moveSpeed, not moveSpeed x 1.41', ratio > 0.85 && ratio < 1.15, { distance: Math.hypot(dx, dy), ms, moveSpeed: d0.stats.moveSpeed, ratio });
+
+    const a0 = await h.startAt(1, { afterburnerDash: 1 });
+    const raised = await h.step('hold w to the zone top', () => h.hold('w', 1200));
+    h.check('W moves the ship to the zone top', raised.player.y === zone.top && a0.player.y === playerY, { from: a0.player.y, to: raised.player.y });
+    await h.page.keyboard.press('Shift');
+    const mid = await h.waitFor('dash lifting off from the raised y', (x) => x.dashing && x.player.y < zone.top - 40, 1000);
+    await h.game('pause');
+    await h.shot('dash-from-raised');
+    await h.game('resume');
+    const back = await h.waitFor('dash finished', (x) => !x.dashing, 4000);
+    // On the landing frame the exhaust is still drawn where the hull was a frame earlier.
+    await sleep(100);
+    await h.game('pause');
+    await h.shot('dash-returned');
+    await h.shot('dash-returned-closeup', shipBox(back));
+    await h.game('resume');
+    h.check('the dash returns to the raised y it launched from, not the bottom row', Math.abs(back.player.y - zone.top) < 1, { launchedAt: raised.player.y, mid: mid.player.y, landed: back.player.y, playerY });
+  },
+
   async shop(h) {
     await h.startAt(1, {}, 200);
     await h.game('kill');
@@ -511,7 +574,7 @@ const JOURNEYS = {
 };
 
 // Close-ups of small HUD art need the canvas's full backing resolution.
-const CONTEXT = { 'skill-hud': { deviceScaleFactor: 2 }, items: { deviceScaleFactor: 2 } };
+const CONTEXT = { 'skill-hud': { deviceScaleFactor: 2 }, items: { deviceScaleFactor: 2 }, movement: { deviceScaleFactor: 2 } };
 
 const selected = names.includes('all') ? Object.keys(JOURNEYS).filter((n) => n !== 'doctor') : names;
 const unknown = selected.filter((n) => !JOURNEYS[n]);

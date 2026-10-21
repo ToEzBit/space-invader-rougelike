@@ -17,3 +17,15 @@ export function rayEnd(origin: Point, angleDeg: number, length: number): Point {
   const rad = (angleDeg * Math.PI) / 180;
   return { x: origin.x + Math.sin(rad) * length, y: origin.y - Math.cos(rad) * length };
 }
+
+export type Box = { left: number; right: number; top: number; bottom: number };
+
+// Moves `distance` along `dir`, normalized so a diagonal is no faster than a straight line, then clamps into `box`.
+export function stepWithin(from: Point, dir: Point, distance: number, box: Box): Point {
+  const len = Math.hypot(dir.x, dir.y);
+  const k = len === 0 ? 0 : distance / len;
+  return {
+    x: Math.min(box.right, Math.max(box.left, from.x + dir.x * k)),
+    y: Math.min(box.bottom, Math.max(box.top, from.y + dir.y * k)),
+  };
+}

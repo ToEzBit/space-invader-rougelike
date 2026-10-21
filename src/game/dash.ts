@@ -3,15 +3,15 @@ import { sfx } from '../audio/sfx';
 import { COLORS } from '../art/palette';
 import { rechargeTick, type Charges } from './charges';
 import { circlesOverlap } from './geometry';
-import { DASH_APEX_Y, DEPTH, PLAYER_Y } from './layout';
+import { DASH_APEX_Y, DEPTH } from './layout';
 import { chargesMeter, type SkillMeter } from './skills';
 import type { Foe, World } from './world';
 
 const SHOCK_DAMAGE_SCALE = 0.5;
 const GHOST_EVERY_MS = 28;
 
-// The ship flies straight up through the formation and back down; each foe is hit once per dash.
-type DashState = { kind: 'locked' } | { kind: 'idle' } | { kind: 'active'; leg: 'up' | 'down'; hit: Set<Foe>; ghostMs: number };
+// The ship flies straight up through the formation and back down to homeY; each foe is hit once per dash.
+type DashState = { kind: 'locked' } | { kind: 'idle' } | { kind: 'active'; leg: 'up' | 'down'; homeY: number; hit: Set<Foe>; ghostMs: number };
 
 export class Dash {
   private state: DashState;
@@ -50,7 +50,7 @@ export class Dash {
   private launch(): void {
     const { player, stats, fx } = this.world;
     this.charges = { ...this.charges, count: this.charges.count - 1 };
-    this.state = { kind: 'active', leg: 'up', hit: new Set(), ghostMs: 0 };
+    this.state = { kind: 'active', leg: 'up', homeY: player.y, hit: new Set(), ghostMs: 0 };
     player.sprite.setScale(stats.dashSizeMultiplier).setRotation(0);
     fx.spark(player.x, player.y + 20, 12);
     fx.shake(0.004, 100);
@@ -67,8 +67,8 @@ export class Dash {
     if (s.leg === 'up' && sprite.y <= DASH_APEX_Y) {
       sprite.y = DASH_APEX_Y;
       s.leg = 'down';
-    } else if (s.leg === 'down' && sprite.y >= PLAYER_Y) {
-      sprite.y = PLAYER_Y;
+    } else if (s.leg === 'down' && sprite.y >= s.homeY) {
+      sprite.y = s.homeY;
       sprite.setScale(1);
       this.state = { kind: 'idle' };
       if (stats.dashShieldMs > player.shieldMs) player.shieldFor(stats.dashShieldMs);

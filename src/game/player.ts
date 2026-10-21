@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { COLORS } from '../art/palette';
 import type { Controls } from './controls';
-import { DEPTH, PLAYER_Y, PLAYFIELD } from './layout';
+import { stepWithin } from './geometry';
+import { DEPTH, PLAYER_Y, PLAYER_ZONE, PLAYFIELD } from './layout';
 import type { World } from './world';
 
 const HIT_INVULN_MS = 1300;
@@ -19,11 +20,13 @@ export class Player {
   shieldFullMs = 0;
   msSinceHit = 0;
   private flameMs = 0;
+  // 1 while flying forward, -1 while backing off; stretches the exhaust.
+  private thrust = 0;
 
   constructor(private readonly world: World) {
     const scene = world.scene;
     this.sprite = scene.add.image(240, PLAYER_Y, 'player').setDepth(DEPTH.player);
-    this.flame = scene.add.image(240, PLAYER_Y + 28, 'flame0').setDepth(DEPTH.player - 1);
+    this.flame = scene.add.image(240, PLAYER_Y + 24, 'flame0').setOrigin(0.5, 0).setDepth(DEPTH.player - 1);
     this.shield = scene.add
       .circle(240, PLAYER_Y, 26)
       .setStrokeStyle(2, COLORS.cyan, 0.9)
@@ -41,10 +44,12 @@ export class Player {
   }
 
   steer(input: Controls, dtSec: number): void {
-    const dir = Number(input.right) - Number(input.left);
+    const dir = { x: Number(input.right) - Number(input.left), y: Number(input.down) - Number(input.up) };
     const half = this.sprite.displayWidth / 2;
-    this.sprite.x = Phaser.Math.Clamp(this.sprite.x + dir * this.world.stats.moveSpeed * dtSec, PLAYFIELD.left + half, PLAYFIELD.right - half);
-    this.sprite.setRotation(dir * 0.08);
+    const box = { left: PLAYFIELD.left + half, right: PLAYFIELD.right - half, ...PLAYER_ZONE };
+    const to = stepWithin(this.sprite, dir, this.world.stats.moveSpeed * dtSec, box);
+    this.sprite.setPosition(to.x, to.y).setRotation(dir.x * 0.08);
+    this.thrust = -dir.y;
   }
 
   update(dtMs: number): void {
@@ -56,8 +61,8 @@ export class Player {
     this.flameMs += dtMs;
     this.flame
       .setTexture(Math.floor(this.flameMs / 60) % 2 ? 'flame1' : 'flame0')
-      .setPosition(this.sprite.x, this.sprite.y + this.sprite.displayHeight / 2 + 4)
-      .setScale(this.sprite.scale);
+      .setPosition(this.sprite.x, this.sprite.y + this.sprite.displayHeight / 2)
+      .setScale(this.sprite.scale, this.sprite.scale * (1 + this.thrust * 0.4));
     this.shield.setPosition(this.sprite.x, this.sprite.y).setVisible(this.shieldMs > 0).setScale(this.sprite.scale);
   }
 

@@ -1,6 +1,8 @@
 import { VIEW } from '../view';
 
 export const PLAYER_Y = 572;
+// The ship's center roams this band; it spawns on the bottom edge.
+export const PLAYER_ZONE = { top: 384, bottom: PLAYER_Y } as const;
 export const PLAYFIELD = { left: 14, right: VIEW.w - 14, top: 44 } as const;
 // A ranked enemy reaching this line has overrun the ship.
 export const BREACH_Y = PLAYER_Y - 26;
