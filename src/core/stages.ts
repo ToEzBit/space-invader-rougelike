@@ -54,14 +54,14 @@ export type FormIndex = 0 | 1;
 
 export const BOSSES: Record<BossId, BossDef> = {
   crimsonSeraph: {
-    hp: 620,
+    hp: 540,
     forms: [
       {
         name: 'Crimson Seraph',
         texture: 'crimsonSeraph',
         phases: [
-          { hpRatio: 1, patterns: ['fanSpread', 'aimedBurst'], patternGapMs: 1700 },
-          { hpRatio: 0.75, patterns: ['fanSpread', 'summonMinions', 'aimedBurst'], patternGapMs: 1400 },
+          { hpRatio: 1, patterns: ['fanSpread', 'aimedBurst'], patternGapMs: 1500 },
+          { hpRatio: 0.75, patterns: ['fanSpread', 'summonMinions', 'aimedBurst'], patternGapMs: 1200 },
         ],
         bulletSpeedScale: 1,
         minionKind: 'drone',
@@ -70,8 +70,8 @@ export const BOSSES: Record<BossId, BossDef> = {
         name: 'Crimson Seraph · Ascended',
         texture: 'crimsonSeraphAscended',
         phases: [
-          { hpRatio: 1, patterns: ['featherStorm', 'aimedBurst', 'crossJudgement', 'aimedBurst'], patternGapMs: 1100 },
-          { hpRatio: 0.3, patterns: ['featherStorm', 'crossJudgement', 'aimedBurst', 'fanSpread'], patternGapMs: 900 },
+          { hpRatio: 1, patterns: ['featherStorm', 'aimedBurst', 'crossJudgement', 'aimedBurst'], patternGapMs: 900 },
+          { hpRatio: 0.3, patterns: ['featherStorm', 'crossJudgement', 'aimedBurst', 'fanSpread'], patternGapMs: 750 },
         ],
         bulletSpeedScale: 1.15,
         minionKind: 'drone',
@@ -80,14 +80,14 @@ export const BOSSES: Record<BossId, BossDef> = {
     transform: { atHpRatio: 0.5, healRatio: 0.2, summon: 4, durationMs: 2200 },
   },
   voidEmpress: {
-    hp: 1500,
+    hp: 4600,
     forms: [
       {
         name: 'Void Empress',
         texture: 'voidEmpress',
         phases: [
-          { hpRatio: 1, patterns: ['spiral', 'aimedBurst'], patternGapMs: 1600 },
-          { hpRatio: 0.75, patterns: ['sweepLaser', 'spiral', 'summonMinions'], patternGapMs: 1300 },
+          { hpRatio: 1, patterns: ['spiral', 'aimedBurst', 'bulletRain'], patternGapMs: 1300 },
+          { hpRatio: 0.75, patterns: ['sweepLaser', 'spiral', 'summonMinions', 'aimedBurst'], patternGapMs: 1100 },
         ],
         bulletSpeedScale: 1,
         minionKind: 'drone',
@@ -96,8 +96,8 @@ export const BOSSES: Record<BossId, BossDef> = {
         name: 'Void Empress · Eclipse',
         texture: 'voidEmpressEclipse',
         phases: [
-          { hpRatio: 1, patterns: ['blackHole', 'spiral', 'bulletRain', 'eclipseNova'], patternGapMs: 1100 },
-          { hpRatio: 0.25, patterns: ['eclipseNova', 'blackHole', 'spiral', 'bulletRain', 'aimedBurst'], patternGapMs: 900 },
+          { hpRatio: 1, patterns: ['blackHole', 'spiral', 'aimedBurst', 'bulletRain', 'eclipseNova', 'aimedBurst'], patternGapMs: 800 },
+          { hpRatio: 0.3, patterns: ['eclipseNova', 'bulletRain', 'blackHole', 'spiral', 'sweepLaser', 'aimedBurst'], patternGapMs: 650 },
         ],
         bulletSpeedScale: 1.15,
         minionKind: 'gunner',

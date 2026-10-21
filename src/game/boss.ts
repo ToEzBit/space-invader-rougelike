@@ -18,7 +18,7 @@ import type { Foe, World } from './world';
 
 const HOME_Y = 138;
 const ENTER_SPEED = 70;
-const MAX_MINIONS = 6;
+export const MAX_MINIONS = 6;
 const MINION_HP_SCALE = 2;
 const BEAM = { width: 18, length: 900 } as const;
 const CAST = { pulse: 0.07, convergeEveryMs: 35, releaseShake: 0.01 } as const;

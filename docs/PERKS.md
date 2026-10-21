@@ -85,9 +85,9 @@
 | 2 | 4x8 | Gunner Girl, Pico Drone, Pico Drone, Pico Drone | 24 | 0.8 | 1 | 35 |
 | 3 | 4x9 | Bulwark, Gunner Girl, Pico Drone, Pico Drone | 28 | 1 | 1.1 | 40 |
 | 4 | 5x9 | Bulwark, Gunner Girl, Gunner Girl, Pico Drone, Pico Drone | 32 | 1.2 | 1.2 | 45 |
-| 5 | **BOSS** | Crimson Seraph (HP 620, 2 เฟส) แปลงร่างที่ HP 50% เป็น Crimson Seraph · Ascended (2 เฟส) | - | - | - | 100 |
+| 5 | **BOSS** | Crimson Seraph (HP 540, 2 เฟส) แปลงร่างที่ HP 50% เป็น Crimson Seraph · Ascended (2 เฟส) | - | - | - | 100 |
 | 6 | 5x10 | Bulwark, Kamikaze Kitsune, Gunner Girl, Pico Drone, Pico Drone | 36 | 1.4 | 1.4 | 55 |
 | 7 | 5x10 | Bulwark, Bulwark, Kamikaze Kitsune, Gunner Girl, Pico Drone | 40 | 1.6 | 1.6 | 60 |
 | 8 | 6x10 | Bulwark, Kamikaze Kitsune, Gunner Girl, Gunner Girl, Kamikaze Kitsune, Pico Drone | 44 | 1.8 | 1.8 | 65 |
 | 9 | 6x11 | Bulwark, Bulwark, Kamikaze Kitsune, Gunner Girl, Gunner Girl, Kamikaze Kitsune | 48 | 2 | 2 | 70 |
-| 10 | **BOSS** | Void Empress (HP 1500, 2 เฟส) แปลงร่างที่ HP 50% เป็น Void Empress · Eclipse (2 เฟส) | - | - | - | 0 |
+| 10 | **BOSS** | Void Empress (HP 4600, 2 เฟส) แปลงร่างที่ HP 50% เป็น Void Empress · Eclipse (2 เฟส) | - | - | - | 0 |
