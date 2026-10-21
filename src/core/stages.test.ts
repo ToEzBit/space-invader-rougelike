@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BOSSES, bossPhaseAt, transformDue, type FormIndex } from './stages';
+import { BOSSES, bossPhaseAt, healedHp, transformDue, type FormIndex } from './stages';
 
 const empress = BOSSES.voidEmpress;
 
@@ -36,6 +36,21 @@ describe('boss forms', () => {
       expect(transforms).toBe(1);
       expect(transformDue(def, 0, at + 0.001)).toBe(false);
       expect(transformDue(def, 1, 0)).toBe(false);
+    }
+  });
+
+  it('heal healRatio of full HP over the transformation, never past full', () => {
+    for (const def of Object.values(BOSSES)) {
+      const at = def.hp * def.transform.atHpRatio;
+      expect(healedHp(def, at)).toBeCloseTo(at + def.hp * def.transform.healRatio);
+      expect(healedHp(def, def.hp * 0.95)).toBe(def.hp);
+    }
+  });
+
+  it('change look and name between forms', () => {
+    for (const { forms } of Object.values(BOSSES)) {
+      expect(forms[1].texture).not.toBe(forms[0].texture);
+      expect(forms[1].name).not.toBe(forms[0].name);
     }
   });
 });

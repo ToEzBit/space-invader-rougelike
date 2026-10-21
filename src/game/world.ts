@@ -30,6 +30,8 @@ export type Foe = {
   flashMs: number;
   hpBar: HpBar;
   dead: boolean;
+  // Absorbs a hit when it returns true, before any HP is lost. A boss wards itself while it transforms.
+  ward?: (source: DamageSource) => boolean;
 };
 
 const FLASH_MS = 70;
@@ -164,7 +166,7 @@ export class World {
 
   // Returns true when this hit killed the foe.
   damage(foe: Foe, amount: number, source: DamageSource): boolean {
-    if (foe.dead || amount <= 0) return false;
+    if (foe.dead || amount <= 0 || foe.ward?.(source)) return false;
     const ratioBefore = hpRatio(foe);
     foe.hp -= amount;
     this.tally.dealt[source] = (this.tally.dealt[source] ?? 0) + amount;

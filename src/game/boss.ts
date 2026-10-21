@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
-import { BOSSES, ENEMIES, bossPhaseAt, transformDue, type BossDef, type BossForm, type BossId, type BossPattern, type BossStage, type EnemyKind, type FormIndex } from '../core/stages';
-import { COLORS } from '../art/palette';
+import { BOSSES, ENEMIES, bossPhaseAt, healedHp, transformDue, type BossDef, type BossForm, type BossPattern, type BossStage, type BossTexture, type EnemyKind, type FormIndex } from '../core/stages';
+import { COLORS, css } from '../art/palette';
+import { banner } from '../ui/banner';
 import { VIEW } from '../view';
 import type { BulletKind, BulletSpawn } from './bullets';
 import type { Encounter } from './encounter';
@@ -19,9 +20,17 @@ const MAX_MINIONS = 6;
 const MINION_HP_SCALE = 2;
 const SWEEP = { telegraphMs: 850, sweepMs: 1500, fromDeg: -55, toDeg: 55, width: 18, length: 900 } as const;
 
-const BOSS_LOOK: Record<BossId, { orb: BulletKind; beam: number; glow: number }> = {
-  crimsonSeraph: { orb: 'orb', beam: COLORS.red, glow: COLORS.pink },
-  voidEmpress: { orb: 'voidOrb', beam: COLORS.violet, glow: COLORS.cyan },
+// Fractions of the transformation's duration, except shockMs.
+const TRANSFORM = { peak: 0.45, healFrom: 0.3, healTo: 0.9, shockMs: 650, shockReach: 820, crossfadeMs: 380 } as const;
+const IMMUNE_FLOAT_GAP_MS = 260;
+
+type Look = { orb: BulletKind; beam: number; glow: number; subtitle: string };
+
+const FORM_LOOK: Record<BossTexture, Look> = {
+  crimsonSeraph: { orb: 'orb', beam: COLORS.red, glow: COLORS.pink, subtitle: '' },
+  crimsonSeraphAscended: { orb: 'orb', beam: COLORS.orange, glow: COLORS.gold, subtitle: 'ปีกเพลิงตื่นขึ้นแล้ว!' },
+  voidEmpress: { orb: 'voidOrb', beam: COLORS.violet, glow: COLORS.cyan, subtitle: '' },
+  voidEmpressEclipse: { orb: 'voidOrb', beam: COLORS.violet, glow: COLORS.violet, subtitle: 'สุริยุปราคากลืนกินท้องฟ้า!' },
 };
 
 // Angles here are screen angles in degrees where 0 points straight down at the player.
@@ -33,7 +42,12 @@ type SweepBeam =
 type Minion = { foe: Foe; kind: EnemyKind; tx: number; ty: number; t: number; fireCd: number };
 
 // Drift and pattern gaps only run while fighting, so the boss resumes where it stopped.
-type Stance = { kind: 'entering' } | { kind: 'fighting'; gapMs: number } | { kind: 'transforming'; msLeft: number } | { kind: 'dead' };
+// While transforming the boss is immune and climbs from fromHp back up by its heal.
+type Stance =
+  | { kind: 'entering' }
+  | { kind: 'fighting'; gapMs: number }
+  | { kind: 'transforming'; msLeft: number; fromHp: number }
+  | { kind: 'dead' };
 
 const PATTERNS: Record<BossPattern, (b: BossFight) => void> = {
   fanSpread: (b) => {
@@ -68,10 +82,12 @@ export class BossFight implements Encounter {
   readonly boss = this;
   readonly def: BossDef;
   readonly foe: Foe;
-  readonly look: (typeof BOSS_LOOK)[BossId];
   readonly breached = false;
   form: FormIndex = 0;
   phase = 0;
+  // Hits the transformation's immunity absorbed.
+  deflected = 0;
+  private lastImmuneFloatAt = -Infinity;
   private stance: Stance = { kind: 'entering' };
   private patternIndex = 0;
   private driftMs = 0;
@@ -86,13 +102,13 @@ export class BossFight implements Encounter {
     stage: BossStage,
   ) {
     this.def = BOSSES[stage.boss];
-    this.look = BOSS_LOOK[stage.boss];
     const { texture } = this.def.forms[0];
     this.foe = world.addFoe(texture, VIEW.w / 2, -70, this.def.hp, 0, BOSS_RADIUS, 'big');
     this.foe.hpBar = { kind: 'hud' };
+    this.foe.ward = () => this.stance.kind === 'transforming' && this.deflect();
     this.halo = world.scene.add
       .image(VIEW.w / 2, -70, texture)
-      .setTint(this.look.glow)
+      .setTint(FORM_LOOK[texture].glow)
       .setTintMode(Phaser.TintModes.FILL)
       .setAlpha(0.25)
       .setScale(1.08)
@@ -103,6 +119,10 @@ export class BossFight implements Encounter {
 
   get current(): BossForm {
     return this.def.forms[this.form];
+  }
+
+  get look(): Look {
+    return FORM_LOOK[this.current.texture];
   }
 
   get name(): string {
@@ -130,6 +150,7 @@ export class BossFight implements Encounter {
   }
 
   update(dtMs: number): void {
+    this.gfx.clear();
     this.minions = this.minions.filter((m) => !m.foe.dead);
     this.timers = this.timers.filter((t) => t.getOverallProgress() < 1);
     if (this.foe.dead) return this.die();
@@ -150,12 +171,12 @@ export class BossFight implements Encounter {
         if ((stance.gapMs -= dtMs) <= 0) stance.gapMs = this.nextPattern();
         break;
       case 'transforming':
-        if ((stance.msLeft -= dtMs) <= 0) this.finishTransform();
+        this.transformStep(stance, dtMs);
         break;
       case 'dead':
         break;
     }
-    this.halo.setPosition(s.x, s.y).setAlpha(0.18 + Math.sin(this.driftMs / 200) * 0.08 + this.phase * 0.08);
+    if (stance.kind !== 'transforming') this.halo.setPosition(s.x, s.y).setAlpha(0.18 + Math.sin(this.driftMs / 200) * 0.08 + this.phase * 0.08);
     this.updateSweep(dtMs);
     for (const m of this.minions) this.updateMinion(m, dtMs);
   }
@@ -230,21 +251,109 @@ export class BossFight implements Encounter {
     sfx('phase');
     fx.shake(0.015, 450);
     fx.explode(this.foe.sprite.x, this.foe.sprite.y, 'big');
-    const shown = this.form * this.def.forms[0].phases.length + this.phase + 1;
-    fx.float(this.foe.sprite.x, this.foe.sprite.y - 60, `PHASE ${shown}`, COLORS.red);
+    fx.float(this.foe.sprite.x, this.foe.sprite.y - 60, `PHASE ${this.phase + 1}`, COLORS.red);
   }
 
   private startTransform(): void {
-    this.stance = { kind: 'transforming', msLeft: this.def.transform.durationMs };
+    this.stance = { kind: 'transforming', msLeft: this.def.transform.durationMs, fromHp: this.foe.hp };
+    this.cancelAttacks();
+    const { fx } = this.world;
+    fx.flash(120, 255, 255, 255);
+    fx.shake(0.008, 300);
+    sfx('phase');
   }
 
-  private finishTransform(): void {
+  private transformStep(stance: Extract<Stance, { kind: 'transforming' }>, dtMs: number): void {
+    const total = this.def.transform.durationMs;
+    const before = total - stance.msLeft;
+    stance.msLeft -= dtMs;
+    const t = Math.min(total, total - stance.msLeft);
+    const p = t / total;
+    const s = this.foe.sprite;
+    s.x = Phaser.Math.Linear(s.x, VIEW.w / 2, 0.08);
+    s.y = Phaser.Math.Linear(s.y, HOME_Y, 0.08);
+    const charge = p < TRANSFORM.peak ? p / TRANSFORM.peak : 1 - (p - TRANSFORM.peak) / (1 - TRANSFORM.peak);
+    s.setScale(1 + 0.08 * charge + 0.03 * Math.sin(t / 40) * charge);
+    this.halo
+      .setPosition(s.x + (Math.random() - 0.5) * 4 * charge, s.y + (Math.random() - 0.5) * 4 * charge)
+      .setScale(1.08 + 0.15 * charge)
+      .setAlpha(0.3 + 0.6 * charge);
+    const heal = Phaser.Math.Clamp((p - TRANSFORM.healFrom) / (TRANSFORM.healTo - TRANSFORM.healFrom), 0, 1);
+    this.foe.hp = stance.fromHp + (healedHp(this.def, stance.fromHp) - stance.fromHp) * Phaser.Math.Easing.Sine.InOut(heal);
+    this.shockwave(t);
+    const peakMs = total * TRANSFORM.peak;
+    if (before < peakMs && t >= peakMs) this.reveal();
+    if (stance.msLeft <= 0) this.finishTransform(stance.fromHp);
+  }
+
+  // An expanding ring from the boss that wipes every enemy bullet it passes.
+  private shockwave(t: number): void {
+    const p = t / TRANSFORM.shockMs;
+    if (p >= 1) return;
+    const { x, y } = this.foe.sprite;
+    const r = TRANSFORM.shockReach * Phaser.Math.Easing.Quadratic.Out(p);
+    const g = this.gfx;
+    g.lineStyle(10, this.look.glow, 0.35 * (1 - p)).strokeCircle(x, y, r);
+    g.lineStyle(3, COLORS.white, 0.9 * (1 - p)).strokeCircle(x, y, r);
+    for (const b of this.world.enemyShots.list) {
+      if (!b.alive || (b.sprite.x - x) ** 2 + (b.sprite.y - y) ** 2 > r * r) continue;
+      this.world.enemyShots.kill(b);
+      this.world.fx.spark(b.sprite.x, b.sprite.y, 2);
+    }
+  }
+
+  // The peak: the second form appears through a white flash and the HUD takes its name.
+  private reveal(): void {
     this.form = 1;
+    const { scene, fx } = this.world;
+    const { texture, name } = this.current;
+    const s = this.foe.sprite;
+    fx.flash(320, 255, 255, 255);
+    fx.shake(0.02, 500);
+    fx.explode(s.x, s.y, 'big');
+    sfx('boom');
+    const next = scene.add.image(s.x, s.y, texture).setDepth(DEPTH.foe).setAlpha(0).setScale(s.scale);
+    this.halo.setTexture(texture).setTint(this.look.glow);
+    scene.tweens.add({ targets: s, alpha: 0, duration: TRANSFORM.crossfadeMs });
+    scene.tweens.add({
+      targets: next,
+      alpha: 1,
+      duration: TRANSFORM.crossfadeMs,
+      onUpdate: () => next.setPosition(s.x, s.y).setScale(s.scale),
+      onComplete: () => {
+        s.setTexture(texture).setAlpha(1);
+        next.destroy();
+      },
+    });
+    banner(scene, name, this.look.subtitle, css(this.look.glow), 1000, 26);
+  }
+
+  private finishTransform(fromHp: number): void {
+    this.foe.sprite.setScale(1);
+    this.halo.setScale(1.08);
+    this.foe.hp = healedHp(this.def, fromHp);
     this.phase = bossPhaseAt(this.def, this.form, this.hpRatio);
+    this.patternIndex = 0;
     this.stance = { kind: 'fighting', gapMs: 900 };
-    this.restartCycle();
-    this.phaseFx();
     this.summon(this.def.transform.summon);
+  }
+
+  private deflect(): true {
+    this.deflected++;
+    const now = this.world.scene.time.now;
+    if (now - this.lastImmuneFloatAt > IMMUNE_FLOAT_GAP_MS) {
+      this.lastImmuneFloatAt = now;
+      const s = this.foe.sprite;
+      this.world.fx.float(s.x + (Math.random() - 0.5) * 60, s.y + s.displayHeight * 0.3, 'IMMUNE', COLORS.steel);
+    }
+    return true;
+  }
+
+  // Stops every attack in flight: pending bursts and beams.
+  private cancelAttacks(): void {
+    for (const t of this.timers) t.remove();
+    this.timers = [];
+    this.sweep = { kind: 'idle' };
   }
 
   // Returns the gap before the next pattern.
@@ -257,7 +366,7 @@ export class BossFight implements Encounter {
   }
 
   private updateSweep(dtMs: number): void {
-    const g = this.gfx.clear();
+    const g = this.gfx;
     const s = this.sweep;
     if (s.kind === 'idle') return;
     const from = this.muzzle;
@@ -296,9 +405,8 @@ export class BossFight implements Encounter {
     if (this.stance.kind === 'dead') return;
     this.stance = { kind: 'dead' };
     this.halo.setVisible(false);
-    this.sweep = { kind: 'idle' };
+    this.cancelAttacks();
     this.gfx.clear();
-    for (const t of this.timers) t.remove();
     for (const m of this.minions) this.world.damage(m.foe, m.foe.hp, 'bullet');
     const { x, y } = this.foe.sprite;
     for (let i = 0; i < 6; i++)

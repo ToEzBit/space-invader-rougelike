@@ -44,47 +44,50 @@ export type FormIndex = 0 | 1;
 
 export const BOSSES: Record<BossId, BossDef> = {
   crimsonSeraph: {
-    hp: 420,
+    hp: 620,
     forms: [
       {
         name: 'Crimson Seraph',
         texture: 'crimsonSeraph',
-        phases: [{ hpRatio: 1, patterns: ['fanSpread', 'aimedBurst'], patternGapMs: 1800 }],
+        phases: [
+          { hpRatio: 1, patterns: ['fanSpread', 'aimedBurst'], patternGapMs: 1700 },
+          { hpRatio: 0.75, patterns: ['fanSpread', 'summonMinions', 'aimedBurst'], patternGapMs: 1400 },
+        ],
         bulletSpeedScale: 1,
         minionKind: 'drone',
       },
       {
-        name: 'Crimson Seraph',
-        texture: 'crimsonSeraph',
-        phases: [{ hpRatio: 1, patterns: ['fanSpread', 'summonMinions', 'aimedBurst'], patternGapMs: 1400 }],
-        bulletSpeedScale: 1,
+        name: 'Crimson Seraph · Ascended',
+        texture: 'crimsonSeraphAscended',
+        phases: [{ hpRatio: 1, patterns: ['fanSpread', 'aimedBurst'], patternGapMs: 1200 }],
+        bulletSpeedScale: 1.15,
         minionKind: 'drone',
       },
     ],
-    transform: { atHpRatio: 0.5, healRatio: 0, summon: 0, durationMs: 0 },
+    transform: { atHpRatio: 0.5, healRatio: 0.2, summon: 4, durationMs: 2200 },
   },
   voidEmpress: {
-    hp: 1100,
+    hp: 1500,
     forms: [
       {
         name: 'Void Empress',
         texture: 'voidEmpress',
         phases: [
           { hpRatio: 1, patterns: ['spiral', 'aimedBurst'], patternGapMs: 1600 },
-          { hpRatio: 0.66, patterns: ['sweepLaser', 'spiral', 'summonMinions'], patternGapMs: 1300 },
+          { hpRatio: 0.75, patterns: ['sweepLaser', 'spiral', 'summonMinions'], patternGapMs: 1300 },
         ],
         bulletSpeedScale: 1,
         minionKind: 'drone',
       },
       {
-        name: 'Void Empress',
-        texture: 'voidEmpress',
+        name: 'Void Empress · Eclipse',
+        texture: 'voidEmpressEclipse',
         phases: [{ hpRatio: 1, patterns: ['bulletRain', 'sweepLaser', 'spiral', 'aimedBurst'], patternGapMs: 1000 }],
-        bulletSpeedScale: 1,
-        minionKind: 'drone',
+        bulletSpeedScale: 1.15,
+        minionKind: 'gunner',
       },
     ],
-    transform: { atHpRatio: 0.33, healRatio: 0, summon: 0, durationMs: 0 },
+    transform: { atHpRatio: 0.5, healRatio: 0.2, summon: 3, durationMs: 2500 },
   },
 };
 
@@ -141,4 +144,9 @@ export function stageDef(stage: number): StageDef {
   const def = STAGES[stage - 1];
   if (!def) throw new Error(`No stage ${stage}`);
   return def;
+}
+
+// HP the boss regains over its transformation, capped at its full HP.
+export function healedHp(def: BossDef, hpAtTransform: number): number {
+  return Math.min(def.hp, hpAtTransform + def.hp * def.transform.healRatio);
 }

@@ -102,8 +102,10 @@ export class Hud {
     const w = VIEW.w - 120;
     g.fillStyle(0x0d0b26, 0.9).fillRect(x - 2, 62, w + 4, 12);
     g.fillStyle(0x3a0a1a, 1).fillRect(x, 64, w, 8);
-    g.fillStyle(COLORS.red, 1).fillRect(x, 64, w * this.boss.hpRatio, 8);
-    g.fillStyle(COLORS.pink, 1).fillRect(x, 64, w * this.boss.hpRatio, 2);
+    // The HP a transformation heals back climbs in green.
+    const healing = this.boss.stanceKind === 'transforming';
+    g.fillStyle(healing ? COLORS.green : COLORS.red, 1).fillRect(x, 64, w * this.boss.hpRatio, 8);
+    g.fillStyle(healing ? COLORS.white : COLORS.pink, 1).fillRect(x, 64, w * this.boss.hpRatio, 2);
     for (const ratio of bossTicks(this.boss)) g.fillStyle(COLORS.yellow, 1).fillRect(x + w * ratio - 1, 61, 2, 14);
   }
 }
