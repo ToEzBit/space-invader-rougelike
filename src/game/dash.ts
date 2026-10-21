@@ -4,6 +4,7 @@ import { COLORS } from '../art/palette';
 import { rechargeTick, type Charges } from './charges';
 import { circlesOverlap } from './geometry';
 import { DASH_APEX_Y, DEPTH, PLAYER_Y } from './layout';
+import { chargesMeter, type SkillMeter } from './skills';
 import type { Foe, World } from './world';
 
 const SHOCK_DAMAGE_SCALE = 0.5;
@@ -11,8 +12,6 @@ const GHOST_EVERY_MS = 28;
 
 // The ship flies straight up through the formation and back down; each foe is hit once per dash.
 type DashState = { kind: 'locked' } | { kind: 'idle' } | { kind: 'active'; leg: 'up' | 'down'; hit: Set<Foe>; ghostMs: number };
-
-export type DashMeter = { ratio: number; charges: number; max: number };
 
 export class Dash {
   private state: DashState;
@@ -30,11 +29,10 @@ export class Dash {
     return this.state.kind === 'active';
   }
 
-  meter(): DashMeter | null {
+  meter(): SkillMeter | null {
     if (this.state.kind === 'locked') return null;
     const { dashCharges, dashCooldownMs } = this.world.stats;
-    const ratio = this.charges.count >= dashCharges ? 1 : 1 - this.charges.msToNext / dashCooldownMs;
-    return { ratio, charges: this.charges.count, max: dashCharges };
+    return chargesMeter(this.charges, dashCharges, dashCooldownMs);
   }
 
   update(dtMs: number, pressed: boolean): void {

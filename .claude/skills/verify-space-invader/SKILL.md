@@ -35,12 +35,12 @@ Read-only. Fails with a `DOCTOR FAIL:` reason unless all hold: the recorded pid 
 .claude/skills/verify-space-invader/scripts/drive.mjs <run-id> <journey...|all> [--headed]
 ```
 
-Journeys: `doctor`, `title-start`, `combat`, `shop`, `perk-mechanics`, `bosses`, `run-end`. `all` runs every journey except `doctor`. Each journey gets a fresh browser context at 600x800. Prints `PASS <journey>` or `FAIL <journey>: <reason>` and exits 1 if any failed. The feature map in `features/` says what each journey proves.
+Journeys: `doctor`, `title-start`, `combat`, `shop`, `perk-mechanics`, `skill-hud`, `bosses`, `run-end`. `all` runs every journey except `doctor`. Each journey gets a fresh browser context at 600x800. Prints `PASS <journey>` or `FAIL <journey>: <reason>` and exits 1 if any failed. The feature map in `features/` says what each journey proves.
 
 Stable handles (there are no selectors on a canvas):
 
 - Keys: `ArrowLeft`/`ArrowRight` or `a`/`d` move, `Shift` dashes once unlocked, `Enter` starts from Title, continues from Shop, and restarts from End. In the shop `1`/`2`/`3` buy a card, `r` refreshes. There is no fire key. The gun, and the laser once unlocked, fire on their own while `life` is `fighting`, never during `intro` or `ending`.
-- State: `window.__game.state()` returns `{ scenes, run, ... }`. `scenes` holds the active scene keys (`Boot`, `Title`, `Stage`, `Shop`, `End`). `run` is the `RunState` from `src/core/run.ts` (`stage`, `money`, `hp`, `perks`, `phase.kind`, `phase.shop`). In `Stage` it adds `life` (`intro|fighting|ending|leaving`), `foes`, `coins`, `player {x,y}`, `laserFiring`, `dashing`, `boss {name,hpRatio,phase}`. In `Shop` it adds `cards` (perk id per slot, `null` when sold out).
+- State: `window.__game.state()` returns `{ scenes, run, ... }`. `scenes` holds the active scene keys (`Boot`, `Title`, `Stage`, `Shop`, `End`). `run` is the `RunState` from `src/core/run.ts` (`stage`, `money`, `hp`, `perks`, `phase.kind`, `phase.shop`). In `Stage` it adds `life` (`intro|fighting|ending|leaving`), `foes`, `coins`, `player {x,y}`, `laserFiring`, `dashing`, `boss {name,hpRatio,phase}`, `skills` (`{ id, kind, msLeft? }` per unlocked HUD skill slot). In `Shop` it adds `cards` (perk id per slot, `null` when sold out).
 - Precondition shortcuts: `__game.start(stage, perks?, money?)` jumps to a stage with a loadout, `kill()` kills everything on the current stage, `hurt()` forces one hit, `bossHp(ratio)` sets boss HP, `pause()`/`resume()` freeze the stage for a crisp screenshot.
 - Expected values come from the game's own modules. The page can `import('/src/core/run.ts')` under Vite dev, and `drive.mjs`'s `h.core(expr)` uses that for `refreshCost` and `offerCost`.
 
@@ -76,4 +76,5 @@ Runs are isolated by run id, a free port and a fresh browser context, so several
 - Boss phases advance only after the boss finishes its entrance. The Void Empress takes several seconds to arrive, so wait up to 10s for a phase change after `bossHp`.
 - Shop purchases fire a full-screen flash for about half a second. Wait before a screenshot.
 - `hurt()` forces past i-frames and the Kinetic Barrier shield, so it cannot prove shields or i-frames.
+- Vite watches the whole repo. A `tsconfig.json` written under it, for example by an agent worktree in `.claude/worktrees/`, full-reloads the page mid-journey, which then fails on a missing state field. Rerun the journey.
 - The stage intro banner lasts 1.2s and keeps fading for a moment after `life` turns `fighting`, so early screenshots show a faint `STAGE n` title.

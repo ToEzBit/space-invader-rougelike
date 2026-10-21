@@ -8,7 +8,7 @@ import { createEncounter, type Encounter } from '../game/encounter';
 import { World } from '../game/world';
 import { Backdrop } from '../ui/backdrop';
 import { banner } from '../ui/banner';
-import { Hud } from '../ui/hud';
+import { Hud, SKILL_SLOTS } from '../ui/hud';
 import { fitCamera } from '../view';
 import { goTo, type RunData } from './flow';
 
@@ -67,6 +67,10 @@ export class StageScene extends Phaser.Scene {
         laserFiring: this.world.laser.firing,
         dashing: this.world.dash.active,
         boss: this.encounter.boss && { name: this.encounter.boss.name, hpRatio: this.encounter.boss.hpRatio, phase: this.encounter.boss.phase },
+        skills: SKILL_SLOTS.flatMap(({ id, meter }) => {
+          const m = meter(this.world);
+          return m ? [{ id, kind: m.kind, ...(m.kind === 'cooling' && { msLeft: m.msLeft }) }] : [];
+        }),
       }),
       kill: () => this.world.killAll(),
       hurt: () => this.world.hurtPlayer(true),

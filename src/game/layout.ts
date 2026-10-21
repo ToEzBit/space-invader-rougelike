@@ -9,6 +9,8 @@ export const DASH_APEX_Y = 70;
 export const DEPTH = {
   foe: 10,
   playerShot: 14,
+  // Under enemy shots and the ship, so the bottom-left skill tray never hides either.
+  skillTray: 18,
   enemyShot: 20,
   beam: 24,
   player: 30,

@@ -58,9 +58,16 @@ function harness(page, outDir) {
     return after;
   }
 
-  async function shot(name) {
+  // `region` is in 480x640 world units and is mapped onto the scaled canvas.
+  async function shot(name, region) {
     const file = `${String(++shotNo).padStart(2, '0')}-${name}.png`;
-    await page.screenshot({ path: join(outDir, file) });
+    let clip;
+    if (region) {
+      const box = await page.locator('canvas').boundingBox();
+      const k = box.width / 480;
+      clip = { x: box.x + region.x * k, y: box.y + region.y * k, width: region.w * k, height: region.h * k };
+    }
+    await page.screenshot({ path: join(outDir, file), clip });
     log.steps.push({ screenshot: file, state: summarize(await state()) });
   }
 
@@ -198,6 +205,77 @@ const JOURNEYS = {
     h.check('dash survived without HP loss', back.run.hp === d0.run.hp, { hp: back.run.hp });
   },
 
+  async 'skill-hud'(h) {
+    const TRAY = { x: 0, y: 570, w: 180, h: 70 };
+    const slot = (s, id) => s.skills.find((k) => k.id === id);
+    const pausedShots = async (name) => {
+      await h.game('pause');
+      await h.shot(name);
+      await h.shot(`${name}-closeup`, TRAY);
+      await h.game('resume');
+    };
+
+    const d0 = await h.startAt(3, { afterburnerDash: 1 });
+    h.check('only the dash slot shows with Afterburner Dash', d0.skills.length === 1 && slot(d0, 'dash')?.kind === 'ready', { skills: d0.skills });
+    const cooldownMs = await h.core('perks.deriveStats({ afterburnerDash: 1 }).dashCooldownMs');
+    await h.step('press Shift', () => h.page.keyboard.press('Shift'));
+    const c1 = await h.waitFor('dash cooling', (x) => slot(x, 'dash')?.kind === 'cooling', 1000);
+    h.check('dash slot cools down with time left after Shift', slot(c1, 'dash').msLeft > 0 && slot(c1, 'dash').msLeft <= cooldownMs, { dash: slot(c1, 'dash'), cooldownMs });
+    await sleep(500);
+    const c2 = await h.state();
+    h.check('dash countdown ticks down', slot(c2, 'dash').kind === 'cooling' && slot(c2, 'dash').msLeft < slot(c1, 'dash').msLeft, { first: slot(c1, 'dash'), second: slot(c2, 'dash') });
+    await pausedShots('dash-cooling-early');
+    const late = await h.waitFor('dash cooldown past half', (x) => slot(x, 'dash')?.kind === 'cooling' && slot(x, 'dash').msLeft < cooldownMs * 0.35, cooldownMs);
+    await pausedShots('dash-cooling-late');
+    const ready = await h.waitFor('dash ready again', (x) => slot(x, 'dash')?.kind === 'ready', slot(late, 'dash').msLeft + 1000);
+    await h.game('pause');
+    await h.shot('dash-ready-closeup', TRAY);
+    await h.game('resume');
+    h.check('dash slot returns to ready after the cooldown', slot(ready, 'dash').kind === 'ready', { skills: ready.skills });
+    await h.step('press Shift, then hold ArrowLeft to the wall', async () => {
+      await h.page.keyboard.press('Shift');
+      await sleep(1300);
+      await h.hold('ArrowLeft', 1500);
+    });
+    await pausedShots('ship-left-wall');
+
+    await h.startAt(3, { afterburnerDash: 1, twinComet: 1 });
+    await h.step('press Shift with two charges', () => h.page.keyboard.press('Shift'));
+    await h.waitFor('first dash finished', (x) => !x.dashing, 4000);
+    await sleep(1500);
+    const spare = await h.state();
+    h.check('a spare charge keeps the dash slot ready', slot(spare, 'dash').kind === 'ready', { skills: spare.skills });
+    await pausedShots('dash-spare-charge');
+    await h.step('press Shift on the last charge', () => h.page.keyboard.press('Shift'));
+    const empty = await h.waitFor('dash cooling on the last charge', (x) => slot(x, 'dash')?.kind === 'cooling', 1000);
+    h.check('spending the last charge starts the cooldown', slot(empty, 'dash').msLeft > 0, { dash: slot(empty, 'dash') });
+
+    await h.startAt(3, { prismLance: 1, orbitalCannon: 1 });
+    const seen = [];
+    let shotActive = false;
+    const end = Date.now() + 6000;
+    while (Date.now() < end) {
+      const s = await h.state();
+      const kind = slot(s, 'laser')?.kind;
+      if (seen.at(-1)?.laser !== kind) seen.push({ laser: kind, orbital: slot(s, 'orbital')?.kind, ids: s.skills.map((k) => k.id) });
+      if (kind === 'active' && !shotActive) {
+        shotActive = true;
+        await pausedShots('laser-active');
+      }
+      if (kind === 'cooling' && seen.some((x) => x.laser === 'active')) break;
+      await sleep(60);
+    }
+    h.check('laser and orbital slots both show', seen.length > 0 && seen.every((x) => x.ids.includes('laser') && x.ids.includes('orbital') && !x.ids.includes('dash')), { seen });
+    const activeAt = seen.findIndex((x) => x.laser === 'active');
+    h.check('laser slot goes active then cooling', activeAt >= 0 && seen.slice(activeAt).some((x) => x.laser === 'cooling'), { seen });
+    await sleep(600);
+    await pausedShots('laser-orbital-cooling');
+
+    const none = await h.startAt(1, {});
+    h.check('no skill slots without skill perks', Array.isArray(none.skills) && none.skills.length === 0, { skills: none.skills });
+    await h.shot('no-skills-closeup', TRAY);
+  },
+
   async bosses(h) {
     const b0 = await h.startAt(5);
     h.check('stage 5 is Crimson Seraph at full HP', b0.boss?.name === 'Crimson Seraph' && b0.boss.hpRatio === 1 && b0.boss.phase === 0, { boss: b0.boss });
@@ -239,6 +317,9 @@ const JOURNEYS = {
   },
 };
 
+// Close-ups of small HUD art need the canvas's full backing resolution.
+const CONTEXT = { 'skill-hud': { deviceScaleFactor: 2 } };
+
 const selected = names.includes('all') ? Object.keys(JOURNEYS).filter((n) => n !== 'doctor') : names;
 const unknown = selected.filter((n) => !JOURNEYS[n]);
 if (unknown.length) {
@@ -252,7 +333,7 @@ for (const name of selected) {
   const outDir = join(ROOT, '.verify', runId, 'evidence', name);
   rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
-  const context = await browser.newContext({ viewport: { width: 600, height: 800 } });
+  const context = await browser.newContext({ viewport: { width: 600, height: 800 }, ...CONTEXT[name] });
   const page = await context.newPage();
   const h = harness(page, outDir);
   let error = null;

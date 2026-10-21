@@ -28,5 +28,6 @@ This directory is the maintained source for verifying what a player can do in th
 - [Stage combat](./combat.md) covers moving, shooting, kills and coins.
 - [Perk shop](./shop.md) covers offers, refresh, buying, sold-out cards and continuing.
 - [Laser and dash perks](./perk-mechanics.md) covers the Prism Lance beam and the Afterburner Dash, locked and unlocked.
+- [Skill cooldown tray](./skill-hud.md) covers the bottom-left skill icons, the clockwise cooldown sweep and countdown, dash charges and the laser cycle.
 - [Boss fights](./bosses.md) covers Crimson Seraph and Void Empress, damage and phases.
 - [Run end](./run-end.md) covers victory, defeat and restarting.

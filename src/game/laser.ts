@@ -4,6 +4,7 @@ import { COLORS } from '../art/palette';
 import { VIEW } from '../view';
 import { distanceToSegment, rayEnd, type Point } from './geometry';
 import { DEPTH } from './layout';
+import { cooldownMeter, READY, type SkillMeter } from './skills';
 import { densestColumn } from './targeting';
 import type { World } from './world';
 
@@ -25,8 +26,6 @@ type OrbitalState = { kind: 'locked' } | { kind: 'charging'; msLeft: number } | 
 
 export type Beam = { from: Point; to: Point; width: number; dpsScale: number };
 
-export type Meter = { ratio: number; ready: boolean; active: boolean };
-
 export class Laser {
   private state: LaserState;
   private orbital: OrbitalState;
@@ -45,18 +44,31 @@ export class Laser {
     return this.state.kind === 'firing';
   }
 
-  meter(): Meter | null {
+  meter(): SkillMeter | null {
     const { stats } = this.world;
     const s = this.state;
     switch (s.kind) {
       case 'locked':
         return null;
       case 'ready':
-        return { ratio: 1, ready: true, active: false };
+        return READY;
       case 'firing':
-        return { ratio: s.msLeft / stats.laserDurationMs, ready: false, active: true };
+        return { kind: 'active', ratioLeft: s.msLeft / stats.laserDurationMs };
       case 'charging':
-        return { ratio: 1 - s.msLeft / stats.laserCooldownMs, ready: false, active: false };
+        return cooldownMeter(s.msLeft, stats.laserCooldownMs);
+    }
+  }
+
+  // A charged cannon with no target on screen keeps waiting, so it reads as ready.
+  orbitalMeter(): SkillMeter | null {
+    const o = this.orbital;
+    switch (o.kind) {
+      case 'locked':
+        return null;
+      case 'charging':
+        return o.msLeft > 0 ? cooldownMeter(o.msLeft, this.world.stats.orbitalCooldownMs) : READY;
+      case 'aiming':
+        return { kind: 'active', ratioLeft: o.msLeft / ORBITAL_AIM_MS };
     }
   }
 

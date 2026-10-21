@@ -6,10 +6,8 @@ Two perk branches add new mechanics instead of stat bumps. Prism Lance unlocks a
 
 - `laser-intro` keeps the beam and the gun silent while the intro banner is up.
 - `laser-fire` fires the beam on its own with Prism Lance owned and kills invaders in its column.
-- `laser-meter` shows the LASER cooldown meter in the HUD.
 - `dash-locked` ignores Shift without Afterburner Dash.
 - `dash-fly` launches the ship up and returns it to its row without HP loss.
-- `dash-meter` shows the DASH meter and charge pips.
 
 ## How to get to it (user POV)
 
@@ -27,7 +25,7 @@ Preconditions:
 - **Laser.** Press nothing once `life` is `fighting`. `laserFiring` becomes true within 3s and `foes` drops.
 - **Dash locked.** Press `Shift` on stage 1 with no perks. `dashing` stays false and `player.y` is unchanged.
 - **Dash.** Press `Shift` on stage 3 with Afterburner Dash. `dashing` becomes true with `player.y` above the start row, then returns false with `player.y` back on the row and `run.hp` unchanged.
-- **Proof.** `perk-mechanics/01-laser.png` shows the beam and the LASER meter. `02-dash.png` shows the ship lifting off with its afterimage and the DASH meter.
+- **Proof.** `perk-mechanics/01-laser.png` shows the beam. `02-dash.png` shows the ship lifting off with its afterimage. The HUD skill slots for both are covered by [skill-hud](./skill-hud.md).
 
 ## Gotchas
 

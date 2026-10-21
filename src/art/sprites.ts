@@ -136,6 +136,7 @@ const HEART_EMPTY = sym(['.kk.', 'kKKk', 'kKKK', 'kKKK', '.kKK', '..kK', '...k']
 const ICON_RAPID = sym(['...k', '..kw', '..kc', 'k.kc', 'w.kc', 'c.kC', 'c..k', 'C...']);
 const ICON_LASER = sym(['..kw', '..kc', '..kc', '.kcw', '.kcw', 'kcww', 'kcww', '.kcw']);
 const ICON_RAM = sym(['...k', '..ko', '.koy', '.koy', 'koyw', 'koyw', '.kOo', '..kO']);
+const ICON_ORBITAL = sym(['CCsw', '.Csy', '...y', '..yw', 'r.yw', 'r.yw', 'r.yw', 'rryw']);
 
 const SPARK = ['w'];
 const PIXEL = ['ww', 'ww'];
@@ -167,6 +168,7 @@ export const SPRITES = {
   iconRapid: ICON_RAPID,
   iconLaser: ICON_LASER,
   iconRam: ICON_RAM,
+  iconOrbital: ICON_ORBITAL,
   spark: SPARK,
   pixel: PIXEL,
 } satisfies Record<string, Grid>;
