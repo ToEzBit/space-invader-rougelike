@@ -21,7 +21,7 @@ export const CHARACTERS = [
   { key: 'crimsonSeraph', raw: 'crimsonSeraph-v2', box: [126, 104], scale: 1, colors: 28, kin: 48, textureKeys: ['crimsonSeraph'] },
   { key: 'voidEmpress', raw: 'voidEmpress-v3', box: [126, 116], scale: 1, colors: 28, textureKeys: ['voidEmpress'] },
   { key: 'crimsonSeraphAscended', form: 'crimsonSeraph', raw: 'crimsonSeraphAscended-v2', box: [132, 128], scale: 1, colors: 28, kin: 0, textureKeys: ['crimsonSeraphAscended'] },
-  { key: 'voidEmpressEclipse', form: 'voidEmpress', raw: 'voidEmpressEclipse-v1', box: [130, 122], scale: 1, colors: 28, textureKeys: ['voidEmpressEclipse'] },
+  { key: 'voidEmpressEclipse', form: 'voidEmpress', raw: 'voidEmpressEclipse-v2', box: [132, 128], scale: 1, colors: 28, textureKeys: ['voidEmpressEclipse'] },
 ];
 const BOSS_KEYS = ['crimsonSeraph', 'voidEmpress'];
 const CANDIDATE_SCALES = [1, 2];
