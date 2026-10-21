@@ -4,14 +4,16 @@ export type Controls = {
   left: boolean;
   right: boolean;
   fire: boolean;
-  // True only on the frame the dash key goes down.
+  // True once per press of the dash key.
   dash: boolean;
 };
 
 const K = Phaser.Input.Keyboard.KeyCodes;
 
 export class KeyboardControls {
-  private readonly keys: Record<'left' | 'right' | 'a' | 'd' | 'fire' | 'dash', Phaser.Input.Keyboard.Key> | null;
+  private readonly keys: Record<'left' | 'right' | 'a' | 'd' | 'fire', Phaser.Input.Keyboard.Key> | null;
+  // Latched from the keydown event: a tap shorter than a frame clears Key's own justDown flag.
+  private dashQueued = false;
 
   constructor(scene: Phaser.Scene) {
     const kb = scene.input.keyboard;
@@ -21,18 +23,17 @@ export class KeyboardControls {
       a: kb.addKey(K.A),
       d: kb.addKey(K.D),
       fire: kb.addKey(K.SPACE),
-      dash: kb.addKey(K.SHIFT),
     };
+    kb?.on('keydown-SHIFT', (e: KeyboardEvent) => {
+      if (!e.repeat) this.dashQueued = true;
+    });
   }
 
   read(): Controls {
     const k = this.keys;
-    if (!k) return { left: false, right: false, fire: false, dash: false };
-    return {
-      left: k.left.isDown || k.a.isDown,
-      right: k.right.isDown || k.d.isDown,
-      fire: k.fire.isDown,
-      dash: Phaser.Input.Keyboard.JustDown(k.dash),
-    };
+    const dash = this.dashQueued;
+    this.dashQueued = false;
+    if (!k) return { left: false, right: false, fire: false, dash };
+    return { left: k.left.isDown || k.a.isDown, right: k.right.isDown || k.d.isDown, fire: k.fire.isDown, dash };
   }
 }

@@ -14,6 +14,7 @@ export class Hud {
   private shownHp = '';
   private readonly meters: Phaser.GameObjects.Graphics;
   private readonly laserLabel: Phaser.GameObjects.Text | null;
+  private readonly dashLabel: Phaser.GameObjects.Text | null;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -27,6 +28,9 @@ export class Hud {
     this.money = label(scene, MONEY_ANCHOR.x - 14, 7, '0', { size: 14, bold: true, align: 'right' }).setDepth(d);
     this.meters = scene.add.graphics().setDepth(d);
     this.laserLabel = world.laser.meter() ? label(scene, METER.laserX, METER.y - 15, 'LASER', { size: 10, bold: true, color: css(COLORS.cyan) }).setDepth(d) : null;
+    this.dashLabel = world.dash.meter()
+      ? label(scene, METER.dashX + METER.w, METER.y - 15, 'DASH [SHIFT]', { size: 10, bold: true, color: css(COLORS.pink), align: 'right' }).setDepth(d)
+      : null;
   }
 
   update(): void {
@@ -55,6 +59,12 @@ export class Hud {
       const color = laser.active ? COLORS.white : laser.ready ? COLORS.cyan : COLORS.azure;
       bar(g, METER.laserX, METER.y, METER.w, laser.ratio, color);
       this.laserLabel?.setText(laser.ready ? 'LASER READY' : laser.active ? 'LASER!!' : 'LASER');
+    }
+    const dash = this.world.dash.meter();
+    if (dash) {
+      bar(g, METER.dashX, METER.y, METER.w, dash.ratio, dash.charges > 0 ? COLORS.pink : COLORS.magenta);
+      for (let i = 0; i < dash.max; i++) g.fillStyle(i < dash.charges ? COLORS.yellow : 0x2a2650, 1).fillRect(METER.dashX + i * 12, METER.y - 12, 8, 4);
+      this.dashLabel?.setText(dash.charges > 0 ? 'DASH [SHIFT]' : 'DASH');
     }
   }
 }

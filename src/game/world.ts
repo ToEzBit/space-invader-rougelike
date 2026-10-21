@@ -4,6 +4,7 @@ import { heal, takeHit, type RunState } from '../core/run';
 import type { ShipStats } from '../core/stats';
 import type { SpriteKey } from '../art/sprites';
 import { Bullets } from './bullets';
+import { Dash } from './dash';
 import { Fx } from './fx';
 import { circlesOverlap } from './geometry';
 import { Gun } from './gun';
@@ -41,6 +42,7 @@ export class World {
   readonly player: Player;
   readonly gun: Gun;
   readonly laser: Laser;
+  readonly dash: Dash;
   // Coins earned this stage; paid out by clearStage.
   coins = 0;
   // Source-specific perks hook kills here (laser refunds, dash lifesteal).
@@ -58,6 +60,7 @@ export class World {
     this.player = new Player(this);
     this.gun = new Gun(this);
     this.laser = new Laser(this);
+    this.dash = new Dash(this);
   }
 
   addFoe(texture: SpriteKey, x: number, y: number, hp: number, coin: number, size: Foe['size'] = 'small'): Foe {
@@ -92,7 +95,7 @@ export class World {
   hurtPlayer(force = false): void {
     const p = this.player;
     if (this.run.phase.kind !== 'playing') return;
-    if (!force && p.invulnMs > 0) return;
+    if (!force && (p.invulnMs > 0 || this.dash.active)) return;
     if (!force && p.shieldMs > 0) return p.breakShield();
     this.run = takeHit(this.run, 1);
     p.onHit();
@@ -108,10 +111,11 @@ export class World {
 
   update(dtMs: number, input: Controls): void {
     const dt = dtMs / 1000;
-    this.player.steer(input, dt);
+    if (!this.dash.active) this.player.steer(input, dt);
     this.player.update(dtMs);
     this.gun.update(dtMs, input.fire);
     this.laser.update(dtMs, input.fire);
+    this.dash.update(dtMs, input.dash);
     this.playerShots.update(dt, this.foes);
     this.enemyShots.update(dt, this.foes);
     this.tickFoes(dtMs);
@@ -141,7 +145,7 @@ export class World {
       }
     }
     for (const foe of this.foes) {
-      if (!foe.dead && circlesOverlap(foe.sprite, foe.radius, p, p.bodyRadius)) {
+      if (!foe.dead && !this.dash.active && circlesOverlap(foe.sprite, foe.radius, p, p.bodyRadius)) {
         this.hurtPlayer();
         if (foe.size === 'small') this.damage(foe, foe.hp, 'collision');
       }
