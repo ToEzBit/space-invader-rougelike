@@ -17,7 +17,11 @@ const OUTRO_MS = 1900;
 const MAX_FRAME_MS = 50;
 
 // Only the exit from 'fighting' produces the next RunState, so a stage ends exactly once.
-type Life = { kind: 'intro'; msLeft: number } | { kind: 'fighting' } | { kind: 'ending'; msLeft: number; next: RunState };
+type Life =
+  | { kind: 'intro'; msLeft: number }
+  | { kind: 'fighting' }
+  | { kind: 'ending'; msLeft: number; next: RunState }
+  | { kind: 'leaving' };
 
 export class StageScene extends Phaser.Scene {
   private run!: RunState;
@@ -80,7 +84,12 @@ export class StageScene extends Phaser.Scene {
         break;
       case 'ending':
         this.world.update(dtMs, { ...input, fire: false, dash: false });
-        if ((life.msLeft -= dtMs) <= 0) goTo(this, life.next);
+        if ((life.msLeft -= dtMs) <= 0) {
+          this.life = { kind: 'leaving' };
+          goTo(this, life.next);
+        }
+        break;
+      case 'leaving':
         break;
     }
     this.hud.update();
