@@ -7,6 +7,7 @@ import { Bullets } from './bullets';
 import { Fx } from './fx';
 import { circlesOverlap } from './geometry';
 import { Gun } from './gun';
+import { Laser } from './laser';
 import { DEPTH } from './layout';
 import type { Controls } from './controls';
 import { Player } from './player';
@@ -39,6 +40,7 @@ export class World {
   readonly enemyShots: Bullets;
   readonly player: Player;
   readonly gun: Gun;
+  readonly laser: Laser;
   // Coins earned this stage; paid out by clearStage.
   coins = 0;
   // Source-specific perks hook kills here (laser refunds, dash lifesteal).
@@ -55,6 +57,7 @@ export class World {
     this.enemyShots = new Bullets(scene, DEPTH.enemyShot);
     this.player = new Player(this);
     this.gun = new Gun(this);
+    this.laser = new Laser(this);
   }
 
   addFoe(texture: SpriteKey, x: number, y: number, hp: number, coin: number, size: Foe['size'] = 'small'): Foe {
@@ -108,6 +111,7 @@ export class World {
     this.player.steer(input, dt);
     this.player.update(dtMs);
     this.gun.update(dtMs, input.fire);
+    this.laser.update(dtMs, input.fire);
     this.playerShots.update(dt, this.foes);
     this.enemyShots.update(dt, this.foes);
     this.tickFoes(dtMs);
