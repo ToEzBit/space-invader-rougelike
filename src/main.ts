@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
+import { StageScene } from './scenes/StageScene';
 import { TitleScene } from './scenes/TitleScene';
 import { installDebug } from './debug';
 import { RENDER_SCALE, VIEW } from './view';
@@ -12,7 +13,7 @@ const game = new Phaser.Game({
   backgroundColor: '#07061a',
   pixelArt: true,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-  scene: [BootScene, TitleScene],
+  scene: [BootScene, TitleScene, StageScene],
 });
 
 installDebug(game);

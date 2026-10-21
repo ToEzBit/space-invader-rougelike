@@ -1,0 +1,71 @@
+import Phaser from 'phaser';
+import { OVERDRIVE_HOLD_MS } from '../core/perks';
+import { rayEnd } from './geometry';
+import { DEPTH } from './layout';
+import { fireInterval, volley, type Barrel } from './volley';
+import type { World } from './world';
+
+const MISSILE_SPEED = 320;
+const DRONE_OFFSETS = [-36, 36] as const;
+
+export class Gun {
+  private cooldownMs = 0;
+  private heldMs = 0;
+  private shots = 0;
+  private bobMs = 0;
+  private readonly barrels: Barrel[];
+  readonly drones: Phaser.GameObjects.Image[];
+
+  constructor(private readonly world: World) {
+    this.barrels = volley(world.stats);
+    this.drones = DRONE_OFFSETS.slice(0, world.stats.drones).map((dx) =>
+      world.scene.add.image(world.player.x + dx, world.player.y, 'optionDrone').setDepth(DEPTH.player),
+    );
+  }
+
+  get overdriven(): boolean {
+    return this.world.stats.overdriveMultiplier < 1 && this.heldMs >= OVERDRIVE_HOLD_MS;
+  }
+
+  update(dtMs: number, fireHeld: boolean): void {
+    const { player } = this.world;
+    this.heldMs = fireHeld ? this.heldMs + dtMs : 0;
+    this.cooldownMs = Math.max(this.cooldownMs - dtMs, fireHeld ? -dtMs : 0);
+    if (fireHeld && this.cooldownMs <= 0) {
+      this.fire();
+      this.cooldownMs += fireInterval(this.world.stats, this.heldMs);
+    }
+    this.bobMs += dtMs;
+    this.drones.forEach((d, i) => {
+      const tx = player.x + DRONE_OFFSETS[i]!;
+      const ty = player.y + 8 + Math.sin(this.bobMs / 260 + i * Math.PI) * 4;
+      d.setPosition(Phaser.Math.Linear(d.x, tx, 0.25), Phaser.Math.Linear(d.y, ty, 0.25));
+    });
+    player.sprite.setTint(this.overdriven && Math.floor(this.bobMs / 90) % 2 ? 0xffb0e0 : 0xffffff);
+  }
+
+  private fire(): void {
+    const { stats, player, playerShots } = this.world;
+    const noseY = player.y - player.sprite.displayHeight / 2;
+    for (const barrel of this.barrels) {
+      const crit = Math.random() < stats.critChance;
+      const dir = rayEnd({ x: 0, y: 0 }, barrel.angle, stats.bulletSpeed);
+      playerShots.spawn({
+        kind: crit ? 'crit' : 'shot',
+        x: player.x + barrel.dx,
+        y: noseY,
+        vx: dir.x,
+        vy: dir.y,
+        damage: stats.bulletDamage * (crit ? stats.critMultiplier : 1),
+        pierce: stats.pierce,
+      });
+    }
+    for (const d of this.drones)
+      playerShots.spawn({ kind: 'droneShot', x: d.x, y: d.y - 8, vx: 0, vy: -stats.bulletSpeed, damage: stats.bulletDamage, pierce: stats.pierce });
+    this.shots++;
+    if (stats.homingEveryShots > 0 && this.shots % stats.homingEveryShots === 0) {
+      for (const side of [-1, 1])
+        playerShots.spawn({ kind: 'missile', x: player.x + side * 14, y: player.y, vx: side * 140, vy: -MISSILE_SPEED, damage: stats.homingDamage / 2, source: 'missile' });
+    }
+  }
+}
