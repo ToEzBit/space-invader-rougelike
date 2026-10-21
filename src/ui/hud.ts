@@ -3,6 +3,7 @@ import { STAGE_COUNT } from '../core/stages';
 import { COLORS, css } from '../art/palette';
 import { MONEY_ANCHOR } from '../game/fx';
 import { DEPTH } from '../game/layout';
+import type { BossFight } from '../game/boss';
 import type { World } from '../game/world';
 import { VIEW } from '../view';
 import { label } from './text';
@@ -19,6 +20,7 @@ export class Hud {
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly world: World,
+    private readonly boss: BossFight | null,
   ) {
     const d = DEPTH.hud;
     scene.add.rectangle(0, 0, VIEW.w, 34, 0x0d0b26, 0.72).setOrigin(0).setDepth(d);
@@ -27,6 +29,7 @@ export class Hud {
     scene.add.image(MONEY_ANCHOR.x, MONEY_ANCHOR.y, 'coin0').setDepth(d);
     this.money = label(scene, MONEY_ANCHOR.x - 14, 7, '0', { size: 14, bold: true, align: 'right' }).setDepth(d);
     this.meters = scene.add.graphics().setDepth(d);
+    if (boss) label(scene, VIEW.w / 2, 40, boss.name.toUpperCase(), { size: 13, bold: true, color: css(COLORS.red), align: 'center', stroke: '#0d0b26' }).setDepth(d);
     this.laserLabel = world.laser.meter() ? label(scene, METER.laserX, METER.y - 15, 'LASER', { size: 10, bold: true, color: css(COLORS.cyan) }).setDepth(d) : null;
     this.dashLabel = world.dash.meter()
       ? label(scene, METER.dashX + METER.w, METER.y - 15, 'DASH [SHIFT]', { size: 10, bold: true, color: css(COLORS.pink), align: 'right' }).setDepth(d)
@@ -54,6 +57,15 @@ export class Hud {
 
   private drawMeters(): void {
     const g = this.meters.clear();
+    if (this.boss) {
+      const x = 60;
+      const w = VIEW.w - 120;
+      g.fillStyle(0x0d0b26, 0.9).fillRect(x - 2, 62, w + 4, 12);
+      g.fillStyle(0x3a0a1a, 1).fillRect(x, 64, w, 8);
+      g.fillStyle(COLORS.red, 1).fillRect(x, 64, w * this.boss.hpRatio, 8);
+      g.fillStyle(COLORS.pink, 1).fillRect(x, 64, w * this.boss.hpRatio, 2);
+      for (const phase of this.boss.def.phases.slice(1)) g.fillStyle(COLORS.yellow, 1).fillRect(x + w * phase.hpRatio - 1, 61, 2, 14);
+    }
     const laser = this.world.laser.meter();
     if (laser) {
       const color = laser.active ? COLORS.white : laser.ready ? COLORS.cyan : COLORS.azure;

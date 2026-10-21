@@ -1,4 +1,5 @@
 import type { StageDef } from '../core/stages';
+import { BossFight } from './boss';
 import { Formation } from './formation';
 import type { World } from './world';
 
@@ -7,6 +8,7 @@ export interface Encounter {
   update(dtMs: number): void;
   readonly cleared: boolean;
   readonly breached: boolean;
+  readonly boss: BossFight | null;
 }
 
 export function createEncounter(world: World, def: StageDef): Encounter {
@@ -14,6 +16,6 @@ export function createEncounter(world: World, def: StageDef): Encounter {
     case 'wave':
       return new Formation(world, def);
     case 'boss':
-      throw new Error('Boss stages are not implemented yet');
+      return new BossFight(world, def);
   }
 }

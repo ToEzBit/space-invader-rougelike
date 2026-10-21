@@ -35,6 +35,7 @@ export function enemyFire(world: World, kind: EnemyKind, x: number, y: number): 
 }
 
 export class Formation implements Encounter {
+  readonly boss = null;
   private members: Member[] = [];
   private readonly total: number;
   private readonly originX: number;

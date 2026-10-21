@@ -46,7 +46,7 @@ export class StageScene extends Phaser.Scene {
     this.world = new World(this, this.run);
     const def = stageDef(this.run.stage);
     this.encounter = createEncounter(this.world, def);
-    this.hud = new Hud(this, this.world);
+    this.hud = new Hud(this, this.world, this.encounter.boss);
     this.controls = new KeyboardControls(this);
     this.life = { kind: 'intro', msLeft: INTRO_MS };
     const final = this.run.stage === STAGE_COUNT;
@@ -59,9 +59,18 @@ export class StageScene extends Phaser.Scene {
     );
     setDebugHooks(this, {
       run: () => this.world.run,
-      info: () => ({ life: this.life.kind, foes: this.world.foes.length, coins: this.world.coins }),
+      info: () => ({
+        life: this.life.kind,
+        foes: this.world.foes.length,
+        coins: this.world.coins,
+        boss: this.encounter.boss && { name: this.encounter.boss.name, hpRatio: this.encounter.boss.hpRatio, phase: this.encounter.boss.phase },
+      }),
       kill: () => this.world.killAll(),
       hurt: () => this.world.hurtPlayer(true),
+      bossHp: (ratio) => {
+        const boss = this.encounter.boss;
+        if (boss) boss.foe.hp = boss.foe.maxHp * ratio;
+      },
     });
   }
 
