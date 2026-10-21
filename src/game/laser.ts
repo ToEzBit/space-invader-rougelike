@@ -37,7 +37,7 @@ export class Laser {
     this.state = stats.laserCooldownMs > 0 ? { kind: 'ready' } : { kind: 'locked' };
     this.orbital = stats.orbitalCooldownMs > 0 ? { kind: 'charging', msLeft: stats.orbitalCooldownMs / 2 } : { kind: 'locked' };
     this.gfx = world.scene.add.graphics().setDepth(DEPTH.beam).setBlendMode(Phaser.BlendModes.ADD);
-    world.onKill.laser = () => this.refund(stats.laserKillRefundMs);
+    world.onKill.laser = () => this.refund(world.stats.laserKillRefundMs);
   }
 
   get firing(): boolean {

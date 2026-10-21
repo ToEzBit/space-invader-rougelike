@@ -140,19 +140,8 @@ const ICON_ORBITAL = sym(['CCsw', '.Csy', '...y', '..yw', 'r.yw', 'r.yw', 'r.yw'
 
 const ITEM_REPAIR_KIT = sym(['..ss', '.s..', 'kkkk', 'kGgw', 'kwww', 'kGgw', 'kGGg', 'kkkk']);
 const ITEM_NITRO = sym(['...y', '..yo', '..ss', '.kVl', '.kvv', '.kVv', '.kVV', '..kk']);
-const ITEM_POWER_CELL = [
-  '..sss..',
-  'kkkkkkk',
-  'kRrrwyk',
-  'kRrwyrk',
-  'kRwyyyk',
-  'kRryyrk',
-  'kRyyrrk',
-  'kyyrrrk',
-  'kRrrrrk',
-  'kkkkkkk',
-];
-const ITEM_OVERCLOCK = ['...k...', '..kyk..', '.kkkkk.', 'kYyyyYk', 'kyywyyk', 'kyywyyk', 'kyyywwk', 'kYyyyYk', '.kkkkk.'];
+const ITEM_POWER_CELL = ['..sss..', 'kkkkkkk', 'kRrrywk', 'kRryyrk', 'kRyyyyk', 'kRryyrk', 'kRyyrrk', 'kkkkkkk'];
+const ITEM_OVERCLOCK = ['..kyk..', '.kkkkk.', 'kYyyyYk', 'kyywyyk', 'kyywyyk', 'kyyywwk', 'kYyyyYk', '.kkkkk.'];
 const ITEM_BARRIER = sym(['kkkk', 'kwcc', 'kwcc', 'kcCc', '.kCc', '.kCC', '..kC', '...k']);
 
 const SPARK = ['w'];

@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { deriveStats } from '../core/perks';
-import { heal, takeHit, type RunState } from '../core/run';
+import { ITEMS, withBuffs, type BuffId, type ItemEffect, type ItemId } from '../core/items';
+import { heal, takeHit, useItem, type RunState } from '../core/run';
 import type { ShipStats } from '../core/stats';
 import type { SpriteKey } from '../art/sprites';
 import { Bullets } from './bullets';
@@ -13,6 +14,7 @@ import { Laser } from './laser';
 import { DEPTH } from './layout';
 import type { Controls } from './controls';
 import { Player } from './player';
+import { READY, type SkillMeter } from './skills';
 
 export type DamageSource = 'bullet' | 'missile' | 'laser' | 'burn' | 'orbital' | 'dash' | 'shock' | 'collision';
 
@@ -43,11 +45,17 @@ const FLASHES: Record<DamageSource, boolean> = {
 };
 const BURN_MS = 2000;
 
+// fullMs is the duration the HUD sweep counts down from; re-using an active buff resets it to the new total.
+export type ActiveBuff = { buff: BuffId; msLeft: number; fullMs: number };
+
 // The live simulation of one stage: the ship's systems, every foe, and both bullet pools.
 // The run is replaced only through src/core/run.ts transitions.
 export class World {
   run: RunState;
-  readonly stats: ShipStats;
+  private readonly baseStats: ShipStats;
+  private effectiveStats: ShipStats;
+  // Buffs last for this stage only; World is rebuilt each stage.
+  private buffs: ActiveBuff[] = [];
   readonly fx: Fx;
   readonly foes: Foe[] = [];
   readonly playerShots: Bullets;
@@ -66,7 +74,8 @@ export class World {
     run: RunState,
   ) {
     this.run = run;
-    this.stats = deriveStats(run.perks);
+    this.baseStats = deriveStats(run.perks);
+    this.effectiveStats = this.baseStats;
     this.fx = new Fx(scene);
     this.playerShots = new Bullets(scene, DEPTH.playerShot);
     this.enemyShots = new Bullets(scene, DEPTH.enemyShot);
@@ -74,6 +83,67 @@ export class World {
     this.gun = new Gun(this);
     this.laser = new Laser(this);
     this.dash = new Dash(this);
+  }
+
+  // Perk stats with every active buff folded in. Systems read this each frame, so buffs apply live.
+  get stats(): ShipStats {
+    return this.effectiveStats;
+  }
+
+  get activeBuffs(): readonly ActiveBuff[] {
+    return this.buffs;
+  }
+
+  // False when the run refuses the use (none held, or a heal at full HP).
+  useItem(id: ItemId): boolean {
+    const used = useItem(this.run, id);
+    if (!used) return false;
+    this.run = used.run;
+    this.applyEffect(used.effect);
+    sfx('buy');
+    return true;
+  }
+
+  itemMeter(id: ItemId): SkillMeter {
+    const { effect } = ITEMS[id];
+    const left =
+      effect.kind === 'buff'
+        ? this.buffs.find((b) => b.buff === effect.buff)
+        : effect.kind === 'shield'
+          ? { msLeft: this.player.shieldMs, fullMs: this.player.shieldFullMs }
+          : undefined;
+    return left && left.msLeft > 0 ? { kind: 'active', ratioLeft: left.msLeft / left.fullMs } : READY;
+  }
+
+  private applyEffect(effect: ItemEffect): void {
+    const p = this.player;
+    switch (effect.kind) {
+      case 'heal':
+        this.fx.float(p.x, p.y - 30, `+${effect.hp} HP`, 0x5dff9b);
+        return;
+      case 'buff': {
+        const active = this.buffs.find((b) => b.buff === effect.buff);
+        if (active) {
+          active.msLeft += effect.durationMs;
+          active.fullMs = active.msLeft;
+          return;
+        }
+        this.buffs.push({ buff: effect.buff, msLeft: effect.durationMs, fullMs: effect.durationMs });
+        this.effectiveStats = withBuffs(this.baseStats, this.buffs.map((b) => b.buff));
+        return;
+      }
+      case 'shield':
+        p.shieldFor(p.shieldMs + effect.durationMs);
+        return;
+    }
+  }
+
+  private tickBuffs(dtMs: number): void {
+    for (const b of this.buffs) b.msLeft -= dtMs;
+    const left = this.buffs.filter((b) => b.msLeft > 0);
+    if (left.length === this.buffs.length) return;
+    this.buffs = left;
+    this.effectiveStats = withBuffs(this.baseStats, left.map((b) => b.buff));
   }
 
   addFoe(texture: SpriteKey, x: number, y: number, hp: number, coin: number, size: Foe['size'] = 'small'): Foe {
@@ -126,6 +196,7 @@ export class World {
 
   update(dtMs: number, input: Controls, firing: boolean): void {
     const dt = dtMs / 1000;
+    this.tickBuffs(dtMs);
     if (!this.dash.active) this.player.steer(input, dt);
     this.player.update(dtMs);
     this.gun.update(dtMs, firing);

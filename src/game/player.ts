@@ -15,6 +15,8 @@ export class Player {
   readonly bodyRadius = 14;
   invulnMs = 0;
   shieldMs = 0;
+  // What shieldMs started from, so the HUD can sweep the time left.
+  shieldFullMs = 0;
   msSinceHit = 0;
   private flameMs = 0;
 
@@ -67,6 +69,11 @@ export class Player {
     this.invulnMs = HIT_INVULN_MS;
     this.msSinceHit = 0;
     this.world.fx.explode(this.x, this.y);
+  }
+
+  shieldFor(ms: number): void {
+    this.shieldMs = ms;
+    this.shieldFullMs = ms;
   }
 
   breakShield(): void {

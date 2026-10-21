@@ -66,6 +66,10 @@ export class StageScene extends Phaser.Scene {
         player: { x: this.world.player.x, y: this.world.player.y },
         laserFiring: this.world.laser.firing,
         dashing: this.world.dash.active,
+        items: this.world.run.items,
+        buffs: this.world.activeBuffs.map(({ buff, msLeft }) => ({ buff, msLeft })),
+        shieldMs: this.world.player.shieldMs,
+        stats: { moveSpeed: this.world.stats.moveSpeed, bulletDamage: this.world.stats.bulletDamage, fireIntervalMs: this.world.stats.fireIntervalMs },
         boss: this.encounter.boss && { name: this.encounter.boss.name, hpRatio: this.encounter.boss.hpRatio, phase: this.encounter.boss.phase },
         skills: SKILL_SLOTS.flatMap(({ id, meter }) => {
           const m = meter(this.world);
@@ -74,6 +78,7 @@ export class StageScene extends Phaser.Scene {
       }),
       kill: () => this.world.killAll(),
       hurt: () => this.world.hurtPlayer(true),
+      hit: () => this.world.hurtPlayer(),
       bossHp: (ratio) => {
         const boss = this.encounter.boss;
         if (boss) boss.foe.hp = boss.foe.maxHp * ratio;
@@ -93,6 +98,7 @@ export class StageScene extends Phaser.Scene {
         if ((life.msLeft -= dtMs) <= 0) this.life = { kind: 'fighting' };
         break;
       case 'fighting':
+        if (input.useItem && !this.world.useItem(input.useItem)) this.hud.refuseItem(input.useItem);
         this.world.update(dtMs, input, true);
         this.encounter.update(dtMs);
         this.world.resolveCollisions();

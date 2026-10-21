@@ -71,7 +71,7 @@ export class Dash {
       sprite.y = PLAYER_Y;
       sprite.setScale(1);
       this.state = { kind: 'idle' };
-      if (stats.dashShieldMs > 0) player.shieldMs = stats.dashShieldMs;
+      if (stats.dashShieldMs > player.shieldMs) player.shieldFor(stats.dashShieldMs);
     }
   }
 

@@ -13,10 +13,11 @@ const CONTROLS: readonly [string, string][] = [
   ['← → / A D', 'เคลื่อนที่'],
   ['AUTO', 'ยิงอัตโนมัติ · เลเซอร์ยิงเองเมื่อปลดล็อก'],
   ['SHIFT', 'พุ่งชนทะลุฝูงศัตรู (เมื่อปลดล็อก)'],
+  ['1 2 3 4 5', 'ใช้ไอเทมที่ซื้อจากร้านค้า ระหว่างด่าน'],
   ['1 2 3 / R / ENTER', 'ซื้อ · รีเฟรช · ไปต่อ ในร้านค้า'],
   ['F', 'เต็มจอ / ออกจากเต็มจอ'],
 ];
-const ROW_H = 23;
+const ROW_H = 20;
 
 export class TitleScene extends Phaser.Scene {
   private backdrop!: Backdrop;
