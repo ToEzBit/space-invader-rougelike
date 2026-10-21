@@ -10,7 +10,9 @@ import { Backdrop } from '../ui/backdrop';
 import { BRANCH_LOOK } from '../ui/branch';
 import { frame } from '../ui/frame';
 import { ITEM_LOOK } from '../ui/itemLook';
+import { ownedTip, type OwnedRef, type Rect } from '../ui/ownedTip';
 import { label } from '../ui/text';
+import { Tooltip } from '../ui/tooltip';
 import { fitCamera, VIEW } from '../view';
 import { goTo, type RunData } from './flow';
 
@@ -56,6 +58,8 @@ export class ShopScene extends Phaser.Scene {
   private backdrop!: Backdrop;
   private layer!: Phaser.GameObjects.Container;
   private cards: Phaser.GameObjects.Container[] = [];
+  private chips: { ref: OwnedRef; rect: Rect }[] = [];
+  private tooltip!: Tooltip<OwnedRef>;
   private leaving = false;
 
   constructor() {
@@ -73,20 +77,33 @@ export class ShopScene extends Phaser.Scene {
     label(this, VIEW.w / 2, 12, 'UPGRADE SHOP', { size: 26, bold: true, color: css(COLORS.yellow), align: 'center', stroke: '#5a22b0' });
     label(this, VIEW.w / 2, 54, `ร้านอัปเกรด · ผ่านด่าน ${this.run.stage} แล้ว`, { size: 13, color: '#e3c6ff', align: 'center' });
     this.layer = this.add.container(0, 0);
+    this.tooltip = new Tooltip(this);
     this.render();
 
     const kb = this.input.keyboard;
     (['ONE', 'TWO', 'THREE'] as const).forEach((key, slot) => kb?.on(`keydown-${key}`, () => this.buy(slot)));
     kb?.on('keydown-R', () => this.refresh());
     kb?.on('keydown-ENTER', () => this.leave());
-    setDebugHooks(this, { run: () => this.run, info: () => ({ cards: this.run.phase.kind === 'shop' ? this.run.phase.shop.offers : [] }) });
+    setDebugHooks(this, { run: () => this.run, info: () => this.debugInfo() });
   }
 
   update(_time: number, delta: number): void {
     this.backdrop.update(Math.min(delta, 50) / 1000, 0.4);
   }
 
+  private debugInfo(): Record<string, unknown> {
+    const shown = this.tooltip.shown;
+    return {
+      cards: this.run.phase.kind === 'shop' ? this.run.phase.shop.offers : [],
+      chips: this.chips.map(({ ref, rect }) => ({ ...ref, ...rect })),
+      tooltip: shown ? { visible: true, ...shown.ref, hasNext: shown.tip.next !== undefined, ...shown.bounds, fadeIns: this.tooltip.fadeIns } : { visible: false, fadeIns: this.tooltip.fadeIns },
+    };
+  }
+
   private render(): void {
+    // Rebuilt chips never send pointerout, so a tooltip left up would go stale.
+    this.tooltip.clear();
+    this.chips = [];
     this.layer.removeAll(true);
     this.cards = cardsOf(this.run).map((card) => this.drawCard(card));
     this.drawButtons();
@@ -210,9 +227,9 @@ export class ShopScene extends Phaser.Scene {
     const owned = [
       ...PERK_IDS.filter((id) => this.run.perks[id]).map((id) => {
         const { color, chip } = BRANCH_LOOK[PERKS[id].branch];
-        return { text: `${PERKS[id].name} ${this.run.perks[id]}`, color, chip };
+        return { ref: { kind: 'perk' as const, id }, text: `${PERKS[id].name} ${this.run.perks[id]}`, color, chip };
       }),
-      ...ITEM_IDS.filter((id) => this.run.items[id]).map((id) => ({ text: `${ITEMS[id].name} x${this.run.items[id]}`, color: COLORS.gold, chip: ITEM_CHIP })),
+      ...ITEM_IDS.filter((id) => this.run.items[id]).map((id) => ({ ref: { kind: 'item' as const, id }, text: `${ITEMS[id].name} x${this.run.items[id]}`, color: COLORS.gold, chip: ITEM_CHIP })),
     ];
     if (!owned.length) {
       this.layer.add(label(this, 34, y + 40, 'ยังไม่มีอัปเกรด เลือกซื้อการ์ดด้านบนได้เลย', { size: 12, color: '#8a96c8' }));
@@ -230,6 +247,7 @@ export class ShopScene extends Phaser.Scene {
       }
       bg.setPosition(cx, cy + 2);
       text.setPosition(cx + 5, cy);
+      this.hoverChip(chip.ref, { x: cx, y: cy + 2, w: bg.width, h: bg.height });
       cx += bg.width + 4;
     }
   }
@@ -239,6 +257,15 @@ export class ShopScene extends Phaser.Scene {
     const bg = frame(this, key, 0, 0, Math.ceil(text.width + 10), 16).setOrigin(0);
     this.layer.add([bg, text]);
     return { bg, text };
+  }
+
+  private hoverChip(ref: OwnedRef, rect: Rect): void {
+    // Padded so neighboring chips' zones touch and the pointer never crosses dead space between them.
+    const hit = this.add.zone(rect.x + rect.w / 2, rect.y + rect.h / 2, rect.w + 4, rect.h + 2).setInteractive();
+    hit.on('pointerover', () => this.tooltip.show(ref, ownedTip(this.run, ref), rect));
+    hit.on('pointerout', () => this.tooltip.hide());
+    this.layer.add(hit);
+    this.chips.push({ ref, rect });
   }
 
   private buy(slot: number): void {

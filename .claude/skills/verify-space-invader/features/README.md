@@ -11,7 +11,7 @@ This directory is the maintained source for verifying what a player can do in th
 ## Driving conventions
 
 - Every journey starts in a fresh browser context, so no run, money or perks carry over between journeys.
-- The game is one canvas. Drive with keyboard keys and read results from `window.__game.state()`. Never click by coordinates.
+- The game is one canvas. Drive with keyboard keys and read results from `window.__game.state()`. Never click by guessed coordinates. A pointer journey such as `shop-tooltip` aims at world bounds the game reports in state and converts them to page coordinates.
 - `__game.start`, `kill`, `hurt`, `hit` and `bossHp` only set preconditions. The feature itself is driven with real keys.
 - Compute expected numbers with the game's own `src/core/run.ts` (via `h.core`), not hand-copied constants.
 
@@ -27,7 +27,7 @@ This directory is the maintained source for verifying what a player can do in th
 - [Title and run start](./title-start.md) covers booting, the title screen, and starting a fresh run.
 - [Stage combat](./combat.md) covers moving, shooting, kills and coins.
 - [Ship movement](./movement.md) covers flying up and down inside the bottom zone, its clamp, normalized diagonals and dashing from a raised y.
-- [Perk shop](./shop.md) covers offers, refresh, buying, sold-out cards and continuing.
+- [Perk shop](./shop.md) covers offers, refresh, buying, sold-out cards, continuing, and the owned-chip tooltips (journey `shop-tooltip`).
 - [Laser and dash perks](./perk-mechanics.md) covers the Prism Lance beam and the Afterburner Dash, locked and unlocked.
 - [Consumable items](./items.md) covers item offers in the shop, buying, keys 1-5, buffs, the item shield and the bottom-right item tray.
 - [Skill cooldown tray](./skill-hud.md) covers the bottom-left skill icons, the clockwise cooldown sweep and countdown, dash charges and the laser cycle.

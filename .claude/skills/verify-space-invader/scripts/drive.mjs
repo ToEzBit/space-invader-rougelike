@@ -230,6 +230,82 @@ const JOURNEYS = {
     h.check('Enter continues to stage 2 keeping money and what was bought', next.run.money === s3.run.money && owned(next) === 1, summarize(next).run);
   },
 
+  async 'shop-tooltip'(h) {
+    const perks = { heavyCaliber: 2, prismLance: 3, afterburnerDash: 1 };
+    const items = { nitro: 2 };
+    await h.startAt(1, perks, 0, items);
+    await h.game('kill');
+    const s0 = await h.waitFor('Shop scene with owned chips', (x) => x.scenes.includes('Shop') && x.chips?.length > 0);
+    const ids = s0.chips.map((c) => c.id);
+    h.check('the owned panel has one chip per owned perk and held item', ids.length === 4 && [...Object.keys(perks), ...Object.keys(items)].every((id) => ids.includes(id)), { chips: s0.chips });
+    h.check('no tooltip before hovering', !s0.tooltip.visible, { tooltip: s0.tooltip });
+
+    const toPage = async (wx, wy) => {
+      const box = await h.page.locator('canvas').boundingBox();
+      const { world } = (await h.state()).view;
+      return { x: box.x + ((wx - world.x) * box.width) / world.width, y: box.y + ((wy - world.y) * box.height) / world.height };
+    };
+    const hover = async (chip) => {
+      const p = await toPage(chip.x + chip.w / 2, chip.y + chip.h / 2);
+      await h.step(`hover ${chip.kind} chip ${chip.id}`, () => h.page.mouse.move(p.x, p.y));
+      return h.waitFor(`tooltip for ${chip.id}`, (x) => x.tooltip.visible && x.tooltip.id === chip.id);
+    };
+    const off = await toPage(240, 30);
+    const leave = async () => {
+      await h.step('move the pointer off the chips', () => h.page.mouse.move(off.x, off.y));
+      const hidden = await h.waitFor('tooltip hidden', (x) => !x.tooltip.visible);
+      await sleep(150);
+      return hidden;
+    };
+    const around = (chip, t) => {
+      const x = Math.max(0, Math.min(chip.x, t.x) - 8);
+      const y = Math.max(0, t.y - 8);
+      return { x, y, w: Math.min(480, Math.max(chip.x + chip.w, t.x + t.w) + 8) - x, h: Math.min(640, chip.y + chip.h + 8) - y };
+    };
+    const maxLevel = await h.core('Object.fromEntries(perks.PERK_IDS.map((id) => [id, perks.PERKS[id].maxLevel]))');
+
+    for (const chip of s0.chips) {
+      const { tooltip: t } = await hover(chip);
+      const expectNext = chip.kind === 'perk' && perks[chip.id] < maxLevel[chip.id];
+      h.check(`hovering ${chip.id} shows its ${chip.kind} tooltip`, t.kind === chip.kind && t.id === chip.id, { chip, tooltip: t });
+      h.check(`${chip.id} tooltip ${expectNext ? 'previews' : 'has no'} next level`, t.hasNext === expectNext, { level: perks[chip.id], max: maxLevel[chip.id], hasNext: t.hasNext });
+      h.check(`${chip.id} tooltip stays inside the 480x640 world, at most 260 wide`, t.x >= 0 && t.y >= 0 && t.x + t.w <= 480 && t.y + t.h <= 640 && t.w <= 260, { tooltip: t });
+      h.check(`${chip.id} tooltip sits above its chip`, t.y + t.h <= chip.y && !t.below, { chip, tooltip: t });
+      if (chip === s0.chips[0]) {
+        h.check('the first chip needs the sideways clamp, and gets it', chip.x + chip.w / 2 - t.w / 2 < 0 && t.x >= 0, { chipCenter: chip.x + chip.w / 2, tooltip: t });
+        await sleep(200);
+        await h.shot('tooltip-in-shop');
+        await h.shot(`tooltip-edge-${chip.id}`, around(chip, t));
+      }
+      if (chip.id === 'prismLance' || chip.kind === 'item') {
+        await sleep(200);
+        await h.shot(`tooltip-${chip.kind}-${chip.id}`, around(chip, t));
+      }
+      await leave();
+    }
+
+    const [a, b] = s0.chips;
+    const before = await h.state();
+    const first = await hover(a);
+    h.check('hovering from nothing fades the tooltip in once', first.tooltip.fadeIns === before.tooltip.fadeIns + 1, { fadeIns: [before.tooltip.fadeIns, first.tooltip.fadeIns] });
+    const pa = await toPage(a.x + a.w / 2, a.y + a.h / 2);
+    const pb = await toPage(b.x + b.w / 2, b.y + b.h / 2);
+    const samples = [];
+    await h.step(`slide from ${a.id} to ${b.id}`, async () => {
+      for (let i = 1; i <= 10; i++) {
+        await h.page.mouse.move(pa.x + ((pb.x - pa.x) * i) / 10, pa.y);
+        samples.push((await h.state()).tooltip);
+      }
+    });
+    const slid = await h.waitFor(`tooltip for ${b.id}`, (x) => x.tooltip.id === b.id);
+    h.check('sliding between adjacent chips never hides or re-fades the tooltip', samples.every((t) => t.visible) && slid.tooltip.fadeIns === first.tooltip.fadeIns, {
+      samples: samples.map((t) => `${t.visible ? t.id : 'hidden'}`),
+      fadeIns: [first.tooltip.fadeIns, slid.tooltip.fadeIns],
+    });
+    const gone = await leave();
+    h.check('leaving the chips hides the tooltip', !gone.tooltip.visible, { tooltip: gone.tooltip });
+  },
+
   async 'perk-mechanics'(h) {
     await h.openTitle();
     await h.game('start', 1, { prismLance: 1 });
@@ -677,7 +753,7 @@ const JOURNEYS = {
 };
 
 // Close-ups of small HUD art need the canvas's full backing resolution.
-const CONTEXT = { 'skill-hud': { deviceScaleFactor: 2 }, items: { deviceScaleFactor: 2 }, movement: { deviceScaleFactor: 2 }, 'enemy-hp': { deviceScaleFactor: 2 } };
+const CONTEXT = { 'skill-hud': { deviceScaleFactor: 2 }, items: { deviceScaleFactor: 2 }, movement: { deviceScaleFactor: 2 }, 'enemy-hp': { deviceScaleFactor: 2 }, 'shop-tooltip': { deviceScaleFactor: 2 } };
 
 const selected = names.includes('all') ? Object.keys(JOURNEYS).filter((n) => n !== 'doctor') : names;
 const unknown = selected.filter((n) => !JOURNEYS[n]);
