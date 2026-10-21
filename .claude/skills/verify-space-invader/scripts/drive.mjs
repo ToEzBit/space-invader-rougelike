@@ -357,11 +357,10 @@ const JOURNEYS = {
 
     const p1 = await h.step('press 3 then 4', async () => {
       await h.page.keyboard.press('3');
-      await sleep(80);
       await h.page.keyboard.press('4');
       await sleep(150);
     });
-    h.check('Power Cell and Overclock are both active alongside Nitro', p1.buffs.length === 3 && buff(p1, 'powerCell') && buff(p1, 'overclock'), { buffs: p1.buffs });
+    h.check('Power Cell and Overclock pressed back to back in one frame are both active alongside Nitro', p1.buffs.length === 3 && buff(p1, 'powerCell') && buff(p1, 'overclock'), { buffs: p1.buffs });
     h.check('effective bulletDamage is 1.5x and fireIntervalMs 0.6x', near(p1.stats.bulletDamage, base.bulletDamage * 1.5) && near(p1.stats.fireIntervalMs, base.fireIntervalMs * 0.6), { stats: p1.stats, base: { bulletDamage: base.bulletDamage, fireIntervalMs: base.fireIntervalMs } });
     await sleep(1500);
     await pausedShots('three-buffs');

@@ -98,7 +98,7 @@ export class StageScene extends Phaser.Scene {
         if ((life.msLeft -= dtMs) <= 0) this.life = { kind: 'fighting' };
         break;
       case 'fighting':
-        if (input.useItem && !this.world.useItem(input.useItem)) this.hud.refuseItem(input.useItem);
+        for (const id of input.useItems) if (!this.world.useItem(id)) this.hud.refuseItem(id);
         this.world.update(dtMs, input, true);
         this.encounter.update(dtMs);
         this.world.resolveCollisions();
