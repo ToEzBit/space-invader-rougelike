@@ -1,7 +1,6 @@
 // One character per pixel in sprite grids. '.' is transparent.
 export const PALETTE: Record<string, string> = {
   k: '#0d0b26',
-  K: '#2a2650',
   w: '#ffffff',
   W: '#c9d4ff',
   s: '#8a96c8',
@@ -12,16 +11,10 @@ export const PALETTE: Record<string, string> = {
   P: '#d81b8c',
   h: '#ffc7ea',
   r: '#ff3d5a',
-  R: '#a3123a',
   o: '#ff9b30',
-  O: '#c45a10',
   y: '#ffe84a',
-  Y: '#ffb31a',
-  g: '#5dff9b',
-  G: '#17a860',
   v: '#a66bff',
   V: '#5a22b0',
-  l: '#e3c6ff',
 };
 
 export const COLORS = {

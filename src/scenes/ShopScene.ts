@@ -100,7 +100,7 @@ export class ShopScene extends Phaser.Scene {
     if (card.kind === 'item') this.drawItem(box, g, card);
     else this.drawPerk(box, g, card);
     const { cost, affordable } = card;
-    const coin = this.add.image(left + CARD.w - 22, top + CARD.h - 24, 'coin0').setScale(1.4);
+    const coin = this.add.image(left + CARD.w - 22, top + CARD.h - 24, 'coinLarge');
     const price = label(this, left + CARD.w - 36, top + CARD.h - 38, String(cost), {
       size: 20,
       bold: true,
@@ -127,7 +127,7 @@ export class ShopScene extends Phaser.Scene {
     g.fillStyle(0x0d0b26, 0.92).fillRoundedRect(left, top, CARD.w, CARD.h, 10);
     g.fillStyle(look.color, 0.9).fillRoundedRect(left, top, 52, CARD.h, { tl: 10, bl: 10, tr: 0, br: 0 });
     g.lineStyle(2, look.color, affordable ? 1 : 0.45).strokeRoundedRect(left, top, CARD.w, CARD.h, 10);
-    const icon = this.add.image(left + 26, top + 36, look.icon).setScale(1.5);
+    const icon = this.add.image(left + 26, top + 36, look.icon);
     const tier = label(this, left + 26, top + 66, `T${perk.tier}`, { size: 15, bold: true, color: '#0d0b26', align: 'center' });
     const tx = left + 66;
     const name = label(this, tx, top + 6, perk.name, { size: 17, bold: true, color: css(look.color) });
@@ -160,7 +160,7 @@ export class ShopScene extends Phaser.Scene {
     const ribbon = label(this, left + 18, top + 18, 'ITEM', { size: 10, bold: true, color: css(COLORS.ink), align: 'center' })
       .setOrigin(0.5)
       .setRotation(-Math.PI / 4);
-    const icon = this.add.image(well.x, well.y, look.icon).setScale(2);
+    const icon = this.add.image(well.x, well.y, look.icon);
     const tx = left + 76;
     const name = label(this, tx, top + 6, item.name, { size: 17, bold: true, color: css(COLORS.gold) });
     const stack = label(this, tx + name.width + 10, top + 10, `ถืออยู่ ${held}/${ITEM_STACK_MAX}`, { size: 12, bold: true, color: held ? '#ffffff' : css(COLORS.green) });
@@ -198,7 +198,7 @@ export class ShopScene extends Phaser.Scene {
     g.lineStyle(1, COLORS.violet, 0.6).strokeRoundedRect(20, y, VIEW.w - 40, STATUS_H, 10);
     this.layer.add(g);
     for (let i = 0; i < stats.maxHp; i++) this.layer.add(this.add.image(38 + i * 18, y + 18, i < this.run.hp ? 'heart' : 'heartEmpty'));
-    this.layer.add(this.add.image(VIEW.w - 40, y + 18, 'coin0').setScale(1.3));
+    this.layer.add(this.add.image(VIEW.w - 40, y + 18, 'coinLarge'));
     this.layer.add(label(this, VIEW.w - 54, y + 7, String(this.run.money), { size: 17, bold: true, color: css(COLORS.yellow), align: 'right' }));
 
     const owned = [

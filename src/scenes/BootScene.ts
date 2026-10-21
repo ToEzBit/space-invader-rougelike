@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { CHARACTER_ART } from '../art/characters';
 import { buildTextures } from '../art/textures';
+import { UI_ICONS } from '../art/ui';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -8,7 +9,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
-    for (const [key, url] of Object.entries(CHARACTER_ART)) this.load.image(key, url);
+    for (const [key, url] of Object.entries({ ...CHARACTER_ART, ...UI_ICONS })) this.load.image(key, url);
   }
 
   create(): void {

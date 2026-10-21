@@ -3,7 +3,7 @@ import { sfx } from '../audio/sfx';
 import { ITEM_IDS, ITEMS, type ItemId } from '../core/items';
 import { STAGE_COUNT } from '../core/stages';
 import { COLORS, css } from '../art/palette';
-import type { SpriteKey } from '../art/sprites';
+import type { IconKey } from '../art/ui';
 import { MONEY_ANCHOR } from '../game/fx';
 import { barAlpha, hpBarColor, hpRatio, visibleBar } from '../game/hpBar';
 import { DEPTH } from '../game/layout';
@@ -105,7 +105,7 @@ export class Hud {
 }
 
 // `count` adds an xN badge and dims the icon at zero, for consumables.
-type SlotDef = { icon: SpriteKey; color: number; hint: string; meter: (w: World) => SkillMeter | null; count?: (w: World) => number };
+type SlotDef = { icon: IconKey; color: number; hint: string; meter: (w: World) => SkillMeter | null; count?: (w: World) => number };
 
 type SkillDef = SlotDef & { id: 'laser' | 'orbital' | 'dash'; hint: 'AUTO' | 'SHIFT' };
 
@@ -147,7 +147,7 @@ class SkillSlot {
     base.fillStyle(COLORS.ink, 0.85).fillCircle(0, 0, r + 2);
     base.fillStyle(0x1b1840, 1).fillCircle(0, 0, r - 1);
     base.fillStyle(def.color, 0.3).fillCircle(0, 0, r - 1);
-    this.icon = scene.add.image(0, 0, def.icon).setScale(2);
+    this.icon = scene.add.image(0, 0, def.icon);
     this.overlay = scene.add.graphics();
     this.countdown = label(scene, 0, 0, '', { size: 15, bold: true, align: 'center', stroke: css(COLORS.ink) });
     this.countdown.setOrigin(0.5);
