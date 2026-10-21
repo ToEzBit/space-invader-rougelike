@@ -90,7 +90,32 @@ function harness(page, outDir) {
     return waitFor('Title scene', (s) => s.scenes.includes('Title'), 15000);
   }
 
-  return { log, state, game, core, waitFor, check, step, shot, hold, startAt, openTitle, page };
+  // Holds whichever arrow key moves the ship under the boss; steer(null) releases it.
+  let steering = null;
+  async function steer(s) {
+    const dx = s ? (s.boss?.x ?? s.player.x) - s.player.x : 0;
+    const want = Math.abs(dx) < 10 ? null : dx > 0 ? 'ArrowRight' : 'ArrowLeft';
+    if (want === steering) return;
+    if (steering) await page.keyboard.up(steering);
+    if (want) await page.keyboard.down(want);
+    steering = want;
+  }
+
+  // Keeps the ship under the boss until pred holds.
+  async function track(pred, timeoutMs) {
+    const end = Date.now() + timeoutMs;
+    let s = await state();
+    while (!pred(s) && Date.now() < end) {
+      await steer(s);
+      await sleep(30);
+      s = await state();
+    }
+    await steer(null);
+    if (!pred(s)) throw new Error(`timed out tracking the boss; last boss ${JSON.stringify(s.boss)}`);
+    return s;
+  }
+
+  return { log, state, game, core, waitFor, check, step, shot, hold, startAt, openTitle, steer, track, page };
 }
 
 function summarize(s) {
@@ -545,16 +570,127 @@ const JOURNEYS = {
     const b1 = await h.state();
     h.check('player fire damages the boss', b1.boss.hpRatio < 1, { hpRatio: b1.boss.hpRatio });
     await h.game('bossHp', 0.45);
-    await h.waitFor('Seraph second form', (x) => x.boss?.form === 1 && x.boss.stance === 'fighting', 10000);
+    const s2 = await h.waitFor('Seraph second form', (x) => x.boss?.form === 1 && x.boss.stance === 'fighting', 10000);
+    h.check('the Seraph names her second form', s2.boss.name === 'Crimson Seraph · Ascended', { name: s2.boss.name });
     await sleep(1200);
     await h.shot('seraph-phase2');
 
     const e0 = await h.startAt(10);
     h.check('stage 10 is Void Empress in her first form', e0.boss?.name === 'Void Empress' && e0.boss.form === 0 && e0.boss.phase === 0, { boss: e0.boss });
     await h.game('bossHp', 0.3);
-    await h.waitFor('Empress second form', (x) => x.boss?.form === 1 && x.boss.stance === 'fighting', 10000);
+    const e2 = await h.waitFor('Empress second form', (x) => x.boss?.form === 1 && x.boss.stance === 'fighting', 10000);
+    h.check('the Empress names her second form', e2.boss.name === 'Void Empress · Eclipse', { name: e2.boss.name });
     await sleep(1500);
     await h.shot('empress-phase3');
+  },
+
+  async 'boss-forms'(h) {
+    // Strong enough that auto-fire crosses a 3% HP margin in a few seconds once the ship sits under the boss.
+    const LOADOUT = { hairTrigger: 3, heavyCaliber: 3, twinCannons: 2 };
+    await h.openTitle();
+    for (const [stage, id] of [[5, 'crimsonSeraph'], [10, 'voidEmpress']]) {
+      const { def, specials, cast, cap } = await h.page.evaluate(async (id) => {
+        const stages = await import('/src/core/stages.ts');
+        const patterns = await import('/src/game/patterns.ts');
+        const boss = await import('/src/game/boss.ts');
+        const def = stages.BOSSES[id];
+        const used = [...new Set(def.forms[1].phases.flatMap((p) => p.patterns))];
+        const specials = used.filter((p) => patterns.PATTERNS[p].cast);
+        const cast = Object.fromEntries(specials.map((p) => [p, patterns.PATTERNS[p].cast.chargeMs]));
+        const callouts = Object.fromEntries(specials.map((p) => [p, patterns.PATTERNS[p].cast.callout]));
+        return { def: JSON.parse(JSON.stringify(def)), specials, cast: { ms: cast, callouts }, cap: boss.MAX_MINIONS };
+      }, id);
+      const [one, two] = def.forms;
+      await h.startAt(stage, LOADOUT);
+      await h.game('god', true);
+      await h.waitFor(`${one.name} in place`, (x) => x.boss?.stance === 'fighting', 12000);
+      await h.game('bossHp', def.transform.atHpRatio + 0.03);
+      const armed = await h.state();
+      h.check(`${one.name}: just above the threshold she is still her first form`, armed.boss.form === 0 && armed.boss.name === one.name, { boss: armed.boss });
+
+      const startAt = await h.track((x) => x.boss.stance === 'transforming', 20000);
+      h.check(`${one.name}: player fire across ${def.transform.atHpRatio} starts the transformation`, startAt.boss.stance === 'transforming', { boss: startAt.boss });
+      const samples = [];
+      let shockShot = false;
+      let fadeShot = false;
+      const t0 = Date.now();
+      let x = startAt;
+      while (x.boss.stance === 'transforming') {
+        samples.push({ ms: Date.now() - t0, hpRatio: x.boss.hpRatio, deflected: x.boss.deflected, form: x.boss.form, name: x.boss.name });
+        if (!shockShot) {
+          shockShot = true;
+          await h.shot(`${id}-transform-shockwave`);
+        }
+        if (!fadeShot && x.boss.form === 1) {
+          fadeShot = true;
+          await sleep(120);
+          await h.shot(`${id}-transform-crossfade`);
+        }
+        await h.steer(x);
+        await sleep(40);
+        x = await h.state();
+      }
+      await h.steer(null);
+      const first = samples[0];
+      const climbs = samples.every((s, i) => i === 0 || s.hpRatio >= samples[i - 1].hpRatio - 1e-9);
+      h.check(`${one.name}: no damage lands while she transforms (HP only climbs, hits are absorbed)`, climbs && samples.at(-1).deflected > first.deflected, { first, last: samples.at(-1), count: samples.length });
+      h.check(`${one.name}: the HUD takes the second form's name mid-transformation`, samples.some((s) => s.name === two.name && s.form === 1), { names: [...new Set(samples.map((s) => s.name))] });
+      h.check(`${one.name}: the transformation lasts about durationMs`, Math.abs(Date.now() - t0 - def.transform.durationMs) < 600, { ms: Date.now() - t0, durationMs: def.transform.durationMs });
+      const after = x;
+      h.check(`${two.name}: she fights on in her second form`, after.boss.stance === 'fighting' && after.boss.form === 1 && after.boss.name === two.name, { boss: after.boss });
+      // One poll of player fire can land between fighting resuming and this read.
+      h.check(
+        `${two.name}: HP rose by the heal (${def.transform.healRatio} of full)`,
+        after.boss.hpRatio >= first.hpRatio + def.transform.healRatio - 0.03,
+        { before: first.hpRatio, after: after.boss.hpRatio, healRatio: def.transform.healRatio },
+      );
+      h.check(`${two.name}: her minions arrive, never past the cap`, after.boss.minions > 0 && after.boss.minions <= cap, { minions: after.boss.minions, summon: def.transform.summon, cap });
+      await sleep(400);
+      await h.shot(`${id}-form2`);
+
+      // A full cycle of the slowest phase, twice: each pattern's gap plus each special's charge plus a second for it.
+      const cycleMs = two.phases[0].patterns.reduce((ms, p) => ms + two.phases[0].patternGapMs + (cast.ms[p] ?? 0) + 1000, 0);
+      const bound = Date.now() + 2 * cycleMs;
+      const seen = new Map();
+      while (seen.size < specials.length && Date.now() < bound) {
+        const c = await h.state();
+        if (c.boss.hpRatio < two.phases.at(-1).hpRatio + 0.1) await h.game('bossHp', 0.7);
+        const p = c.boss.pattern;
+        if (c.boss.stance === 'casting' && !seen.has(p)) {
+          h.check(`${two.name}: ${p} charges with its callout "${cast.callouts[p]}"`, c.boss.callout === cast.callouts[p] && c.boss.castMsLeft > 0, { boss: c.boss });
+          seen.set(p, c.boss.castMsLeft);
+          const shotAt = await h.waitFor(`${p} telegraph grown`, (y) => y.boss.stance !== 'casting' || y.boss.castMsLeft < cast.ms[p] * 0.4, 4000);
+          if (shotAt.boss.stance === 'casting') {
+            await h.game('pause');
+            await h.shot(`${id}-casting-${p}`);
+            await h.game('resume');
+          }
+          const done = await h.waitFor(`${p} released`, (y) => y.boss.stance !== 'casting', 4000);
+          h.check(`${two.name}: ${p} releases and she fights on`, done.boss.stance === 'fighting', { boss: done.boss });
+          await sleep(500);
+          await h.shot(`${id}-release-${p}`);
+        }
+        await sleep(30);
+      }
+      h.check(`${two.name}: every special (${specials.join(', ')}) was cast within ${Math.round((2 * cycleMs) / 1000)}s`, specials.every((p) => seen.has(p)), { seen: [...seen.keys()], specials });
+    }
+
+    const big = await h.page.context().browser().newContext({ viewport: { width: 1920, height: 1080 } });
+    const v = harness(await big.newPage(), join(ROOT, '.verify', runId, 'evidence', 'boss-forms'));
+    try {
+      await v.startAt(10, LOADOUT);
+      await v.game('god', true);
+      await v.waitFor('Empress in place', (x) => x.boss?.stance === 'fighting', 12000);
+      await v.game('bossHp', 0.45);
+      await v.waitFor('Eclipse casting', (x) => x.boss?.form === 1 && x.boss.stance === 'casting' && x.boss.castMsLeft < 600, 20000);
+      await v.game('pause');
+      await v.shot('1920x1080-eclipse-casting');
+      await v.game('resume');
+    } finally {
+      h.log.steps.push(...v.log.steps);
+      h.log.consoleErrors.push(...v.log.consoleErrors);
+      await big.close();
+    }
   },
 
   async 'enemy-hp'(h) {
@@ -753,7 +889,7 @@ const JOURNEYS = {
 };
 
 // Close-ups of small HUD art need the canvas's full backing resolution.
-const CONTEXT = { 'skill-hud': { deviceScaleFactor: 2 }, items: { deviceScaleFactor: 2 }, movement: { deviceScaleFactor: 2 }, 'enemy-hp': { deviceScaleFactor: 2 }, 'shop-tooltip': { deviceScaleFactor: 2 } };
+const CONTEXT = { 'boss-forms': { deviceScaleFactor: 2 }, 'skill-hud': { deviceScaleFactor: 2 }, items: { deviceScaleFactor: 2 }, movement: { deviceScaleFactor: 2 }, 'enemy-hp': { deviceScaleFactor: 2 }, 'shop-tooltip': { deviceScaleFactor: 2 } };
 
 const selected = names.includes('all') ? Object.keys(JOURNEYS).filter((n) => n !== 'doctor') : names;
 const unknown = selected.filter((n) => !JOURNEYS[n]);

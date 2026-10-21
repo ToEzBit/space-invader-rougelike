@@ -32,6 +32,7 @@ This directory is the maintained source for verifying what a player can do in th
 - [Consumable items](./items.md) covers item offers in the shop, buying, keys 1-5, buffs, the item shield and the bottom-right item tray.
 - [Skill cooldown tray](./skill-hud.md) covers the bottom-left skill icons, the clockwise cooldown sweep and countdown, dash charges and the laser cycle.
 - [Enemy HP bars](./enemy-hp.md) covers the bar over a damaged foe, its color, the white chip, the fade after the last hit and no bar on the boss.
-- [Boss fights](./bosses.md) covers Crimson Seraph and Void Empress, damage and phases.
+- [Boss fights](./bosses.md) covers Crimson Seraph and Void Empress, damage, phases and reaching the second form.
+- [Boss forms](./boss-forms.md) covers the transformation (immunity, shockwave, heal, new name and sprite, minions) and each second form's charged special attacks.
 - [Run end](./run-end.md) covers victory, defeat and restarting.
 - [Viewport and fullscreen](./viewport.md) covers filling the window, fitting the playfield, HiDPI, live resize and the F fullscreen toggle.
