@@ -27,6 +27,7 @@ export type Foe = {
   readonly radius: number;
   size: 'small' | 'big';
   burn: { dps: number; msLeft: number } | null;
+  // Counts down a white hit flash, then on below zero through the gap before the next one may start.
   flashMs: number;
   hpBar: HpBar;
   dead: boolean;
@@ -35,6 +36,8 @@ export type Foe = {
 };
 
 const FLASH_MS = 70;
+// A foe under steady fire, such as a boss holding still to cast, would otherwise stay solid white.
+const FLASH_GAP_MS = 110;
 const BURN_TINT = 0xffa070;
 // Continuous damage lands every frame: flashing on it would keep a foe solid white and would pin the HP bar's
 // chip in place, so only discrete hits flash and hold the chip.
@@ -159,7 +162,7 @@ export class World {
 
   addFoe(texture: CharacterKey, x: number, y: number, hp: number, coin: number, radius: number, size: Foe['size'] = 'small'): Foe {
     const sprite = this.scene.add.image(x, y, texture).setDepth(DEPTH.foe);
-    const foe: Foe = { sprite, hp, maxHp: hp, coin, radius, size, burn: null, flashMs: 0, hpBar: HIDDEN, dead: false };
+    const foe: Foe = { sprite, hp, maxHp: hp, coin, radius, size, burn: null, flashMs: -FLASH_GAP_MS, hpBar: HIDDEN, dead: false };
     this.foes.push(foe);
     return foe;
   }
@@ -170,7 +173,7 @@ export class World {
     const ratioBefore = hpRatio(foe);
     foe.hp -= amount;
     this.tally.dealt[source] = (this.tally.dealt[source] ?? 0) + amount;
-    if (DISCRETE[source] && foe.flashMs <= 0) {
+    if (DISCRETE[source] && foe.flashMs <= -FLASH_GAP_MS) {
       foe.flashMs = FLASH_MS;
       foe.sprite.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
     }
@@ -272,8 +275,8 @@ export class World {
         foe.burn.msLeft -= dtMs;
         if (foe.burn.msLeft <= 0) foe.burn = null;
       }
-      if (foe.flashMs > 0 && (foe.flashMs -= dtMs) > 0) continue;
-      foe.flashMs = 0;
+      if (foe.flashMs > -FLASH_GAP_MS) foe.flashMs -= dtMs;
+      if (foe.flashMs > 0) continue;
       foe.sprite.setTintMode(Phaser.TintModes.MULTIPLY).setTint(foe.burn ? BURN_TINT : 0xffffff);
     }
     for (let i = this.foes.length - 1; i >= 0; i--) {

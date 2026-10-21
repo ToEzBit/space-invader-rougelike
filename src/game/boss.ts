@@ -26,7 +26,7 @@ const CAST = { pulse: 0.07, convergeEveryMs: 35, releaseShake: 0.01 } as const;
 const CALLOUT_MIN_Y = 98;
 
 // Fractions of the transformation's duration, except shockMs.
-const TRANSFORM = { peak: 0.45, healFrom: 0.3, healTo: 0.9, shockMs: 650, shockReach: 820, crossfadeMs: 380 } as const;
+const TRANSFORM = { peak: 0.45, healFrom: 0.3, healTo: 0.9, shockMs: 900, shockReach: 820, crossfadeMs: 380 } as const;
 const IMMUNE_FLOAT_GAP_MS = 260;
 
 type Look = { orb: BulletKind; beam: number; glow: number; subtitle: string };
