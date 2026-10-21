@@ -1,18 +1,19 @@
 # Chibi character art
 
-This folder holds the sources for the eight character sprites in `src/assets/characters/`: player, optionDrone, drone, gunner, tank, diver, crimsonSeraph and voidEmpress. Each PNG has one art pixel per world unit and uses only fully opaque or fully transparent pixels.
+This folder holds the sources for the ten character sprites in `src/assets/characters/`: player, optionDrone, drone, gunner, tank, diver, the two bosses crimsonSeraph and voidEmpress, and their second forms crimsonSeraphAscended and voidEmpressEclipse. Each PNG has one art pixel per world unit and uses only fully opaque or fully transparent pixels.
 
 The art is made in two steps.
 
-1. `gen-all.mjs` asks the Codex CLI's image tool for one large picture of each character on flat green, using the prompts in `prompts.json`. Its outputs go to `raw/`.
-2. `pipeline.mjs` keys out the green, snaps each picture to the pixel grid and palette size set in its `CHARACTERS` table, then writes `out/<key>.png`, `manifest.json` and review sheets in `sheets/`. It is deterministic. The same raws always give the same bytes.
+1. `gen-all.mjs` asks the Codex CLI's image tool for one large picture of each character on flat green, using the prompts in `prompts.json`. Its outputs go to `raw/`. A prompt entry may override `head` and `style` and name its own reference `inputs`; the second-form prompts send `ref-forms/<boss>-6x.png` (the first-form sprite enlarged 6x) plus a raw.
+2. `pipeline.mjs` keys out the green, snaps each picture to the pixel grid and palette size set in its `CHARACTERS` table, then writes `out/<key>.png`, `manifest.json` and review sheets in `sheets/`. A second form names its first form in `form`, which adds `c-forms-<boss>.png` (both forms at 1x and 4x) and `d-stage-<form>.png` (both forms at world coordinates). It is deterministic. The same raws always give the same bytes.
 
 ## What is not committed
 
 - `raw/` holds the generated pictures, about 17 MB.
 - `ref/` holds the style sheet and per-character crops that `gen-all.mjs` sends as reference images, about 4 MB.
+- `ref-forms/` holds the enlarged first-form sprites the second-form prompts send.
 
-Both folders live here on the original machine but are gitignored, so they are not in the repo. Without `raw/`, `pipeline.mjs` skips every character. Without `ref/`, `gen-all.mjs` cannot generate. The committed PNGs in `src/assets/characters/` are the source of truth.
+These folders live here on the original machine but are gitignored, so they are not in the repo. Without `raw/`, `pipeline.mjs` skips every character. Without `ref/`, `gen-all.mjs` cannot generate. The committed PNGs in `src/assets/characters/` are the source of truth.
 
 ## Re-running
 
@@ -28,11 +29,13 @@ node pipeline.mjs           # raw/ -> out/, manifest.json, sheets/
 Then copy the finals into the game.
 
 ```bash
-for k in player optionDrone drone gunner tank diver crimsonSeraph voidEmpress; do
+for k in player optionDrone drone gunner tank diver crimsonSeraph voidEmpress crimsonSeraphAscended voidEmpressEclipse; do
   cp out/$k.png ../../src/assets/characters/
 done
 ```
 
-`gen-all.mjs` skips any character whose raw already exists. Delete or rename a raw to regenerate it, and bump its `raw` name in `prompts.json` and `pipeline.mjs` to keep the old one.
+`gen-all.mjs` skips any character whose raw already exists. `prompts.json` also holds `voidEmpressEclipse-v2`, a redraw that has not been generated; `pipeline.mjs` keeps using `voidEmpressEclipse-v1` until that raw exists and its `CHARACTERS` row names it. The game reads only the texture key, so a replacement of the same size class needs no code change. Delete or rename a raw to regenerate it, and bump its `raw` name in `prompts.json` and `pipeline.mjs` to keep the old one.
+
+Review helpers write into `review/`, which is gitignored. `sweep.mjs <key> '<json overrides>'` renders one character under several `CHARACTERS` knob sets at 4x, `face.mjs '<json overrides>'` does the same for the Ascended Seraph's face at 8x, and `up.mjs` and `crop.mjs` upscale or crop any PNG with nearest-neighbour sampling.
 
 Collision radii do not come from the sprite size. They live in `src/game/hitbox.ts`, so replacing the art never changes gameplay.

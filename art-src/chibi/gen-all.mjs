@@ -16,7 +16,7 @@ const rawHashes = () =>
 
 export function promptFor(c) {
   if (c.edit) return c.request;
-  return [common.head, c.request, common.style, common.framing, common.constraints, common.avoid].join('\n');
+  return [c.head ?? common.head, c.request, c.style ?? common.style, common.framing, common.constraints, common.avoid].join('\n');
 }
 
 for (const c of characters) {
@@ -29,7 +29,11 @@ for (const c of characters) {
   const prompt = promptFor(c);
   writeFileSync(join(DIR, 'raw', `${c.raw}.prompt.txt`), prompt);
   console.log(`generating ${c.raw}`);
-  const inputs = c.edit ? [join(DIR, 'raw', `${c.edit}.png`)] : [join(DIR, 'ref/sheet.png'), join(DIR, `ref/${c.ref}.png`)];
+  const inputs = c.inputs
+    ? c.inputs.map((f) => join(DIR, f))
+    : c.edit
+      ? [join(DIR, 'raw', `${c.edit}.png`)]
+      : [join(DIR, 'ref/sheet.png'), join(DIR, `ref/${c.ref}.png`)];
   const run = spawnSync(GEN, ['-o', out, ...inputs.flatMap((f) => ['-i', f]), '-t', '900', prompt], {
     encoding: 'utf8',
   });

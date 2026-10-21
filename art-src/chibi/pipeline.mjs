@@ -3,6 +3,7 @@
 import { PNG } from 'pngjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const DIR = import.meta.dirname;
 const OUT = join(DIR, 'out');
@@ -19,7 +20,10 @@ export const CHARACTERS = [
   { key: 'diver', raw: 'diver-v1', box: [30, 26], scale: 1, colors: 20, textureKeys: ['diver0', 'diver1'] },
   { key: 'crimsonSeraph', raw: 'crimsonSeraph-v2', box: [126, 104], scale: 1, colors: 28, kin: 48, textureKeys: ['crimsonSeraph'] },
   { key: 'voidEmpress', raw: 'voidEmpress-v3', box: [126, 116], scale: 1, colors: 28, textureKeys: ['voidEmpress'] },
+  { key: 'crimsonSeraphAscended', form: 'crimsonSeraph', raw: 'crimsonSeraphAscended-v2', box: [132, 128], scale: 1, colors: 28, kin: 0, textureKeys: ['crimsonSeraphAscended'] },
+  { key: 'voidEmpressEclipse', form: 'voidEmpress', raw: 'voidEmpressEclipse-v1', box: [130, 122], scale: 1, colors: 28, textureKeys: ['voidEmpressEclipse'] },
 ];
+const BOSS_KEYS = ['crimsonSeraph', 'voidEmpress'];
 const CANDIDATE_SCALES = [1, 2];
 
 function readPng(file) {
@@ -27,7 +31,7 @@ function readPng(file) {
   return { w: png.width, h: png.height, data: png.data };
 }
 
-function writePng(file, img) {
+export function writePng(file, img) {
   const png = new PNG({ width: img.w, height: img.h });
   img.data.copy ? img.data.copy(png.data) : png.data.set(img.data);
   writeFileSync(file, PNG.sync.write(png, { colorType: 6 }));
@@ -279,7 +283,7 @@ function modeOf(list) {
   return best;
 }
 
-function toImage(grid, pal, scale = 1) {
+export function toImage(grid, pal, scale = 1) {
   const h = grid.length;
   const w = grid[0].length;
   const img = blank(w * scale, h * scale);
@@ -342,7 +346,7 @@ function pad(grid) {
   return [row(), ...grid.map((r) => [-1, ...r, -1]), row()];
 }
 
-function processCharacter(c) {
+export function processCharacter(c) {
   const raw = readPng(join(DIR, 'raw', `${c.raw}.png`));
   const k = keyOut(raw);
   const box = keepMainParts(k);
@@ -359,13 +363,13 @@ function processCharacter(c) {
 
 const NAVY = [10, 15, 46];
 
-function canvas(w, h, color = NAVY) {
+export function canvas(w, h, color = NAVY) {
   const img = blank(w, h);
   for (let p = 0; p < w * h; p++) img.data.set([...color, 255], p * 4);
   return img;
 }
 
-function blit(dst, src, x0, y0, scale = 1) {
+export function blit(dst, src, x0, y0, scale = 1) {
   for (let y = 0; y < src.h * scale; y++)
     for (let x = 0; x < src.w * scale; x++) {
       const dx = x0 + x;
@@ -398,7 +402,7 @@ const FONT = {
   '-': '000000111000000', '/': '001001010100100',
 };
 
-function text(img, str, x, y, s = 2, color = [200, 210, 255, 255]) {
+export function text(img, str, x, y, s = 2, color = [200, 210, 255, 255]) {
   for (const ch of str.toUpperCase().replace(/X(?=\d)/g, 'x')) {
     const g = FONT[ch] ?? FONT[' '];
     for (let i = 0; i < 15; i++) if (g[i] === '1') fillRect(img, x + (i % 3) * s, y + ((i / 3) | 0) * s, s, s, color);
@@ -504,6 +508,39 @@ function stageSheet(sprites, scaleOf, label) {
   return sheet;
 }
 
+// Sheet (c): a boss's first form next to its second, at in-game size and at 4x, on navy.
+function formsSheet(one, two, f) {
+  const GAP = 24;
+  const w1 = Math.max(one.w, two.w);
+  const h1 = Math.max(one.h, two.h);
+  const sheet = canvas(GAP * 5 + w1 * 2 + one.w * 4 + two.w * 4, 70 + h1 * 4 + GAP);
+  text(sheet, `${f.form} -> ${f.key}. 1x THEN 4x`, GAP, 14);
+  text(sheet, `${one.w}x${one.h}`, GAP, 40);
+  text(sheet, `${two.w}x${two.h}`, GAP * 2 + w1, 40, 2, [255, 232, 74, 255]);
+  blit(sheet, one, GAP, 60);
+  blit(sheet, two, GAP * 2 + w1, 60);
+  blit(sheet, one, GAP * 3 + w1 * 2, 60, 4);
+  blit(sheet, two, GAP * 4 + w1 * 2 + one.w * 4, 60, 4);
+  return sheet;
+}
+
+// Sheet (d): boss frames at real world coordinates (boss at HOME_Y 138, ship at 572), shown at x2.
+function bossStageSheet(at, bosses) {
+  const shipY = 572;
+  const frames = bosses.map((boss) => {
+    const f = stageBackdrop();
+    centered(f, at(boss), 240, 138);
+    for (const [x, y] of [[90, 250], [390, 270], [200, 290]]) centered(f, at('drone'), x, y);
+    centered(f, at('player'), 240, shipY);
+    for (const dx of [-36, 36]) centered(f, at('optionDrone'), 240 + dx, shipY + 8);
+    return f;
+  });
+  const sheet = canvas(frames.length * 980 + 20, 1280 + 60);
+  text(sheet, `${bosses.join(' / ')}. WORLD x2`, 20, 20, 3);
+  frames.forEach((f, i) => blit(sheet, f, 20 + i * 980, 60, 2));
+  return sheet;
+}
+
 function main() {
   mkdirSync(join(OUT, 'candidates'), { recursive: true });
   mkdirSync(SHEETS, { recursive: true });
@@ -560,6 +597,11 @@ function main() {
     ) + '\n',
   );
   writePng(join(SHEETS, 'a-sprites.png'), spriteSheet(all));
+  const pick = (k) => sprites[k]?.[CHARACTERS.find((c) => c.key === k).scale];
+  for (const f of CHARACTERS.filter((c) => c.form && sprites[c.key] && sprites[c.form])) {
+    writePng(join(SHEETS, `c-forms-${f.form}.png`), formsSheet(pick(f.form), pick(f.key), f));
+    if (sprites.player && sprites.optionDrone && sprites.drone) writePng(join(SHEETS, `d-stage-${f.key}.png`), bossStageSheet(pick, [f.form, f.key]));
+  }
   if (all.length < CHARACTERS.length) return console.log('stage sheets need every character');
   writePng(join(SHEETS, 'b-stage-picked.png'), stageSheet(sprites, (k) => CHARACTERS.find((c) => c.key === k).scale, 'PICKED SCALES. WAVE / SERAPH / EMPRESS. WORLD x2'));
   for (const s of CANDIDATE_SCALES) writePng(join(SHEETS, `b-stage-s${s}.png`), stageSheet(sprites, () => s, `ALL AT S${s}. WORLD x2`));
@@ -569,7 +611,7 @@ function main() {
 function hitRadius(c, dw, dh) {
   if (c.key === 'player') return { fixed: 'Player.coreRadius 5 and bodyRadius 14, independent of the sprite' };
   if (c.key === 'optionDrone') return { fixed: 'none, option drones do not collide' };
-  if (c.key === 'crimsonSeraph' || c.key === 'voidEmpress') return { fixed: 'Boss sets foe.radius = 42' };
+  if (BOSS_KEYS.some((b) => c.key.startsWith(b))) return { fixed: 'Boss sets foe.radius = 42' };
   return { now: +(Math.min(...c.box) * 0.45).toFixed(1), withThisSprite: +(Math.min(dw, dh) * 0.45).toFixed(1), rule: 'min(frame w, h) * 0.45' };
 }
 
@@ -582,4 +624,4 @@ function notesFor(c) {
   return notes;
 }
 
-main();
+if (import.meta.url === pathToFileURL(process.argv[1]).href) main();
