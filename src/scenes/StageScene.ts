@@ -88,8 +88,11 @@ export class StageScene extends Phaser.Scene {
         stats: { moveSpeed: this.world.stats.moveSpeed, bulletDamage: this.world.stats.bulletDamage, fireIntervalMs: this.world.stats.fireIntervalMs },
         boss: this.encounter.boss && {
           name: this.encounter.boss.name,
+          form: this.encounter.boss.form,
           hpRatio: this.encounter.boss.hpRatio,
           phase: this.encounter.boss.phase,
+          stance: this.encounter.boss.stanceKind,
+          minions: this.encounter.boss.minionCount,
           x: this.encounter.boss.foe.sprite.x,
           y: this.encounter.boss.foe.sprite.y,
           maxHp: this.encounter.boss.foe.maxHp,

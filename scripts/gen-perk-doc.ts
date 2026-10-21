@@ -43,7 +43,9 @@ lines.push('## ด่านทั้ง 10', '', '| ด่าน | ประเ�
 STAGES.forEach((s, i) => {
   if (s.kind === 'boss') {
     const b = BOSSES[s.boss];
-    lines.push(`| ${i + 1} | **BOSS** | ${b.name} (HP ${b.hp}, ${b.phases.length} เฟส) | - | - | - | ${s.reward} |`);
+    const [one, two] = b.forms;
+    const form = `${one.name} (HP ${b.hp}, ${one.phases.length} เฟส) แปลงร่างที่ HP ${Math.round(b.transform.atHpRatio * 100)}% เป็น ${two.name} (${two.phases.length} เฟส)`;
+    lines.push(`| ${i + 1} | **BOSS** | ${form} | - | - | - | ${s.reward} |`);
   } else {
     const rows = s.rows.map((r) => ENEMIES[r].name).join(', ');
     lines.push(`| ${i + 1} | ${s.rows.length}x${s.cols} | ${rows} | ${s.marchSpeed} | ${s.fireRate} | ${s.hpMultiplier} | ${s.reward} |`);

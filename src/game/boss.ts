@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
-import { BOSSES, ENEMIES, type BossDef, type BossId, type BossPattern, type BossStage } from '../core/stages';
+import { BOSSES, ENEMIES, bossPhaseAt, transformDue, type BossDef, type BossForm, type BossId, type BossPattern, type BossStage, type EnemyKind, type FormIndex } from '../core/stages';
 import { COLORS } from '../art/palette';
 import { VIEW } from '../view';
-import type { BulletKind } from './bullets';
+import type { BulletKind, BulletSpawn } from './bullets';
 import type { Encounter } from './encounter';
 import { enemyFire } from './formation';
 import { distanceToSegment, rayEnd, type Point } from './geometry';
@@ -11,7 +11,6 @@ import { BOSS_RADIUS, FOE_RADIUS } from './hitbox';
 import { hpRatio } from './hpBar';
 import { beatAt, hop } from './idle';
 import { DEPTH } from './layout';
-import { bossPhaseIndex } from './phases';
 import type { Foe, World } from './world';
 
 const HOME_Y = 138;
@@ -31,7 +30,10 @@ type SweepBeam =
   | { kind: 'telegraph'; msLeft: number; angle: number }
   | { kind: 'sweeping'; msLeft: number; angle: number; dir: 1 | -1 };
 
-type Minion = { foe: Foe; tx: number; ty: number; t: number; fireCd: number };
+type Minion = { foe: Foe; kind: EnemyKind; tx: number; ty: number; t: number; fireCd: number };
+
+// Drift and pattern gaps only run while fighting, so the boss resumes where it stopped.
+type Stance = { kind: 'entering' } | { kind: 'fighting'; gapMs: number } | { kind: 'transforming'; msLeft: number } | { kind: 'dead' };
 
 const PATTERNS: Record<BossPattern, (b: BossFight) => void> = {
   fanSpread: (b) => {
@@ -45,7 +47,7 @@ const PATTERNS: Record<BossPattern, (b: BossFight) => void> = {
   aimedBurst: (b) => {
     b.repeat(6, 110, () => b.shoot('needle', b.muzzle, b.aimAtPlayer(), 270));
   },
-  summonDrones: (b) => b.summon(3 + b.phase),
+  summonMinions: (b) => b.summon(3 + b.phase),
   spiral: (b) => {
     let angle = 0;
     b.repeat(26, 65, () => {
@@ -57,7 +59,7 @@ const PATTERNS: Record<BossPattern, (b: BossFight) => void> = {
   bulletRain: (b) => {
     b.repeat(24, 80, () => {
       const x = 20 + Math.random() * (VIEW.w - 40);
-      b.world.enemyShots.spawn({ kind: 'pellet', x, y: 40, vx: 0, vy: 170 + Math.random() * 70 });
+      b.fire({ kind: 'pellet', x, y: 40, vx: 0, vy: 170 + Math.random() * 70 });
     });
   },
 };
@@ -68,14 +70,14 @@ export class BossFight implements Encounter {
   readonly foe: Foe;
   readonly look: (typeof BOSS_LOOK)[BossId];
   readonly breached = false;
+  form: FormIndex = 0;
   phase = 0;
-  private stance: 'entering' | 'fighting' | 'dead' = 'entering';
+  private stance: Stance = { kind: 'entering' };
   private patternIndex = 0;
-  private gapMs = 1200;
-  private t = 0;
+  private driftMs = 0;
   private sweep: SweepBeam = { kind: 'idle' };
   private minions: Minion[] = [];
-  private readonly timers: Phaser.Time.TimerEvent[] = [];
+  private timers: Phaser.Time.TimerEvent[] = [];
   private readonly gfx: Phaser.GameObjects.Graphics;
   private readonly halo: Phaser.GameObjects.Image;
 
@@ -85,10 +87,11 @@ export class BossFight implements Encounter {
   ) {
     this.def = BOSSES[stage.boss];
     this.look = BOSS_LOOK[stage.boss];
-    this.foe = world.addFoe(stage.boss, VIEW.w / 2, -70, this.def.hp, 0, BOSS_RADIUS, 'big');
+    const { texture } = this.def.forms[0];
+    this.foe = world.addFoe(texture, VIEW.w / 2, -70, this.def.hp, 0, BOSS_RADIUS, 'big');
     this.foe.hpBar = { kind: 'hud' };
     this.halo = world.scene.add
-      .image(VIEW.w / 2, -70, stage.boss)
+      .image(VIEW.w / 2, -70, texture)
       .setTint(this.look.glow)
       .setTintMode(Phaser.TintModes.FILL)
       .setAlpha(0.25)
@@ -98,8 +101,20 @@ export class BossFight implements Encounter {
     this.gfx = world.scene.add.graphics().setDepth(DEPTH.beam);
   }
 
+  get current(): BossForm {
+    return this.def.forms[this.form];
+  }
+
   get name(): string {
-    return this.def.name;
+    return this.current.name;
+  }
+
+  get stanceKind(): Stance['kind'] {
+    return this.stance.kind;
+  }
+
+  get minionCount(): number {
+    return this.minions.length;
   }
 
   get hpRatio(): number {
@@ -116,27 +131,44 @@ export class BossFight implements Encounter {
 
   update(dtMs: number): void {
     this.minions = this.minions.filter((m) => !m.foe.dead);
+    this.timers = this.timers.filter((t) => t.getOverallProgress() < 1);
     if (this.foe.dead) return this.die();
-    this.t += dtMs;
     const s = this.foe.sprite;
-    if (this.stance === 'entering') {
-      s.y = Math.min(HOME_Y, s.y + (ENTER_SPEED * dtMs) / 1000);
-      if (s.y >= HOME_Y) [this.stance, this.t] = ['fighting', 0];
-    } else {
-      const reach = Math.min(110 + this.phase * 15, VIEW.w / 2 - this.halo.displayWidth / 2 - 6);
-      s.x = VIEW.w / 2 + Math.sin(this.t / 1500) * reach;
-      s.y = HOME_Y + Math.sin(this.t / 700) * 10;
-      this.advancePhase();
-      this.nextPattern(dtMs);
+    const stance = this.stance;
+    switch (stance.kind) {
+      case 'entering':
+        s.y = Math.min(HOME_Y, s.y + (ENTER_SPEED * dtMs) / 1000);
+        if (s.y >= HOME_Y) this.stance = { kind: 'fighting', gapMs: 1200 };
+        break;
+      case 'fighting':
+        this.drift(dtMs);
+        if (transformDue(this.def, this.form, this.hpRatio)) {
+          this.startTransform();
+          break;
+        }
+        this.advancePhase();
+        if ((stance.gapMs -= dtMs) <= 0) stance.gapMs = this.nextPattern();
+        break;
+      case 'transforming':
+        if ((stance.msLeft -= dtMs) <= 0) this.finishTransform();
+        break;
+      case 'dead':
+        break;
     }
-    this.halo.setPosition(s.x, s.y).setAlpha(0.18 + Math.sin(this.t / 200) * 0.08 + this.phase * 0.08);
+    this.halo.setPosition(s.x, s.y).setAlpha(0.18 + Math.sin(this.driftMs / 200) * 0.08 + this.phase * 0.08);
     this.updateSweep(dtMs);
     for (const m of this.minions) this.updateMinion(m, dtMs);
   }
 
+  // Every pattern bullet comes through here, so the form's bullet speed applies to all of them.
+  fire(spawn: BulletSpawn): void {
+    const k = this.current.bulletSpeedScale;
+    this.world.enemyShots.spawn({ ...spawn, vx: spawn.vx * k, vy: spawn.vy * k });
+  }
+
   shoot(kind: BulletKind, from: Point, angleDeg: number, speed: number): void {
     const rad = Phaser.Math.DegToRad(90 + angleDeg);
-    this.world.enemyShots.spawn({ kind, x: from.x, y: from.y, vx: Math.cos(rad) * speed, vy: Math.sin(rad) * speed });
+    this.fire({ kind, x: from.x, y: from.y, vx: Math.cos(rad) * speed, vy: Math.sin(rad) * speed });
   }
 
   aimAtPlayer(): number {
@@ -155,11 +187,12 @@ export class BossFight implements Encounter {
 
   summon(count: number): void {
     const room = MAX_MINIONS - this.minions.length;
-    const def = ENEMIES.drone;
+    const kind = this.current.minionKind;
+    const def = ENEMIES[kind];
     for (let i = 0; i < Math.min(count, room); i++) {
       const s = this.foe.sprite;
-      const foe = this.world.addFoe('drone', s.x, s.y, def.hp * MINION_HP_SCALE, def.coin, FOE_RADIUS.drone);
-      this.minions.push({ foe, tx: 50 + Math.random() * (VIEW.w - 100), ty: 210 + Math.random() * 90, t: Math.random() * 1000, fireCd: 900 + Math.random() * 900 });
+      const foe = this.world.addFoe(kind, s.x, s.y, def.hp * MINION_HP_SCALE, def.coin, FOE_RADIUS[kind]);
+      this.minions.push({ foe, kind, tx: 50 + Math.random() * (VIEW.w - 100), ty: 210 + Math.random() * 90, t: Math.random() * 1000, fireCd: 900 + Math.random() * 900 });
     }
     this.world.fx.spark(this.foe.sprite.x, this.foe.sprite.y, 20);
   }
@@ -170,27 +203,57 @@ export class BossFight implements Encounter {
     this.sweep = { kind: 'telegraph', msLeft: SWEEP.telegraphMs, angle: SWEEP.fromDeg * flip };
   }
 
+  private drift(dtMs: number): void {
+    this.driftMs += dtMs;
+    const s = this.foe.sprite;
+    const reach = Math.min(110 + this.phase * 15, VIEW.w / 2 - this.halo.displayWidth / 2 - 6);
+    s.x = VIEW.w / 2 + Math.sin(this.driftMs / 1500) * reach;
+    s.y = HOME_Y + Math.sin(this.driftMs / 700) * 10;
+  }
+
   private advancePhase(): void {
-    const next = bossPhaseIndex(this.def.phases, this.hpRatio);
+    const next = bossPhaseAt(this.def, this.form, this.hpRatio);
     if (next <= this.phase) return;
     this.phase = next;
+    this.restartCycle();
+    this.phaseFx();
+  }
+
+  private restartCycle(): void {
     this.patternIndex = 0;
-    this.gapMs = 900;
+    if (this.stance.kind === 'fighting') this.stance.gapMs = 900;
+  }
+
+  private phaseFx(): void {
     const { fx } = this.world;
     fx.flash(200, 255, 255, 255);
     sfx('phase');
     fx.shake(0.015, 450);
     fx.explode(this.foe.sprite.x, this.foe.sprite.y, 'big');
-    fx.float(this.foe.sprite.x, this.foe.sprite.y - 60, `PHASE ${next + 1}`, COLORS.red);
+    const shown = this.form * this.def.forms[0].phases.length + this.phase + 1;
+    fx.float(this.foe.sprite.x, this.foe.sprite.y - 60, `PHASE ${shown}`, COLORS.red);
   }
 
-  private nextPattern(dtMs: number): void {
-    if ((this.gapMs -= dtMs) > 0) return;
-    const phase = this.def.phases[this.phase]!;
+  private startTransform(): void {
+    this.stance = { kind: 'transforming', msLeft: this.def.transform.durationMs };
+  }
+
+  private finishTransform(): void {
+    this.form = 1;
+    this.phase = bossPhaseAt(this.def, this.form, this.hpRatio);
+    this.stance = { kind: 'fighting', gapMs: 900 };
+    this.restartCycle();
+    this.phaseFx();
+    this.summon(this.def.transform.summon);
+  }
+
+  // Returns the gap before the next pattern.
+  private nextPattern(): number {
+    const phase = this.current.phases[this.phase]!;
     const pattern = phase.patterns[this.patternIndex % phase.patterns.length]!;
     this.patternIndex++;
-    this.gapMs = phase.patternGapMs;
     PATTERNS[pattern](this);
+    return phase.patternGapMs;
   }
 
   private updateSweep(dtMs: number): void {
@@ -208,7 +271,7 @@ export class BossFight implements Encounter {
     }
     const total = SWEEP.toDeg - SWEEP.fromDeg;
     s.angle += (s.dir * total * dtMs) / SWEEP.sweepMs;
-    const w = SWEEP.width * (1 + Math.sin(this.t / 25) * 0.15);
+    const w = SWEEP.width * (1 + Math.sin(this.world.scene.time.now / 25) * 0.15);
     g.lineStyle(w + 12, this.look.beam, 0.3).lineBetween(from.x, from.y, to.x, to.y);
     g.lineStyle(w, this.look.beam, 0.85).lineBetween(from.x, from.y, to.x, to.y);
     g.lineStyle(w * 0.35, COLORS.white, 1).lineBetween(from.x, from.y, to.x, to.y);
@@ -225,13 +288,13 @@ export class BossFight implements Encounter {
     hop(s, beatAt(m.t, 400));
     if ((m.fireCd -= dtMs) <= 0) {
       m.fireCd = 1400 + Math.random() * 1200;
-      enemyFire(this.world, 'drone', s.x, s.y + 10);
+      enemyFire(this.world, m.kind, s.x, s.y + 10);
     }
   }
 
   private die(): void {
-    if (this.stance === 'dead') return;
-    this.stance = 'dead';
+    if (this.stance.kind === 'dead') return;
+    this.stance = { kind: 'dead' };
     this.halo.setVisible(false);
     this.sweep = { kind: 'idle' };
     this.gfx.clear();

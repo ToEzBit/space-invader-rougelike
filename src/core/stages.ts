@@ -17,34 +17,90 @@ export const ENEMIES: Record<EnemyKind, EnemyDef> = {
 
 export type BossId = 'crimsonSeraph' | 'voidEmpress';
 
-export type BossPattern = 'fanSpread' | 'aimedBurst' | 'summonDrones' | 'spiral' | 'sweepLaser' | 'bulletRain';
+// The character texture a boss form wears. Each first form wears its boss id.
+export type BossTexture = BossId | 'crimsonSeraphAscended' | 'voidEmpressEclipse';
 
-export type BossDef = {
+export type BossPattern = 'fanSpread' | 'aimedBurst' | 'summonMinions' | 'spiral' | 'sweepLaser' | 'bulletRain';
+
+// A phase starts when boss HP falls to hpRatio or below; the boss cycles its patterns.
+export type BossPhase = { hpRatio: number; patterns: readonly BossPattern[]; patternGapMs: number };
+
+export type BossForm = {
   name: string;
-  hp: number;
-  // Each phase starts when boss HP falls to hpRatio or below; the boss cycles its patterns.
-  phases: readonly { hpRatio: number; patterns: readonly BossPattern[]; patternGapMs: number }[];
+  texture: BossTexture;
+  // hpRatio thresholds are fractions of the boss's full HP, in falling order. The first phase starts at 1.
+  phases: readonly BossPhase[];
+  bulletSpeedScale: number;
+  minionKind: EnemyKind;
 };
+
+// The first form becomes the second once HP falls to atHpRatio. For durationMs the boss is immune while it heals
+// healRatio of its full HP, then it summons minions.
+export type BossTransform = { atHpRatio: number; healRatio: number; summon: number; durationMs: number };
+
+export type BossDef = { hp: number; forms: readonly [BossForm, BossForm]; transform: BossTransform };
+
+export type FormIndex = 0 | 1;
 
 export const BOSSES: Record<BossId, BossDef> = {
   crimsonSeraph: {
-    name: 'Crimson Seraph',
     hp: 420,
-    phases: [
-      { hpRatio: 1, patterns: ['fanSpread', 'aimedBurst'], patternGapMs: 1800 },
-      { hpRatio: 0.5, patterns: ['fanSpread', 'summonDrones', 'aimedBurst'], patternGapMs: 1400 },
+    forms: [
+      {
+        name: 'Crimson Seraph',
+        texture: 'crimsonSeraph',
+        phases: [{ hpRatio: 1, patterns: ['fanSpread', 'aimedBurst'], patternGapMs: 1800 }],
+        bulletSpeedScale: 1,
+        minionKind: 'drone',
+      },
+      {
+        name: 'Crimson Seraph',
+        texture: 'crimsonSeraph',
+        phases: [{ hpRatio: 1, patterns: ['fanSpread', 'summonMinions', 'aimedBurst'], patternGapMs: 1400 }],
+        bulletSpeedScale: 1,
+        minionKind: 'drone',
+      },
     ],
+    transform: { atHpRatio: 0.5, healRatio: 0, summon: 0, durationMs: 0 },
   },
   voidEmpress: {
-    name: 'Void Empress',
     hp: 1100,
-    phases: [
-      { hpRatio: 1, patterns: ['spiral', 'aimedBurst'], patternGapMs: 1600 },
-      { hpRatio: 0.66, patterns: ['sweepLaser', 'spiral', 'summonDrones'], patternGapMs: 1300 },
-      { hpRatio: 0.33, patterns: ['bulletRain', 'sweepLaser', 'spiral', 'aimedBurst'], patternGapMs: 1000 },
+    forms: [
+      {
+        name: 'Void Empress',
+        texture: 'voidEmpress',
+        phases: [
+          { hpRatio: 1, patterns: ['spiral', 'aimedBurst'], patternGapMs: 1600 },
+          { hpRatio: 0.66, patterns: ['sweepLaser', 'spiral', 'summonMinions'], patternGapMs: 1300 },
+        ],
+        bulletSpeedScale: 1,
+        minionKind: 'drone',
+      },
+      {
+        name: 'Void Empress',
+        texture: 'voidEmpress',
+        phases: [{ hpRatio: 1, patterns: ['bulletRain', 'sweepLaser', 'spiral', 'aimedBurst'], patternGapMs: 1000 }],
+        bulletSpeedScale: 1,
+        minionKind: 'drone',
+      },
     ],
+    transform: { atHpRatio: 0.33, healRatio: 0, summon: 0, durationMs: 0 },
   },
 };
+
+// The latest phase of the form whose threshold the boss HP has fallen to.
+export function bossPhaseAt(def: BossDef, form: FormIndex, hpRatio: number): number {
+  let index = 0;
+  def.forms[form].phases.forEach((p, i) => {
+    if (hpRatio <= p.hpRatio) index = i;
+  });
+  return index;
+}
+
+// Only the first form transforms, so a boss whose HP dips below the threshold again never transforms twice.
+export function transformDue(def: BossDef, form: FormIndex, hpRatio: number): boolean {
+  return form === 0 && hpRatio <= def.transform.atHpRatio;
+}
 
 export type WaveStage = {
   kind: 'wave';

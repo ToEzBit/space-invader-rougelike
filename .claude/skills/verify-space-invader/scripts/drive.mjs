@@ -540,19 +540,19 @@ const JOURNEYS = {
 
   async bosses(h) {
     const b0 = await h.startAt(5);
-    h.check('stage 5 is Crimson Seraph at full HP', b0.boss?.name === 'Crimson Seraph' && b0.boss.hpRatio === 1 && b0.boss.phase === 0, { boss: b0.boss });
+    h.check('stage 5 is Crimson Seraph at full HP in her first form', b0.boss?.name === 'Crimson Seraph' && b0.boss.hpRatio === 1 && b0.boss.form === 0 && b0.boss.phase === 0, { boss: b0.boss });
     await sleep(3000);
     const b1 = await h.state();
     h.check('player fire damages the boss', b1.boss.hpRatio < 1, { hpRatio: b1.boss.hpRatio });
     await h.game('bossHp', 0.45);
-    await h.waitFor('Seraph phase 2', (x) => x.boss?.phase === 1, 10000);
+    await h.waitFor('Seraph second form', (x) => x.boss?.form === 1 && x.boss.stance === 'fighting', 10000);
     await sleep(1200);
     await h.shot('seraph-phase2');
 
     const e0 = await h.startAt(10);
-    h.check('stage 10 is Void Empress', e0.boss?.name === 'Void Empress' && e0.boss.phase === 0, { boss: e0.boss });
+    h.check('stage 10 is Void Empress in her first form', e0.boss?.name === 'Void Empress' && e0.boss.form === 0 && e0.boss.phase === 0, { boss: e0.boss });
     await h.game('bossHp', 0.3);
-    await h.waitFor('Empress phase 3', (x) => x.boss?.phase === 2, 10000);
+    await h.waitFor('Empress second form', (x) => x.boss?.form === 1 && x.boss.stance === 'fighting', 10000);
     await sleep(1500);
     await h.shot('empress-phase3');
   },

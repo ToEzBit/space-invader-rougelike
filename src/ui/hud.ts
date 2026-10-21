@@ -21,6 +21,7 @@ export class Hud {
   private shownMoney = -1;
   private shownHp = '';
   private readonly bossBar: Phaser.GameObjects.Graphics;
+  private readonly bossName: Phaser.GameObjects.Text | null;
   private readonly foeBars: Phaser.GameObjects.Graphics;
   private readonly skills: SkillSlot[];
   private readonly items: Map<ItemId, SkillSlot>;
@@ -38,7 +39,7 @@ export class Hud {
     this.money = label(scene, MONEY_ANCHOR.x - 14, 7, '0', { size: 14, bold: true, align: 'right' }).setDepth(d);
     this.bossBar = scene.add.graphics().setDepth(d);
     this.foeBars = scene.add.graphics().setDepth(DEPTH.hpBar);
-    if (boss) label(scene, VIEW.w / 2, 40, boss.name.toUpperCase(), { size: 13, bold: true, color: css(COLORS.red), align: 'center', stroke: '#0d0b26' }).setDepth(d);
+    this.bossName = boss && label(scene, VIEW.w / 2, 40, boss.name.toUpperCase(), { size: 13, bold: true, color: css(COLORS.red), align: 'center', stroke: '#0d0b26' }).setDepth(d);
     this.skills = SKILL_SLOTS.filter((def) => def.meter(world)).map((def, i) => new SkillSlot(scene, TRAY.x + i * TRAY.gap, TRAY.y, def));
     // Items can only be spent during a stage, so the slots held at the start stay put (dimmed at x0) until it ends.
     const held = ITEM_IDS.filter((id) => world.run.items[id]);
@@ -95,14 +96,22 @@ export class Hud {
   private drawBossBar(): void {
     const g = this.bossBar.clear();
     if (!this.boss) return;
+    const name = this.boss.name.toUpperCase();
+    if (this.bossName && this.bossName.text !== name) this.bossName.setText(name);
     const x = 60;
     const w = VIEW.w - 120;
     g.fillStyle(0x0d0b26, 0.9).fillRect(x - 2, 62, w + 4, 12);
     g.fillStyle(0x3a0a1a, 1).fillRect(x, 64, w, 8);
     g.fillStyle(COLORS.red, 1).fillRect(x, 64, w * this.boss.hpRatio, 8);
     g.fillStyle(COLORS.pink, 1).fillRect(x, 64, w * this.boss.hpRatio, 2);
-    for (const phase of this.boss.def.phases.slice(1)) g.fillStyle(COLORS.yellow, 1).fillRect(x + w * phase.hpRatio - 1, 61, 2, 14);
+    for (const ratio of bossTicks(this.boss)) g.fillStyle(COLORS.yellow, 1).fillRect(x + w * ratio - 1, 61, 2, 14);
   }
+}
+
+// Where the current form changes phase, plus where the first form transforms.
+function bossTicks({ def, form }: BossFight): number[] {
+  const phases = def.forms[form].phases.slice(1).map((p) => p.hpRatio);
+  return form === 0 ? [...phases, def.transform.atHpRatio] : phases;
 }
 
 // `count` adds an xN badge and dims the icon at zero, for consumables.

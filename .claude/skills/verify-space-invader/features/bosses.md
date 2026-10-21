@@ -22,10 +22,10 @@ Preconditions:
 - `doctor.sh <run-id>` passes.
 - The journey reaches each boss with `__game.start(5)` and `__game.start(10)`, and moves HP with `bossHp(ratio)`.
 
-- **Seraph.** Run `drive.mjs <run-id> bosses`. `boss.name` is `Crimson Seraph`, `hpRatio` 1, `phase` 0.
+- **Seraph.** Run `drive.mjs <run-id> bosses`. `boss.name` is `Crimson Seraph`, `hpRatio` 1, `form` 0, `phase` 0.
 - **Damage.** Press nothing for 3s. `boss.hpRatio` drops below 1.
-- **Seraph phase 2.** `bossHp(0.45)`. `boss.phase` becomes 1 within 10s.
-- **Empress phase 3.** On stage 10, `bossHp(0.3)`. `boss.phase` becomes 2 within 10s.
+- **Seraph second form.** `bossHp(0.45)`. `boss.form` becomes 1 and `stance` is back to `fighting` within 10s.
+- **Empress second form.** On stage 10, `bossHp(0.3)`. `boss.form` becomes 1 within 10s.
 - **Proof.** `bosses/01-seraph-phase2.png` and `02-empress-phase3.png` show each boss with name, HP bar and attacks in flight.
 
 ## Gotchas
