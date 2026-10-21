@@ -3,19 +3,22 @@ import { PERKS, PERK_IDS } from '../core/perks';
 import type { RunState } from '../core/run';
 import { STAGE_COUNT } from '../core/stages';
 import { COLORS, css } from '../art/palette';
-import type { CharacterKey } from '../art/characters';
+import type { ImageKey } from '../art/ui';
 import { setDebugHooks } from '../debug';
 import { Backdrop } from '../ui/backdrop';
+import { frame } from '../ui/frame';
 import { label } from '../ui/text';
 import { fitCamera, VIEW } from '../view';
 import type { RunData } from './flow';
 
 type Ending = 'victory' | 'defeat';
 
-const ENDING: Record<Ending, { title: string; subtitle: string; color: number; hero: CharacterKey; heroY: number }> = {
-  victory: { title: 'VICTORY!', subtitle: 'คุณปกป้องกาแล็กซีได้สำเร็จ!', color: COLORS.yellow, hero: 'voidEmpress', heroY: 240 },
-  defeat: { title: 'GAME OVER', subtitle: 'ยานของคุณถูกทำลาย...', color: COLORS.red, hero: 'gunner', heroY: 236 },
+const ENDING: Record<Ending, { title: string; subtitle: string; color: number; art: ImageKey }> = {
+  victory: { title: 'VICTORY!', subtitle: 'คุณปกป้องกาแล็กซีได้สำเร็จ!', color: COLORS.yellow, art: 'victoryArt' },
+  defeat: { title: 'GAME OVER', subtitle: 'ยานของคุณถูกทำลาย...', color: COLORS.red, art: 'defeatArt' },
 };
+const ART_Y = 272;
+const PANEL = { x: 40, y: 380, w: VIEW.w - 80, minH: 112 };
 
 export class EndScene extends Phaser.Scene {
   private run!: RunState;
@@ -40,13 +43,12 @@ export class EndScene extends Phaser.Scene {
 
     const title = label(this, cx, 70, look.title, { size: 48, bold: true, color: css(look.color), align: 'center', stroke: '#0d0b26' });
     this.tweens.add({ targets: title, scale: { from: 0.4, to: 1 }, duration: 500, ease: 'Back.easeOut' });
-    label(this, cx, 146, look.subtitle, { size: 16, color: '#ffffff', align: 'center' });
+    label(this, cx, 146, look.subtitle, { size: 16, color: '#ffffff', align: 'center', stroke: css(COLORS.ink) });
 
-    const hero = this.add.image(cx, look.heroY, look.hero).setScale(ending === 'victory' ? 1 : 3);
+    const art = this.add.image(cx, ART_Y, look.art);
+    this.tweens.add({ targets: art, y: '-=4', duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     if (ending === 'victory') {
-      hero.setAlpha(0.5).setTint(0x8888aa);
-      this.add.image(cx, 330, 'player').setScale(2);
-      const sparkle = this.add.particles(cx, 320, 'spark', {
+      const sparkle = this.add.particles(cx, ART_Y, 'spark', {
         lifespan: 1200,
         speed: { min: 30, max: 140 },
         scale: { start: 2.5, end: 0 },
@@ -55,8 +57,6 @@ export class EndScene extends Phaser.Scene {
         blendMode: Phaser.BlendModes.ADD,
       });
       sparkle.setDepth(-1);
-    } else {
-      this.tweens.add({ targets: hero, angle: { from: -6, to: 6 }, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     }
 
     const reached = ending === 'victory' ? STAGE_COUNT : this.run.stage;
@@ -65,7 +65,10 @@ export class EndScene extends Phaser.Scene {
 
     const owned = PERK_IDS.filter((id) => this.run.perks[id]);
     const perkLine = owned.map((id) => `${PERKS[id].name} ${this.run.perks[id]}`).join(' · ') || 'ไม่มีอัปเกรด';
-    label(this, cx, 452, perkLine, { size: 12, color: '#c9d4ff', align: 'center', wrap: VIEW.w - 60 });
+    const perks = label(this, cx, 452, perkLine, { size: 12, color: '#c9d4ff', align: 'center', wrap: PANEL.w - 40 });
+    // Grows with a long late-run perk line so its last row never sits on the frame's bottom border.
+    const panelH = Math.max(PANEL.minH, Math.ceil(perks.y + perks.height) + 6 - PANEL.y);
+    frame(this, 'panel', PANEL.x, PANEL.y, PANEL.w, panelH).setOrigin(0).setDepth(-1);
 
     const prompt = label(this, cx, 572, 'ENTER หรือคลิก · เล่นอีกครั้ง', { size: 18, bold: true, color: '#ffffff', align: 'center', stroke: '#d81b8c' });
     this.tweens.add({ targets: prompt, alpha: 0.35, duration: 600, yoyo: true, repeat: -1 });

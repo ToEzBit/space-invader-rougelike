@@ -12,6 +12,7 @@ import chipRapid from '../assets/ui/chipRapid.png';
 import coin0 from '../assets/ui/coin0.png';
 import coin1 from '../assets/ui/coin1.png';
 import coinLarge from '../assets/ui/coinLarge.png';
+import defeatArt from '../assets/ui/defeatArt.png';
 import heart from '../assets/ui/heart.png';
 import heartEmpty from '../assets/ui/heartEmpty.png';
 import hudBar from '../assets/ui/hudBar.png';
@@ -25,10 +26,14 @@ import itemNitro from '../assets/ui/itemNitro.png';
 import itemOverclock from '../assets/ui/itemOverclock.png';
 import itemPowerCell from '../assets/ui/itemPowerCell.png';
 import itemRepairKit from '../assets/ui/itemRepairKit.png';
+import logo from '../assets/ui/logo.png';
 import panel from '../assets/ui/panel.png';
 import perkCard from '../assets/ui/perkCard.png';
 import perkCardLaser from '../assets/ui/perkCardLaser.png';
 import perkCardRapid from '../assets/ui/perkCardRapid.png';
+import titleBg from '../assets/ui/titleBg.png';
+import titleScene from '../assets/ui/titleScene.png';
+import victoryArt from '../assets/ui/victoryArt.png';
 
 export const UI_ICONS = {
   heart,
@@ -73,3 +78,7 @@ export const UI_FRAMES = {
 } satisfies Record<string, { url: string; insets: Insets }>;
 
 export type FrameKey = keyof typeof UI_FRAMES;
+
+export const UI_IMAGES = { logo, titleBg, titleScene, victoryArt, defeatArt };
+
+export type ImageKey = keyof typeof UI_IMAGES;

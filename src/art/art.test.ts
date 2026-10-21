@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CHARACTER_ART } from './characters';
 import { PALETTE } from './palette';
 import { SPRITES } from './sprites';
-import { UI_FRAMES, UI_ICONS } from './ui';
+import { UI_FRAMES, UI_ICONS, UI_IMAGES } from './ui';
 
 describe('sprites', () => {
   it('are rectangular and only use palette colors', () => {
@@ -31,6 +31,6 @@ describe('character art', () => {
 describe('UI art', () => {
   it('loads every PNG in src/assets/ui, one per UI asset', () => {
     const files = Object.keys(import.meta.glob('../assets/ui/*.png')).map((path) => path.split('/').pop()).sort();
-    expect(files).toEqual([...Object.keys(UI_ICONS), ...Object.keys(UI_FRAMES)].map((key) => `${key}.png`).sort());
+    expect(files).toEqual([...Object.keys(UI_ICONS), ...Object.keys(UI_FRAMES), ...Object.keys(UI_IMAGES)].map((key) => `${key}.png`).sort());
   });
 });

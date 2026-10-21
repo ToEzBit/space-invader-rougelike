@@ -1,6 +1,6 @@
 # Title and run start
 
-The game boots to a title screen with the logo, the four enemy types, the controls panel in Thai, and a prompt. Pressing Enter starts a fresh run at stage 1.
+The game boots to a title screen with the pixel logo, the chibi cast key art over scrolling stars, the controls panel in Thai, and a prompt. Pressing Enter starts a fresh run at stage 1.
 
 ## Sub-features
 

@@ -1,10 +1,9 @@
 import Phaser from 'phaser';
-import { ENEMIES, type EnemyKind } from '../core/stages';
 import { newRun } from '../core/run';
 import { css, COLORS } from '../art/palette';
 import { setDebugHooks } from '../debug';
-import { hop } from '../game/idle';
 import { Backdrop } from '../ui/backdrop';
+import { frame } from '../ui/frame';
 import { label } from '../ui/text';
 import { fitCamera, VIEW } from '../view';
 import { goTo } from './flow';
@@ -32,40 +31,17 @@ export class TitleScene extends Phaser.Scene {
     this.starting = false;
     this.backdrop = new Backdrop(this);
     const cx = VIEW.w / 2;
+    const ink = css(COLORS.ink);
 
-    const logo = this.add.container(cx, 64);
-    logo.add(label(this, 0, 0, 'SPACE INVADER', { size: 40, bold: true, color: css(COLORS.cyan), align: 'center', stroke: '#1c2f8f' }));
-    logo.add(label(this, 0, 50, 'ROGUELIKE', { size: 30, bold: true, color: css(COLORS.pink), align: 'center', stroke: '#5a22b0' }));
-    this.tweens.add({ targets: logo, y: 72, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-    label(this, cx, 196, 'ปกป้องกาแล็กซีจากกองทัพสาวต่างดาว · อัปเกรดแบบโร้กไลก์', { size: 13, color: '#e3c6ff', align: 'center' });
+    // Between the nebula and the star layers, so the key art covers the playfield and the stars still scroll over it.
+    this.add.image(0, 0, 'titleBg').setOrigin(0).setDepth(-9.5);
+    const cast = this.add.image(cx, 312, 'titleScene');
+    this.tweens.add({ targets: cast, y: '-=6', duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    const logo = this.add.image(cx, 96, 'logo');
+    this.tweens.add({ targets: logo, y: 104, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    label(this, cx, 196, 'ปกป้องกาแล็กซีจากกองทัพสาวต่างดาว · อัปเกรดแบบโร้กไลก์', { size: 13, color: '#e3c6ff', align: 'center', stroke: ink });
 
-    const kinds = Object.keys(ENEMIES) as EnemyKind[];
-    const parade = kinds.map((kind, i) => {
-      const x = cx + (i - (kinds.length - 1) / 2) * 96;
-      const img = this.add.image(x, 252, kind).setScale(2);
-      label(this, x, 282, ENEMIES[kind].name, { size: 11, color: '#c9d4ff', align: 'center' });
-      this.tweens.add({ targets: img, y: 246, duration: 700 + i * 90, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-      return img;
-    });
-    let up = false;
-    this.time.addEvent({
-      delay: 420,
-      loop: true,
-      callback: () => {
-        up = !up;
-        for (const img of parade) hop(img, up);
-      },
-    });
-
-    const ship = this.add.image(cx, 350, 'player');
-    const flame = this.add.image(cx, 350 + ship.displayHeight / 2, 'flame0').setOrigin(0.5, 0);
-    this.time.addEvent({ delay: 70, loop: true, callback: () => flame.setTexture(flame.texture.key === 'flame0' ? 'flame1' : 'flame0') });
-    this.tweens.add({ targets: [ship, flame], y: '-=6', duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-
-    const panel = this.add.graphics();
-    const panelH = 44 + CONTROLS.length * ROW_H;
-    panel.fillStyle(0x0d0b26, 0.82).fillRoundedRect(40, 410, VIEW.w - 80, panelH, 10);
-    panel.lineStyle(2, COLORS.violet, 0.9).strokeRoundedRect(40, 410, VIEW.w - 80, panelH, 10);
+    frame(this, 'panel', 40, 410, VIEW.w - 80, 44 + CONTROLS.length * ROW_H).setOrigin(0);
     label(this, cx, 418, 'CONTROLS · การควบคุม', { size: 13, bold: true, color: css(COLORS.yellow), align: 'center' });
     CONTROLS.forEach(([key, what], i) => {
       label(this, 60, 444 + i * ROW_H, key, { size: 13, bold: true, color: css(COLORS.cyan) });
@@ -75,7 +51,7 @@ export class TitleScene extends Phaser.Scene {
     const prompt = label(this, cx, 590, 'PRESS ENTER หรือคลิกเพื่อเริ่ม', { size: 18, bold: true, color: '#ffffff', align: 'center', stroke: '#d81b8c' });
     this.tweens.add({ targets: prompt, alpha: 0.35, duration: 600, yoyo: true, repeat: -1 });
 
-    const fullscreen = label(this, VIEW.w - 12, 10, 'F · เต็มจอ', { size: 12, bold: true, color: '#c9d4ff', align: 'right' });
+    const fullscreen = label(this, VIEW.w - 12, 10, 'F · เต็มจอ', { size: 12, bold: true, color: '#c9d4ff', align: 'right', stroke: ink });
     fullscreen.setInteractive({ useHandCursor: true }).on(
       'pointerdown',
       (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
