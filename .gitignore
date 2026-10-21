@@ -4,3 +4,5 @@ dist
 .playwright-mcp
 .verify
 .claude/worktrees
+art-src/*/raw
+art-src/*/ref

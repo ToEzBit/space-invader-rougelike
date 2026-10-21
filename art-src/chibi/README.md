@@ -12,7 +12,7 @@ The art is made in two steps.
 - `raw/` holds the generated pictures, about 17 MB.
 - `ref/` holds the style sheet and per-character crops that `gen-all.mjs` sends as reference images, about 4 MB.
 
-Neither folder is in the repo. Without `raw/`, `pipeline.mjs` skips every character. Without `ref/`, `gen-all.mjs` cannot generate. The committed PNGs in `src/assets/characters/` are the source of truth.
+Both folders live here on the original machine but are gitignored, so they are not in the repo. Without `raw/`, `pipeline.mjs` skips every character. Without `ref/`, `gen-all.mjs` cannot generate. The committed PNGs in `src/assets/characters/` are the source of truth.
 
 ## Re-running
 
