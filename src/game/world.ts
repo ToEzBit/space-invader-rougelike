@@ -4,7 +4,7 @@ import { deriveStats } from '../core/perks';
 import { ITEMS, withBuffs, type BuffId, type ItemEffect, type ItemId } from '../core/items';
 import { heal, takeHit, useItem, type RunState } from '../core/run';
 import type { ShipStats } from '../core/stats';
-import type { SpriteKey } from '../art/sprites';
+import type { CharacterKey } from '../art/characters';
 import { Bullets } from './bullets';
 import { Dash } from './dash';
 import { Fx } from './fx';
@@ -149,7 +149,7 @@ export class World {
     this.effectiveStats = withBuffs(this.baseStats, left.map((b) => b.buff));
   }
 
-  addFoe(texture: SpriteKey, x: number, y: number, hp: number, coin: number, radius: number, size: Foe['size'] = 'small'): Foe {
+  addFoe(texture: CharacterKey, x: number, y: number, hp: number, coin: number, radius: number, size: Foe['size'] = 'small'): Foe {
     const sprite = this.scene.add.image(x, y, texture).setDepth(DEPTH.foe);
     const foe: Foe = { sprite, hp, maxHp: hp, coin, radius, size, burn: null, flashMs: 0, hpBar: HIDDEN, dead: false };
     this.foes.push(foe);

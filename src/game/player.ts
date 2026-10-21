@@ -26,7 +26,7 @@ export class Player {
   constructor(private readonly world: World) {
     const scene = world.scene;
     this.sprite = scene.add.image(240, PLAYER_Y, 'player').setDepth(DEPTH.player);
-    this.flame = scene.add.image(240, PLAYER_Y + 24, 'flame0').setOrigin(0.5, 0).setDepth(DEPTH.player - 1);
+    this.flame = scene.add.image(240, PLAYER_Y + this.sprite.displayHeight / 2, 'flame0').setOrigin(0.5, 0).setDepth(DEPTH.player - 1);
     this.shield = scene.add
       .circle(240, PLAYER_Y, 26)
       .setStrokeStyle(2, COLORS.cyan, 0.9)

@@ -1,9 +1,9 @@
 import { ENEMIES, type EnemyKind, type WaveStage } from '../core/stages';
-import { ENEMY_FRAMES } from '../art/sprites';
 import { VIEW } from '../view';
 import type { BulletKind } from './bullets';
 import type { Encounter } from './encounter';
 import { FOE_RADIUS } from './hitbox';
+import { beatAt, hop } from './idle';
 import { BREACH_Y, PLAYFIELD } from './layout';
 import { frontRank, marchSpeed } from './march';
 import type { Foe, World } from './world';
@@ -15,6 +15,8 @@ const DROP_PX = 10;
 const DIVE_CHANCE_PER_SEC = 0.08;
 const DIVE_SPEED = 230;
 const RETURN_SPEED = 260;
+// Late formations march many steps a second; hopping on every one would buzz, so hops are at least this far apart.
+const BEAT_MS = 150;
 
 export type EnemyShot = { bullet: BulletKind; speed: number; aimed: boolean };
 
@@ -44,7 +46,9 @@ export class Formation implements Encounter {
   private offsetY = 0;
   private dir: 1 | -1 = 1;
   private stepCarry = 0;
-  private frame: 0 | 1 = 0;
+  private beat = false;
+  private beatAtMs = 0;
+  private clockMs = 0;
 
   constructor(
     private readonly world: World,
@@ -54,7 +58,7 @@ export class Formation implements Encounter {
     def.rows.forEach((kind, row) => {
       const enemy = ENEMIES[kind];
       for (let col = 0; col < def.cols; col++) {
-        const foe = world.addFoe(ENEMY_FRAMES[kind][0], 0, 0, Math.ceil(enemy.hp * def.hpMultiplier), enemy.coin, FOE_RADIUS[kind]);
+        const foe = world.addFoe(kind, 0, 0, Math.ceil(enemy.hp * def.hpMultiplier), enemy.coin, FOE_RADIUS[kind]);
         this.members.push({ foe, kind, col, row, mode: { kind: 'ranked' } });
       }
     });
@@ -72,6 +76,7 @@ export class Formation implements Encounter {
 
   update(dtMs: number): void {
     const dt = dtMs / 1000;
+    this.clockMs += dtMs;
     this.members = this.members.filter((m) => !m.foe.dead);
     this.stepCarry += marchSpeed(this.def.marchSpeed, this.members.length, this.total) * dt;
     while (this.stepCarry >= STEP_PX) {
@@ -102,13 +107,13 @@ export class Formation implements Encounter {
         this.offsetX += this.dir * STEP_PX;
       }
     }
-    this.frame = this.frame === 0 ? 1 : 0;
-    for (const m of this.members) m.foe.sprite.setTexture(ENEMY_FRAMES[m.kind][this.frame]);
+    if (this.clockMs - this.beatAtMs >= BEAT_MS) [this.beat, this.beatAtMs] = [!this.beat, this.clockMs];
   }
 
   private move(m: Member, dt: number): void {
     const s = m.foe.sprite;
     const mode = m.mode;
+    hop(s, mode.kind === 'ranked' ? this.beat : beatAt(this.clockMs, BEAT_MS));
     switch (mode.kind) {
       case 'ranked':
         s.setPosition(this.slotX(m), this.slotY(m)).setRotation(0);

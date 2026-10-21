@@ -8,8 +8,6 @@ export const PALETTE: Record<string, string> = {
   S: '#565f94',
   c: '#46f0ff',
   C: '#1e9bff',
-  b: '#2f5bea',
-  B: '#1c2f8f',
   p: '#ff6ec7',
   P: '#d81b8c',
   h: '#ffc7ea',
@@ -21,13 +19,9 @@ export const PALETTE: Record<string, string> = {
   Y: '#ffb31a',
   g: '#5dff9b',
   G: '#17a860',
-  t: '#2fe0c0',
   v: '#a66bff',
   V: '#5a22b0',
-  u: '#2b0f5c',
   l: '#e3c6ff',
-  m: '#ffe3d1',
-  n: '#f5a58f',
 };
 
 export const COLORS = {

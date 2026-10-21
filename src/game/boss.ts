@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { BOSSES, ENEMIES, type BossDef, type BossId, type BossPattern, type BossStage } from '../core/stages';
-import { BOSS_SPRITE, ENEMY_FRAMES } from '../art/sprites';
 import { COLORS } from '../art/palette';
 import { VIEW } from '../view';
 import type { BulletKind } from './bullets';
@@ -10,6 +9,7 @@ import { enemyFire } from './formation';
 import { distanceToSegment, rayEnd, type Point } from './geometry';
 import { BOSS_RADIUS, FOE_RADIUS } from './hitbox';
 import { hpRatio } from './hpBar';
+import { beatAt, hop } from './idle';
 import { DEPTH } from './layout';
 import { bossPhaseIndex } from './phases';
 import type { Foe, World } from './world';
@@ -85,10 +85,10 @@ export class BossFight implements Encounter {
   ) {
     this.def = BOSSES[stage.boss];
     this.look = BOSS_LOOK[stage.boss];
-    this.foe = world.addFoe(BOSS_SPRITE[stage.boss], VIEW.w / 2, -70, this.def.hp, 0, BOSS_RADIUS, 'big');
+    this.foe = world.addFoe(stage.boss, VIEW.w / 2, -70, this.def.hp, 0, BOSS_RADIUS, 'big');
     this.foe.hpBar = { kind: 'hud' };
     this.halo = world.scene.add
-      .image(VIEW.w / 2, -70, BOSS_SPRITE[stage.boss])
+      .image(VIEW.w / 2, -70, stage.boss)
       .setTint(this.look.glow)
       .setTintMode(Phaser.TintModes.FILL)
       .setAlpha(0.25)
@@ -158,7 +158,7 @@ export class BossFight implements Encounter {
     const def = ENEMIES.drone;
     for (let i = 0; i < Math.min(count, room); i++) {
       const s = this.foe.sprite;
-      const foe = this.world.addFoe(ENEMY_FRAMES.drone[0], s.x, s.y, def.hp * MINION_HP_SCALE, def.coin, FOE_RADIUS.drone);
+      const foe = this.world.addFoe('drone', s.x, s.y, def.hp * MINION_HP_SCALE, def.coin, FOE_RADIUS.drone);
       this.minions.push({ foe, tx: 50 + Math.random() * (VIEW.w - 100), ty: 210 + Math.random() * 90, t: Math.random() * 1000, fireCd: 900 + Math.random() * 900 });
     }
     this.world.fx.spark(this.foe.sprite.x, this.foe.sprite.y, 20);
@@ -222,7 +222,7 @@ export class BossFight implements Encounter {
     m.t += dtMs;
     s.x = Phaser.Math.Linear(s.x, m.tx + Math.sin(m.t / 600) * 30, 0.04);
     s.y = Phaser.Math.Linear(s.y, m.ty + Math.cos(m.t / 500) * 10, 0.04);
-    s.setTexture(ENEMY_FRAMES.drone[Math.floor(m.t / 400) % 2 ? 1 : 0]);
+    hop(s, beatAt(m.t, 400));
     if ((m.fireCd -= dtMs) <= 0) {
       m.fireCd = 1400 + Math.random() * 1200;
       enemyFire(this.world, 'drone', s.x, s.y + 10);

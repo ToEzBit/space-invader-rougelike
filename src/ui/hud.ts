@@ -81,7 +81,7 @@ export class Hud {
       const s = foe.sprite;
       const w = Math.round(s.displayWidth);
       const x = Math.round(s.x - w / 2);
-      const y = Math.round(s.y - s.displayHeight / 2) - FOE_BAR.gap - FOE_BAR.h;
+      const y = Math.round(s.y - s.originY * s.displayHeight) - FOE_BAR.gap - FOE_BAR.h;
       const ratio = hpRatio(foe);
       const a = barAlpha(bar);
       g.fillStyle(COLORS.ink, 0.9 * a).fillRect(x - 1, y - 1, w + 2, FOE_BAR.h + 2);

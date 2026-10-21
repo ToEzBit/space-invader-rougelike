@@ -1,0 +1,77 @@
+{
+  "common": {
+    "head": "Use case: stylized-concept\nAsset type: single game sprite for a vertical Space Invaders style arcade shooter. It will be shown small, so it must read at low resolution.\nReference images: the first attached image is the art style sheet. The second attached image is a crop of this exact character from that sheet. Redraw that character as one standalone sprite in the same style.",
+    "style": "Style/medium: chibi kawaii pixel art matching the reference sheet: crisp hard-edged square pixels, clean dark outline around the whole silhouette, the same saturated palette and shading, big glossy anime eyes.",
+    "framing": "Composition/framing: exactly one character, centered, front-facing, the whole sprite inside the canvas with a wide empty margin on every side, nothing cropped, square canvas.",
+    "constraints": "Constraints: the background is one flat solid pure green #00FF00 filling the entire canvas edge to edge. No gradient, no stars, no space backdrop, no glow, no bloom, no aura, no drop shadow, no ground, no motion lines. The sprite itself uses no green at all. Hard pixel edges with no anti-aliasing against the background.",
+    "avoid": "Avoid: text, labels, watermark, signature, frame or border, a second character, extra sparkles floating around the sprite, any part of the other sheet characters."
+  },
+  "characters": [
+    {
+      "key": "player",
+      "ref": "ship",
+      "raw": "player-v1",
+      "request": "Primary request: the blue mecha-jet player ship from the sheet, seen from above, nose pointing straight UP at the top of the canvas, symmetric left and right. Swept white-and-blue wings with pink trim, two side engine pods, a round glass canopy in the middle with a cute chibi pilot girl (light blue hair, big blue eyes) visible inside. The engines end in dark nozzles: draw NO exhaust flames, no thruster fire and no engine trails below the ship.\nColor palette: royal blue, white, light gray, hot pink accents, small cyan details, dark navy outline."
+    },
+    {
+      "key": "optionDrone",
+      "ref": "ship",
+      "raw": "optionDrone-v1",
+      "request": "Primary request: a tiny companion option drone that flies beside the player ship. A small round white-and-blue pod with two little cat-ear fins on top, one big cute glowing cyan visor eye, a pink stripe, and a short gun nub pointing up. Very simple and chunky, few details, it must read at only 14 pixels wide. It matches the player ship's colors.\nColor palette: white, royal blue, cyan glow, hot pink accent, dark navy outline."
+    },
+    {
+      "key": "drone",
+      "ref": "drone",
+      "raw": "drone-v1",
+      "request": "Primary request: the enemy 'Pico Drone' from the sheet: a floating chibi robot-girl head with light blue-white hair, oversized sparkling blue eyes, a cute :3 mouth, a white helmet with two antennae, and big round cyan headphone pods on both sides, two small hover thrusters below. Bold simple silhouette, wider than tall, oversized eyes, few colors, thick dark outline, so it reads at 28 pixels wide.\nColor palette: white, pale blue hair, cyan glow lights, blue eyes, peach skin, dark navy outline."
+    },
+    {
+      "key": "gunner",
+      "ref": "gunner",
+      "raw": "gunner-v1",
+      "request": "Primary request: the enemy 'Gunner Girl' from the sheet: a floating chibi girl head with bright pink twin tails sticking out to both sides, a dark purple tech visor pushed up on her forehead, oversized sparkling pink eyes, a cute :3 mouth, two small horn-like hair clips, and two small pink thruster pods below. Bold simple silhouette, wider than tall, oversized eyes, few colors, thick dark outline, so it reads at 30 pixels wide.\nColor palette: hot pink hair, magenta eyes, dark purple visor, black clips, peach skin, dark navy outline."
+    },
+    {
+      "key": "tank",
+      "ref": "tank",
+      "raw": "tank-v1",
+      "request": "Primary request: the enemy 'Bulwark' from the sheet: a floating chibi girl head with lavender hair inside a heavy purple armored mecha helmet with a crest horn on top, big blocky purple shoulder cannon pods on both sides, oversized sparkling violet eyes and a cute :3 mouth. Heavy, chunky, armored, wider than tall, bold simple silhouette, few colors, thick dark outline, so it reads at 30 pixels wide.\nColor palette: deep purple and violet armor, lavender hair, pink-violet glow accents, small gold trim, peach skin, dark navy outline."
+    },
+    {
+      "key": "diver",
+      "ref": "diver",
+      "raw": "diver-v1",
+      "request": "Primary request: the enemy 'Kamikaze Kitsune' from the sheet: a floating chibi fox girl head with orange hair, two big pointed fox ears with white fluff on top, fluffy fox tails peeking out at both sides, oversized sparkling amber eyes, an open happy fanged smile, a small headset, and two round orange side thruster pods below. Bold simple silhouette, wider than tall, oversized eyes, few colors, thick dark outline, so it reads at 30 pixels wide.\nColor palette: bright orange, cream white fluff, amber eyes, dark gray thruster rims, peach skin, dark navy outline."
+    },
+    {
+      "key": "crimsonSeraph",
+      "ref": "seraph",
+      "raw": "crimsonSeraph-v1",
+      "request": "Primary request: the boss 'Crimson Seraph' from the sheet: a chibi angel mecha girl with long pale pink hair, a gold crown crest, a halo drawn as a solid red pixel ring above her head (no glow), and huge spread mechanical wings made of red and white blade feathers with gold trim. She wears a fully covered red armored chest plate and a full red-and-black armored bodysuit with armored boots, modest, no cleavage, no bare midriff. Arms open, floating, symmetric, wings spread wide so the whole sprite is wider than tall.\nColor palette: crimson red, white and pale pink, gold trim, black joints, ruby gems, peach skin, dark outline."
+    },
+    {
+      "key": "voidEmpress",
+      "ref": "empress",
+      "raw": "voidEmpress-v1",
+      "request": "Primary request: the boss 'Void Empress' from the sheet: a chibi empress girl with very long flowing lavender hair, a spiky black-and-gold crown, a thin purple halo ring behind her head drawn as solid pixels (no glow), two dark purple orbs with gold rings floating at her sides, and a long high-necked black, purple and white gown with full-coverage bodice and long wide sleeves, modest, no cleavage, no bare midriff. Arms open, floating, symmetric, roughly as wide as tall.\nColor palette: deep purple, black, lavender, white, gold trim, violet gems, peach skin, dark outline."
+    },
+    {
+      "key": "crimsonSeraph",
+      "ref": "seraph",
+      "raw": "crimsonSeraph-v2",
+      "request": "Primary request: the boss 'Crimson Seraph' from the sheet: a chibi angel mecha girl with long pale pink hair, a gold crown crest, a halo drawn as a solid red pixel ring above her head (no glow), and huge spread mechanical wings made of red and white blade feathers with gold trim. Outfit must be fully modest: a solid smooth high-collared red breastplate that covers her from the neck down, with no cutout, no window and no cleavage; a long armored skirt of overlapping red and white plates that reaches her armored boots, with no bare thighs, no leotard and no bare midriff. Only her face and hands show skin. Arms open, floating, symmetric, wings spread wide so the whole sprite is wider than tall.\nColor palette: crimson red, white and pale pink, gold trim, black joints, ruby gems, peach skin, dark outline."
+    },
+    {
+      "key": "voidEmpress",
+      "ref": "empress",
+      "raw": "voidEmpress-v2",
+      "request": "Primary request: the boss 'Void Empress' from the sheet: a chibi empress girl with very long flowing lavender hair, a spiky black-and-gold crown, a thin purple halo ring behind her head drawn as solid pixels (no glow), and two dark purple orbs with gold rings floating at her sides. Outfit must be fully modest: a closed high-necked black and purple gown whose solid bodice covers her from the collar down, with no neckline opening, no cutout, no cleavage and no slit; long wide white-and-purple sleeves; the skirt is one continuous closed panel to the floor. Only her face and hands show skin. Arms open, floating, symmetric, roughly as wide as tall.\nColor palette: deep purple, black, lavender, white, gold trim, violet gems, peach skin, dark outline."
+    },
+    {
+      "key": "voidEmpress",
+      "raw": "voidEmpress-v3",
+      "edit": "voidEmpress-v2",
+      "request": "Use case: image edit of a game sprite.\nEdit target: the attached pixel art sprite of the Void Empress.\nChange only the bodice: fill the open chest window below the collar and the V-shaped slit at the waist with solid black-purple gown fabric, so the dress is fully closed from the collar to the floor with no skin and no cleavage showing on the torso. Keep the dress a continuous closed panel.\nKeep everything else exactly unchanged: same pose, same face, hair, crown, halo, orbs, chains, sleeves, colors, pixel size, framing and position on the canvas, and the same flat solid pure green #00FF00 background edge to edge.\nAvoid: any new elements, text, glow, shadow, or background change."
+    }
+  ]
+}

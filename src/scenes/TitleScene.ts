@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 import { ENEMIES, type EnemyKind } from '../core/stages';
 import { newRun } from '../core/run';
-import { ENEMY_FRAMES } from '../art/sprites';
 import { css, COLORS } from '../art/palette';
 import { setDebugHooks } from '../debug';
+import { hop } from '../game/idle';
 import { Backdrop } from '../ui/backdrop';
 import { label } from '../ui/text';
 import { fitCamera, VIEW } from '../view';
@@ -39,26 +39,26 @@ export class TitleScene extends Phaser.Scene {
     this.tweens.add({ targets: logo, y: 72, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     label(this, cx, 196, 'ปกป้องกาแล็กซีจากกองทัพสาวต่างดาว · อัปเกรดแบบโร้กไลก์', { size: 13, color: '#e3c6ff', align: 'center' });
 
-    const kinds = Object.keys(ENEMY_FRAMES) as EnemyKind[];
+    const kinds = Object.keys(ENEMIES) as EnemyKind[];
     const parade = kinds.map((kind, i) => {
       const x = cx + (i - (kinds.length - 1) / 2) * 96;
-      const img = this.add.image(x, 252, ENEMY_FRAMES[kind][0]).setScale(1.5);
+      const img = this.add.image(x, 252, kind).setScale(2);
       label(this, x, 282, ENEMIES[kind].name, { size: 11, color: '#c9d4ff', align: 'center' });
       this.tweens.add({ targets: img, y: 246, duration: 700 + i * 90, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-      return { img, kind };
+      return img;
     });
-    let frame = 0;
+    let up = false;
     this.time.addEvent({
       delay: 420,
       loop: true,
       callback: () => {
-        frame ^= 1;
-        for (const { img, kind } of parade) img.setTexture(ENEMY_FRAMES[kind][frame as 0 | 1]);
+        up = !up;
+        for (const img of parade) hop(img, up);
       },
     });
 
     const ship = this.add.image(cx, 350, 'player');
-    const flame = this.add.image(cx, 382, 'flame0');
+    const flame = this.add.image(cx, 350 + ship.displayHeight / 2, 'flame0').setOrigin(0.5, 0);
     this.time.addEvent({ delay: 70, loop: true, callback: () => flame.setTexture(flame.texture.key === 'flame0' ? 'flame1' : 'flame0') });
     this.tweens.add({ targets: [ship, flame], y: '-=6', duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 

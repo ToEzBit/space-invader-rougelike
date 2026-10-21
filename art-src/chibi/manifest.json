@@ -1,0 +1,341 @@
+{
+  "world": [
+    480,
+    640
+  ],
+  "idle": "Single frame per character. Idle motion comes from code (bob, squash, blink tint); map both *0/*1 frame keys to the same texture.",
+  "bake": "Load displayFile, or bake file with an integer nearest-neighbour upscale of displayScale, so frame size equals display size (World.addFoe derives hit radius from frame size).",
+  "sprites": [
+    {
+      "key": "player",
+      "textureKeys": [
+        "player"
+      ],
+      "file": "out/player.png",
+      "displayFile": "out/player@display.png",
+      "raw": "raw/player-v1.png",
+      "artW": 42,
+      "artH": 35,
+      "displayScale": 1,
+      "suggestedDisplayW": 42,
+      "suggestedDisplayH": 35,
+      "currentFootprint": [
+        42,
+        48
+      ],
+      "colors": 16,
+      "hitRadius": {
+        "fixed": "Player.coreRadius 5 and bodyRadius 14, independent of the sprite"
+      },
+      "keying": {
+        "background": [
+          4,
+          248,
+          6
+        ],
+        "fringePixels": 0,
+        "parts": 1,
+        "partsKept": 1,
+        "trimmed": [
+          1143,
+          937
+        ]
+      },
+      "notes": [
+        "No exhaust in the art. The flame sprite attaches at PLAYER_Y+24 (half of the old 48 px height); this ship is 35 tall, so attach it at displayHeight/2 to close the gap.",
+        "Scale 1 means finer pixels than bullets, icons and HUD, which stay baked at ART_SCALE 2."
+      ]
+    },
+    {
+      "key": "optionDrone",
+      "textureKeys": [
+        "optionDrone"
+      ],
+      "file": "out/optionDrone.png",
+      "displayFile": "out/optionDrone@display.png",
+      "raw": "raw/optionDrone-v1.png",
+      "artW": 11,
+      "artH": 12,
+      "displayScale": 1,
+      "suggestedDisplayW": 11,
+      "suggestedDisplayH": 12,
+      "currentFootprint": [
+        14,
+        12
+      ],
+      "colors": 5,
+      "hitRadius": {
+        "fixed": "none, option drones do not collide"
+      },
+      "keying": {
+        "background": [
+          5,
+          248,
+          6
+        ],
+        "fringePixels": 0,
+        "parts": 1,
+        "partsKept": 1,
+        "trimmed": [
+          564,
+          618
+        ]
+      },
+      "notes": [
+        "Scale 1 means finer pixels than bullets, icons and HUD, which stay baked at ART_SCALE 2."
+      ]
+    },
+    {
+      "key": "drone",
+      "textureKeys": [
+        "drone0",
+        "drone1"
+      ],
+      "file": "out/drone.png",
+      "displayFile": "out/drone@display.png",
+      "raw": "raw/drone-v1.png",
+      "artW": 26,
+      "artH": 21,
+      "displayScale": 1,
+      "suggestedDisplayW": 26,
+      "suggestedDisplayH": 21,
+      "currentFootprint": [
+        26,
+        24
+      ],
+      "colors": 13,
+      "hitRadius": {
+        "now": 10.8,
+        "withThisSprite": 9.5,
+        "rule": "min(frame w, h) * 0.45"
+      },
+      "keying": {
+        "background": [
+          5,
+          249,
+          4
+        ],
+        "fringePixels": 0,
+        "parts": 1,
+        "partsKept": 1,
+        "trimmed": [
+          1070,
+          863
+        ]
+      },
+      "notes": [
+        "Replaces drone0 and drone1; no second frame, so bob or squash in code.",
+        "Scale 1 means finer pixels than bullets, icons and HUD, which stay baked at ART_SCALE 2."
+      ]
+    },
+    {
+      "key": "gunner",
+      "textureKeys": [
+        "gunner0",
+        "gunner1"
+      ],
+      "file": "out/gunner.png",
+      "displayFile": "out/gunner@display.png",
+      "raw": "raw/gunner-v1.png",
+      "artW": 30,
+      "artH": 21,
+      "displayScale": 1,
+      "suggestedDisplayW": 30,
+      "suggestedDisplayH": 21,
+      "currentFootprint": [
+        30,
+        26
+      ],
+      "colors": 19,
+      "hitRadius": {
+        "now": 11.7,
+        "withThisSprite": 9.5,
+        "rule": "min(frame w, h) * 0.45"
+      },
+      "keying": {
+        "background": [
+          5,
+          249,
+          6
+        ],
+        "fringePixels": 0,
+        "parts": 1,
+        "partsKept": 1,
+        "trimmed": [
+          1207,
+          834
+        ]
+      },
+      "notes": [
+        "Replaces gunner0 and gunner1; no second frame, so bob or squash in code.",
+        "Scale 1 means finer pixels than bullets, icons and HUD, which stay baked at ART_SCALE 2."
+      ]
+    },
+    {
+      "key": "tank",
+      "textureKeys": [
+        "tank0",
+        "tank1"
+      ],
+      "file": "out/tank.png",
+      "displayFile": "out/tank@display.png",
+      "raw": "raw/tank-v1.png",
+      "artW": 30,
+      "artH": 24,
+      "displayScale": 1,
+      "suggestedDisplayW": 30,
+      "suggestedDisplayH": 24,
+      "currentFootprint": [
+        30,
+        28
+      ],
+      "colors": 19,
+      "hitRadius": {
+        "now": 12.6,
+        "withThisSprite": 10.8,
+        "rule": "min(frame w, h) * 0.45"
+      },
+      "keying": {
+        "background": [
+          6,
+          249,
+          4
+        ],
+        "fringePixels": 0,
+        "parts": 1,
+        "partsKept": 1,
+        "trimmed": [
+          1134,
+          909
+        ]
+      },
+      "notes": [
+        "Replaces tank0 and tank1; no second frame, so bob or squash in code.",
+        "Scale 1 means finer pixels than bullets, icons and HUD, which stay baked at ART_SCALE 2."
+      ]
+    },
+    {
+      "key": "diver",
+      "textureKeys": [
+        "diver0",
+        "diver1"
+      ],
+      "file": "out/diver.png",
+      "displayFile": "out/diver@display.png",
+      "raw": "raw/diver-v1.png",
+      "artW": 29,
+      "artH": 26,
+      "displayScale": 1,
+      "suggestedDisplayW": 29,
+      "suggestedDisplayH": 26,
+      "currentFootprint": [
+        30,
+        26
+      ],
+      "colors": 15,
+      "hitRadius": {
+        "now": 11.7,
+        "withThisSprite": 11.7,
+        "rule": "min(frame w, h) * 0.45"
+      },
+      "keying": {
+        "background": [
+          4,
+          249,
+          6
+        ],
+        "fringePixels": 0,
+        "parts": 1,
+        "partsKept": 1,
+        "trimmed": [
+          1038,
+          920
+        ]
+      },
+      "notes": [
+        "Replaces diver0 and diver1; no second frame, so bob or squash in code.",
+        "Scale 1 means finer pixels than bullets, icons and HUD, which stay baked at ART_SCALE 2."
+      ]
+    },
+    {
+      "key": "crimsonSeraph",
+      "textureKeys": [
+        "crimsonSeraph"
+      ],
+      "file": "out/crimsonSeraph.png",
+      "displayFile": "out/crimsonSeraph@display.png",
+      "raw": "raw/crimsonSeraph-v2.png",
+      "artW": 126,
+      "artH": 103,
+      "displayScale": 1,
+      "suggestedDisplayW": 126,
+      "suggestedDisplayH": 103,
+      "currentFootprint": [
+        126,
+        104
+      ],
+      "colors": 26,
+      "hitRadius": {
+        "fixed": "Boss sets foe.radius = 42"
+      },
+      "keying": {
+        "background": [
+          5,
+          249,
+          4
+        ],
+        "fringePixels": 0,
+        "parts": 4,
+        "partsKept": 3,
+        "trimmed": [
+          1229,
+          997
+        ]
+      },
+      "notes": [
+        "Boss radius stays hardcoded at 42; the halo copy is a tinted 1.08x of this texture.",
+        "Scale 1 means finer pixels than bullets, icons and HUD, which stay baked at ART_SCALE 2."
+      ]
+    },
+    {
+      "key": "voidEmpress",
+      "textureKeys": [
+        "voidEmpress"
+      ],
+      "file": "out/voidEmpress.png",
+      "displayFile": "out/voidEmpress@display.png",
+      "raw": "raw/voidEmpress-v3.png",
+      "artW": 122,
+      "artH": 116,
+      "displayScale": 1,
+      "suggestedDisplayW": 122,
+      "suggestedDisplayH": 116,
+      "currentFootprint": [
+        126,
+        116
+      ],
+      "colors": 27,
+      "hitRadius": {
+        "fixed": "Boss sets foe.radius = 42"
+      },
+      "keying": {
+        "background": [
+          4,
+          249,
+          4
+        ],
+        "fringePixels": 0,
+        "parts": 2,
+        "partsKept": 1,
+        "trimmed": [
+          1189,
+          1134
+        ]
+      },
+      "notes": [
+        "Boss radius stays hardcoded at 42; the halo copy is a tinted 1.08x of this texture.",
+        "Scale 1 means finer pixels than bullets, icons and HUD, which stay baked at ART_SCALE 2."
+      ]
+    }
+  ]
+}
