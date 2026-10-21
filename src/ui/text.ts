@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { RENDER_SCALE } from '../view';
 import { wrapWords } from './wrap';
 
 export const FONT = "Tahoma, 'Noto Sans Thai', Thonburi, 'Leelawadee UI', sans-serif";
@@ -24,7 +23,7 @@ export function label(scene: Phaser.Scene, x: number, y: number, text: string, s
     fontStyle: bold ? 'bold' : 'normal',
     color,
     align,
-    resolution: RENDER_SCALE,
+    resolution: scene.cameras.main.zoom,
     // Thai tone marks sit above the em box and get clipped without top padding.
     padding: { top: Math.ceil(size * 0.35), bottom: Math.ceil(size * 0.2) },
     stroke: stroke ?? '#000000',
@@ -42,4 +41,12 @@ export function label(scene: Phaser.Scene, x: number, y: number, text: string, s
   });
   obj.setOrigin(align === 'center' ? 0.5 : align === 'right' ? 1 : 0, 0);
   return obj;
+}
+
+// Text is rasterized at its resolution, so it follows the camera zoom to stay one texel per device pixel.
+export function sharpenLabels(objects: readonly Phaser.GameObjects.GameObject[], zoom: number): void {
+  for (const obj of objects) {
+    if (obj instanceof Phaser.GameObjects.Text && obj.style.resolution !== zoom) obj.setResolution(zoom);
+    else if (obj instanceof Phaser.GameObjects.Container) sharpenLabels(obj.list, zoom);
+  }
 }

@@ -315,6 +315,76 @@ const JOURNEYS = {
     await sleep(600);
     await h.shot('defeat');
   },
+
+  async viewport(h) {
+    const outDir = join(ROOT, '.verify', runId, 'evidence', 'viewport');
+    const measure = (page) =>
+      page.evaluate(() => {
+        const c = document.querySelector('#game canvas').getBoundingClientRect();
+        const s = document.scrollingElement;
+        return { box: { x: c.x, y: c.y, width: c.width, height: c.height }, scroll: { width: s.scrollWidth, height: s.scrollHeight }, dpr: devicePixelRatio, ...window.__game.state().view };
+      });
+    const fits = async (where, page) => {
+      const vp = page.viewportSize();
+      const m = await measure(page);
+      h.check(`${where}: canvas box equals the viewport`, m.box.x === 0 && m.box.y === 0 && m.box.width === vp.width && m.box.height === vp.height, { box: m.box, vp });
+      h.check(`${where}: no page scrollbars`, m.scroll.width <= vp.width && m.scroll.height <= vp.height, { scroll: m.scroll, vp });
+      h.check(`${where}: backing store is viewport x devicePixelRatio`, m.canvas.width === Math.round(vp.width * m.dpr) && m.canvas.height === Math.round(vp.height * m.dpr), { canvas: m.canvas, dpr: m.dpr });
+      const zoom = Math.min(m.canvas.width / 480, m.canvas.height / 640);
+      const w = m.world;
+      const near = (a, b) => Math.abs(a - b) < 0.5;
+      h.check(
+        `${where}: camera shows the whole 480x640 playfield, centered, filling one axis`,
+        Math.abs(m.zoom - zoom) < 1e-6 && w.x <= 0.5 && w.y <= 0.5 && w.x + w.width >= 479.5 && w.y + w.height >= 639.5 && near(w.x + w.width / 2, 240) && near(w.y + w.height / 2, 320) && (near(w.width, 480) || near(w.height, 640)),
+        { zoom: m.zoom, expected: zoom, world: w },
+      );
+    };
+
+    for (const vp of [{ width: 1920, height: 1080 }, { width: 1366, height: 768, dpr: 2 }, { width: 800, height: 1280 }]) {
+      const name = `${vp.width}x${vp.height}${vp.dpr ? `@${vp.dpr}x` : ''}`;
+      const context = await h.page.context().browser().newContext({ viewport: { width: vp.width, height: vp.height }, deviceScaleFactor: vp.dpr ?? 1 });
+      const v = harness(await context.newPage(), outDir);
+      try {
+        await v.openTitle();
+        await sleep(300);
+        await fits(`${name} title`, v.page);
+        await v.shot(`${name}-title`);
+        await v.step('press Enter on title', () => v.page.keyboard.press('Enter'));
+        await v.waitFor('stage 1 fighting', (x) => x.scenes.includes('Stage') && x.life === 'fighting');
+        await sleep(1500);
+        await v.game('pause');
+        await fits(`${name} stage 1`, v.page);
+        await v.shot(`${name}-stage1`);
+      } finally {
+        h.log.steps.push(...v.log.steps);
+        h.log.consoleErrors.push(...v.log.consoleErrors);
+        await context.close();
+      }
+    }
+
+    await h.page.setViewportSize({ width: 1280, height: 720 });
+    await h.openTitle();
+    await sleep(300);
+    await fits('1280x720 title', h.page);
+    await h.shot('live-1280x720-title');
+    await h.step('resize window to 1600x900', () => h.page.setViewportSize({ width: 1600, height: 900 }));
+    await h.waitFor('canvas re-fit to 1600x900', (x) => x.view.canvas.width === 1600 && x.view.canvas.height === 900);
+    await sleep(300);
+    await fits('live-resized 1600x900 title', h.page);
+    await h.shot('live-1600x900-title');
+    const fullscreenId = () => h.page.evaluate(() => document.fullscreenElement?.id ?? null);
+    await h.page.keyboard.press('f');
+    await h.page.waitForTimeout(400);
+    h.check('F enters browser fullscreen on #game', (await fullscreenId()) === 'game', { fullscreenElement: await fullscreenId() });
+    await h.page.keyboard.press('f');
+    await h.page.waitForTimeout(400);
+    h.check('F again leaves fullscreen', (await fullscreenId()) === null, { fullscreenElement: await fullscreenId() });
+    await h.page.keyboard.press('Enter');
+    await h.waitFor('stage 1 fighting', (x) => x.scenes.includes('Stage') && x.life === 'fighting');
+    await sleep(1500);
+    await fits('live-resized 1600x900 stage 1', h.page);
+    await h.shot('live-1600x900-stage1');
+  },
 };
 
 // Close-ups of small HUD art need the canvas's full backing resolution.

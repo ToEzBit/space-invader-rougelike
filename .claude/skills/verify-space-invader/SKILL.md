@@ -35,7 +35,7 @@ Read-only. Fails with a `DOCTOR FAIL:` reason unless all hold: the recorded pid 
 .claude/skills/verify-space-invader/scripts/drive.mjs <run-id> <journey...|all> [--headed]
 ```
 
-Journeys: `doctor`, `title-start`, `combat`, `shop`, `perk-mechanics`, `skill-hud`, `bosses`, `run-end`. `all` runs every journey except `doctor`. Each journey gets a fresh browser context at 600x800. Prints `PASS <journey>` or `FAIL <journey>: <reason>` and exits 1 if any failed. The feature map in `features/` says what each journey proves.
+Journeys: `doctor`, `title-start`, `combat`, `shop`, `perk-mechanics`, `skill-hud`, `bosses`, `run-end`, `viewport`. `all` runs every journey except `doctor`. Each journey gets a fresh browser context at 600x800 unless it sets its own. `viewport` also opens its own contexts at 1920x1080, 1366x768@2x and 800x1280 and resizes a live page. Prints `PASS <journey>` or `FAIL <journey>: <reason>` and exits 1 if any failed. The feature map in `features/` says what each journey proves.
 
 Stable handles (there are no selectors on a canvas):
 

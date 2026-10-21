@@ -5,17 +5,33 @@ import { ShopScene } from './scenes/ShopScene';
 import { StageScene } from './scenes/StageScene';
 import { TitleScene } from './scenes/TitleScene';
 import { installDebug } from './debug';
-import { RENDER_SCALE, VIEW } from './view';
+
+// CSS stretches the canvas over the window; its backing store matches device pixels so text and
+// thin lines stay sharp on HiDPI screens. Capped because fill rate grows with the square.
+const devicePixels = () => {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  return { width: Math.round(window.innerWidth * dpr), height: Math.round(window.innerHeight * dpr) };
+};
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
-  width: VIEW.w * RENDER_SCALE,
-  height: VIEW.h * RENDER_SCALE,
   backgroundColor: '#07061a',
   pixelArt: true,
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+  scale: { mode: Phaser.Scale.NONE, ...devicePixels(), fullscreenTarget: 'game' },
   scene: [BootScene, TitleScene, StageScene, ShopScene, EndScene],
+});
+
+game.events.once(Phaser.Core.Events.READY, () => {
+  const fill = () => {
+    const { width, height } = devicePixels();
+    if (width !== game.scale.width || height !== game.scale.height) game.scale.resize(width, height);
+  };
+  fill();
+  window.addEventListener('resize', fill);
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyF' && !e.repeat) game.scale.toggleFullscreen();
+  });
 });
 
 installDebug(game);

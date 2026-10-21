@@ -31,3 +31,4 @@ This directory is the maintained source for verifying what a player can do in th
 - [Skill cooldown tray](./skill-hud.md) covers the bottom-left skill icons, the clockwise cooldown sweep and countdown, dash charges and the laser cycle.
 - [Boss fights](./bosses.md) covers Crimson Seraph and Void Empress, damage and phases.
 - [Run end](./run-end.md) covers victory, defeat and restarting.
+- [Viewport and fullscreen](./viewport.md) covers filling the window, fitting the playfield, HiDPI, live resize and the F fullscreen toggle.

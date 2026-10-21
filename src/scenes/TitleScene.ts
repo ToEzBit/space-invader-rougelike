@@ -14,7 +14,9 @@ const CONTROLS: readonly [string, string][] = [
   ['AUTO', 'ยิงอัตโนมัติ · เลเซอร์ยิงเองเมื่อปลดล็อก'],
   ['SHIFT', 'พุ่งชนทะลุฝูงศัตรู (เมื่อปลดล็อก)'],
   ['1 2 3 / R / ENTER', 'ซื้อ · รีเฟรช · ไปต่อ ในร้านค้า'],
+  ['F', 'เต็มจอ / ออกจากเต็มจอ'],
 ];
+const ROW_H = 23;
 
 export class TitleScene extends Phaser.Scene {
   private backdrop!: Backdrop;
@@ -60,16 +62,26 @@ export class TitleScene extends Phaser.Scene {
     this.tweens.add({ targets: [ship, flame], y: '-=6', duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     const panel = this.add.graphics();
-    panel.fillStyle(0x0d0b26, 0.82).fillRoundedRect(40, 410, VIEW.w - 80, 142, 10);
-    panel.lineStyle(2, COLORS.violet, 0.9).strokeRoundedRect(40, 410, VIEW.w - 80, 142, 10);
+    const panelH = 44 + CONTROLS.length * ROW_H;
+    panel.fillStyle(0x0d0b26, 0.82).fillRoundedRect(40, 410, VIEW.w - 80, panelH, 10);
+    panel.lineStyle(2, COLORS.violet, 0.9).strokeRoundedRect(40, 410, VIEW.w - 80, panelH, 10);
     label(this, cx, 418, 'CONTROLS · การควบคุม', { size: 13, bold: true, color: css(COLORS.yellow), align: 'center' });
     CONTROLS.forEach(([key, what], i) => {
-      label(this, 60, 446 + i * 25, key, { size: 13, bold: true, color: css(COLORS.cyan) });
-      label(this, 196, 446 + i * 25, what, { size: 13, color: '#ffffff' });
+      label(this, 60, 444 + i * ROW_H, key, { size: 13, bold: true, color: css(COLORS.cyan) });
+      label(this, 196, 444 + i * ROW_H, what, { size: 13, color: '#ffffff' });
     });
 
-    const prompt = label(this, cx, 578, 'PRESS ENTER หรือคลิกเพื่อเริ่ม', { size: 18, bold: true, color: '#ffffff', align: 'center', stroke: '#d81b8c' });
+    const prompt = label(this, cx, 590, 'PRESS ENTER หรือคลิกเพื่อเริ่ม', { size: 18, bold: true, color: '#ffffff', align: 'center', stroke: '#d81b8c' });
     this.tweens.add({ targets: prompt, alpha: 0.35, duration: 600, yoyo: true, repeat: -1 });
+
+    const fullscreen = label(this, VIEW.w - 12, 10, 'F · เต็มจอ', { size: 12, bold: true, color: '#c9d4ff', align: 'right' });
+    fullscreen.setInteractive({ useHandCursor: true }).on(
+      'pointerdown',
+      (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+        event.stopPropagation();
+        this.scale.toggleFullscreen();
+      },
+    );
 
     const keyboard = this.input.keyboard;
     keyboard?.once('keydown-ENTER', () => this.begin());

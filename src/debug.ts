@@ -37,6 +37,11 @@ export function setDebugHooks(scene: Phaser.Scene, next: DebugHooks): void {
 export function installDebug(game: Phaser.Game): void {
   if (!import.meta.env.DEV) return;
   const active = () => game.scene.getScenes(true).map((s) => s.scene.key);
+  const view = () => {
+    const camera = hooks?.scene.cameras.main;
+    const { x, y, width, height } = camera?.worldView ?? {};
+    return { canvas: { width: game.scale.width, height: game.scale.height }, zoom: camera?.zoom, world: { x, y, width, height } };
+  };
   window.__game = {
     start(stage, perks = {}, money = 0) {
       const base = newRun(Date.now());
@@ -44,7 +49,7 @@ export function installDebug(game: Phaser.Game): void {
       for (const key of active()) game.scene.stop(key);
       game.scene.start(sceneFor(run), { run });
     },
-    state: () => ({ scenes: active(), run: hooks?.hooks.run() ?? null, ...hooks?.hooks.info?.() }),
+    state: () => ({ scenes: active(), run: hooks?.hooks.run() ?? null, view: view(), ...hooks?.hooks.info?.() }),
     kill: () => hooks?.hooks.kill?.(),
     hurt: () => hooks?.hooks.hurt?.(),
     bossHp: (ratio) => hooks?.hooks.bossHp?.(ratio),
