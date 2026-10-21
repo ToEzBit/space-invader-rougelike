@@ -11,6 +11,7 @@ import type { BossFight } from '../game/boss';
 import { sweepAngle, type SkillMeter } from '../game/skills';
 import type { World } from '../game/world';
 import { VIEW } from '../view';
+import { frame } from './frame';
 import { ITEM_LOOK } from './itemLook';
 import { label } from './text';
 
@@ -30,8 +31,8 @@ export class Hud {
     private readonly boss: BossFight | null,
   ) {
     const d = DEPTH.hud;
-    scene.add.rectangle(0, 0, VIEW.w, 34, 0x0d0b26, 0.72).setOrigin(0).setDepth(d);
-    scene.add.rectangle(0, 34, VIEW.w, 2, COLORS.violet, 0.6).setOrigin(0).setDepth(d);
+    // Oversized by 2 on every side so only the bottom trim and lower corners show at the playfield's top edge.
+    frame(scene, 'hudBar', -2, -2, VIEW.w + 4, 38).setOrigin(0).setDepth(d);
     label(scene, VIEW.w / 2, 7, `STAGE ${world.run.stage}/${STAGE_COUNT}`, { size: 14, bold: true, color: css(COLORS.yellow), align: 'center' }).setDepth(d);
     scene.add.image(MONEY_ANCHOR.x, MONEY_ANCHOR.y, 'coin0').setDepth(d);
     this.money = label(scene, MONEY_ANCHOR.x - 14, 7, '0', { size: 14, bold: true, align: 'right' }).setDepth(d);

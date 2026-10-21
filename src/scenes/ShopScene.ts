@@ -4,9 +4,11 @@ import { ITEM_IDS, ITEM_STACK_MAX, ITEMS, type ItemDef, type ItemId } from '../c
 import { BRANCH_LABEL, PERKS, PERK_IDS, deriveStats, describePerk, type PerkDef } from '../core/perks';
 import { buyOffer, leaveShop, offerCost, refreshCost, refreshShop, type RunState, type ShopResult } from '../core/run';
 import { COLORS, css } from '../art/palette';
+import type { FrameKey } from '../art/ui';
 import { setDebugHooks } from '../debug';
 import { Backdrop } from '../ui/backdrop';
 import { BRANCH_LOOK } from '../ui/branch';
+import { frame } from '../ui/frame';
 import { ITEM_LOOK } from '../ui/itemLook';
 import { label } from '../ui/text';
 import { fitCamera, VIEW } from '../view';
@@ -37,6 +39,17 @@ const BUTTON_Y = 482;
 const STATUS_Y = 510;
 const STATUS_H = 124;
 const CHIP_ROW = 18;
+// The perk stripe sits inside the frame's border.
+const STRIPE_W = 52;
+const STRIPE_INSET = 5;
+const ITEM_CHIP: FrameKey = 'chipGold';
+
+type ButtonLook = { idle: FrameKey; hover: FrameKey };
+const BUTTON = {
+  refresh: { idle: 'button', hover: 'buttonHover' },
+  disabled: { idle: 'buttonDisabled', hover: 'buttonDisabled' },
+  go: { idle: 'buttonAccent', hover: 'buttonAccentHover' },
+} satisfies Record<string, ButtonLook>;
 
 export class ShopScene extends Phaser.Scene {
   private run!: RunState;
@@ -84,21 +97,20 @@ export class ShopScene extends Phaser.Scene {
     const y = CARD.top + card.slot * (CARD.h + CARD.gap);
     const box = this.add.container(CARD.x + CARD.w / 2, y + CARD.h / 2);
     this.layer.add(box);
-    const g = this.add.graphics();
-    box.add(g);
     const left = -CARD.w / 2;
     const top = -CARD.h / 2;
     const key = label(this, left + CARD.w - 14, top + 8, `[${card.slot + 1}]`, { size: 12, bold: true, color: '#8a96c8', align: 'right' });
 
     if (card.kind === 'soldOut') {
+      const g = this.add.graphics();
       g.fillStyle(0x15132e, 0.85).fillRoundedRect(left, top, CARD.w, CARD.h, 10);
       g.lineStyle(2, 0x2a2650, 1).strokeRoundedRect(left, top, CARD.w, CARD.h, 10);
-      box.add([key, label(this, 0, -14, 'SOLD OUT', { size: 24, bold: true, color: '#565f94', align: 'center' })]);
+      box.add([g, key, label(this, 0, -14, 'SOLD OUT', { size: 24, bold: true, color: '#565f94', align: 'center' })]);
       return box;
     }
 
-    if (card.kind === 'item') this.drawItem(box, g, card);
-    else this.drawPerk(box, g, card);
+    if (card.kind === 'item') this.drawItem(box, card);
+    else this.drawPerk(box, card);
     const { cost, affordable } = card;
     const coin = this.add.image(left + CARD.w - 22, top + CARD.h - 24, 'coinLarge');
     const price = label(this, left + CARD.w - 36, top + CARD.h - 38, String(cost), {
@@ -119,16 +131,17 @@ export class ShopScene extends Phaser.Scene {
     return box;
   }
 
-  private drawPerk(box: Phaser.GameObjects.Container, g: Phaser.GameObjects.Graphics, card: Extract<Card, { kind: 'perk' }>): void {
+  private drawPerk(box: Phaser.GameObjects.Container, card: Extract<Card, { kind: 'perk' }>): void {
     const left = -CARD.w / 2;
     const top = -CARD.h / 2;
-    const { perk, level, affordable } = card;
+    const { perk, level } = card;
     const look = BRANCH_LOOK[perk.branch];
-    g.fillStyle(0x0d0b26, 0.92).fillRoundedRect(left, top, CARD.w, CARD.h, 10);
-    g.fillStyle(look.color, 0.9).fillRoundedRect(left, top, 52, CARD.h, { tl: 10, bl: 10, tr: 0, br: 0 });
-    g.lineStyle(2, look.color, affordable ? 1 : 0.45).strokeRoundedRect(left, top, CARD.w, CARD.h, 10);
+    const g = this.add.graphics();
+    const inset = STRIPE_INSET;
+    g.fillStyle(look.color, 0.16).fillRect(left + inset + 1, top + inset + 1, STRIPE_W - inset, CARD.h - 2 * inset - 2);
+    g.fillStyle(look.color, 0.55).fillRect(left + STRIPE_W, top + inset + 1, 1, CARD.h - 2 * inset - 2);
     const icon = this.add.image(left + 26, top + 36, look.icon);
-    const tier = label(this, left + 26, top + 66, `T${perk.tier}`, { size: 15, bold: true, color: '#0d0b26', align: 'center' });
+    const tier = label(this, left + 26, top + 66, `T${perk.tier}`, { size: 15, bold: true, color: css(look.color), align: 'center', stroke: css(COLORS.ink) });
     const tx = left + 66;
     const name = label(this, tx, top + 6, perk.name, { size: 17, bold: true, color: css(look.color) });
     const lv = label(this, tx + name.width + 10, top + 10, level ? `Lv ${level} → ${level + 1}` : `NEW · Lv 1`, {
@@ -138,72 +151,68 @@ export class ShopScene extends Phaser.Scene {
     });
     const branch = label(this, tx, top + 30, BRANCH_LABEL[perk.branch], { size: 11, color: '#8a96c8' });
     const desc = label(this, tx, top + 50, describePerk(perk, level + 1), { size: 13, color: '#ffffff', wrap: CARD.w - 66 - 96 });
-    box.add([icon, tier, name, lv, branch, desc]);
+    box.add([frame(this, look.card, 0, 0, CARD.w, CARD.h), g, icon, tier, name, lv, branch, desc]);
   }
 
-  // Items read as a different kind of goods: gold frame, round icon well like the HUD tray, ITEM corner ribbon.
-  private drawItem(box: Phaser.GameObjects.Container, g: Phaser.GameObjects.Graphics, card: Extract<Card, { kind: 'item' }>): void {
+  // Items read as a different kind of goods: gold frame and a round icon well like the HUD tray.
+  private drawItem(box: Phaser.GameObjects.Container, card: Extract<Card, { kind: 'item' }>): void {
     const left = -CARD.w / 2;
     const top = -CARD.h / 2;
-    const { item, id, held, affordable } = card;
+    const { item, id, held } = card;
     const look = ITEM_LOOK[id];
-    g.fillStyle(0x1f1606, 0.94).fillRoundedRect(left, top, CARD.w, CARD.h, 10);
-    g.lineStyle(2, COLORS.gold, affordable ? 1 : 0.45).strokeRoundedRect(left, top, CARD.w, CARD.h, 10);
-    g.lineStyle(1, COLORS.gold, 0.35).strokeRoundedRect(left + 4, top + 4, CARD.w - 8, CARD.h - 8, 7);
+    const g = this.add.graphics();
     const well = { x: left + 36, y: 4 };
     g.fillStyle(COLORS.ink, 0.9).fillCircle(well.x, well.y, 25);
     g.fillStyle(look.color, 0.3).fillCircle(well.x, well.y, 22);
     g.lineStyle(2, look.color, 1).strokeCircle(well.x, well.y, 22);
-    g.fillStyle(COLORS.gold, 1).beginPath();
-    g.moveTo(left + 2, top + 26).lineTo(left + 26, top + 2).lineTo(left + 46, top + 2).lineTo(left + 2, top + 46);
-    g.closePath().fillPath();
-    const ribbon = label(this, left + 18, top + 18, 'ITEM', { size: 10, bold: true, color: css(COLORS.ink), align: 'center' })
-      .setOrigin(0.5)
-      .setRotation(-Math.PI / 4);
     const icon = this.add.image(well.x, well.y, look.icon);
     const tx = left + 76;
     const name = label(this, tx, top + 6, item.name, { size: 17, bold: true, color: css(COLORS.gold) });
     const stack = label(this, tx + name.width + 10, top + 10, `ถืออยู่ ${held}/${ITEM_STACK_MAX}`, { size: 12, bold: true, color: held ? '#ffffff' : css(COLORS.green) });
     const use = label(this, tx, top + 30, `ไอเทมกดใช้ · ปุ่ม ${item.key} ระหว่างด่าน`, { size: 11, color: '#c9a86a' });
     const desc = label(this, tx, top + 50, item.desc, { size: 13, color: '#ffffff', wrap: CARD.w - 76 - 96 });
-    box.add([icon, ribbon, name, stack, use, desc]);
+    box.add([frame(this, 'itemCard', 0, 0, CARD.w, CARD.h), g, icon, name, stack, use, desc]);
   }
 
   private drawButtons(): void {
     const cost = refreshCost(this.run);
     const canRefresh = this.run.money >= cost;
-    this.button(VIEW.w / 2 - 110, `R · รีเฟรช  ${cost}`, canRefresh ? COLORS.violet : 0x2a2650, () => this.refresh());
-    this.button(VIEW.w / 2 + 110, 'ENTER · ไปต่อ ▶', COLORS.green, () => this.leave());
+    this.button(VIEW.w / 2 - 110, `R · รีเฟรช  ${cost}`, canRefresh ? BUTTON.refresh : BUTTON.disabled, () => this.refresh());
+    this.button(VIEW.w / 2 + 110, 'ENTER · ไปต่อ ▶', BUTTON.go, () => this.leave());
   }
 
-  private button(x: number, text: string, color: number, onClick: () => void): void {
+  private button(x: number, text: string, look: ButtonLook, onClick: () => void): void {
     const box = this.add.container(x, BUTTON_Y);
-    const g = this.add.graphics();
-    g.fillStyle(color, 0.25).fillRoundedRect(-100, -20, 200, 40, 8);
-    g.lineStyle(2, color, 1).strokeRoundedRect(-100, -20, 200, 40, 8);
+    const bg = frame(this, look.idle, 0, 0, 200, 40);
     const t = label(this, 0, -12, text, { size: 15, bold: true, align: 'center' });
     const hit = this.add.zone(0, 0, 200, 40).setInteractive({ useHandCursor: true });
-    hit.on('pointerover', () => this.tweens.add({ targets: box, scale: 1.05, duration: 80 }));
-    hit.on('pointerout', () => this.tweens.add({ targets: box, scale: 1, duration: 80 }));
+    hit.on('pointerover', () => {
+      bg.setTexture(look.hover);
+      this.tweens.add({ targets: box, scale: 1.05, duration: 80 });
+    });
+    hit.on('pointerout', () => {
+      bg.setTexture(look.idle);
+      this.tweens.add({ targets: box, scale: 1, duration: 80 });
+    });
     hit.on('pointerdown', onClick);
-    box.add([g, t, hit]);
+    box.add([bg, t, hit]);
     this.layer.add(box);
   }
 
   private drawStatus(): void {
     const stats = deriveStats(this.run.perks);
     const y = STATUS_Y;
-    const g = this.add.graphics();
-    g.fillStyle(0x0d0b26, 0.8).fillRoundedRect(20, y, VIEW.w - 40, STATUS_H, 10);
-    g.lineStyle(1, COLORS.violet, 0.6).strokeRoundedRect(20, y, VIEW.w - 40, STATUS_H, 10);
-    this.layer.add(g);
+    this.layer.add(frame(this, 'panel', 20, y, VIEW.w - 40, STATUS_H).setOrigin(0));
     for (let i = 0; i < stats.maxHp; i++) this.layer.add(this.add.image(38 + i * 18, y + 18, i < this.run.hp ? 'heart' : 'heartEmpty'));
     this.layer.add(this.add.image(VIEW.w - 40, y + 18, 'coinLarge'));
     this.layer.add(label(this, VIEW.w - 54, y + 7, String(this.run.money), { size: 17, bold: true, color: css(COLORS.yellow), align: 'right' }));
 
     const owned = [
-      ...PERK_IDS.filter((id) => this.run.perks[id]).map((id) => ({ text: `${PERKS[id].name} ${this.run.perks[id]}`, color: BRANCH_LOOK[PERKS[id].branch].color })),
-      ...ITEM_IDS.filter((id) => this.run.items[id]).map((id) => ({ text: `${ITEMS[id].name} x${this.run.items[id]}`, color: COLORS.gold })),
+      ...PERK_IDS.filter((id) => this.run.perks[id]).map((id) => {
+        const { color, chip } = BRANCH_LOOK[PERKS[id].branch];
+        return { text: `${PERKS[id].name} ${this.run.perks[id]}`, color, chip };
+      }),
+      ...ITEM_IDS.filter((id) => this.run.items[id]).map((id) => ({ text: `${ITEMS[id].name} x${this.run.items[id]}`, color: COLORS.gold, chip: ITEM_CHIP })),
     ];
     if (!owned.length) {
       this.layer.add(label(this, 34, y + 40, 'ยังไม่มีอัปเกรด เลือกซื้อการ์ดด้านบนได้เลย', { size: 12, color: '#8a96c8' }));
@@ -212,7 +221,7 @@ export class ShopScene extends Phaser.Scene {
     let cx = 34;
     let cy = y + 36;
     for (const [i, chip] of owned.entries()) {
-      const { bg, text } = this.chip(chip.text, chip.color);
+      const { bg, text } = this.chip(chip.text, chip.color, chip.chip);
       if (cx + bg.width > VIEW.w - 30) [cx, cy] = [34, cy + CHIP_ROW];
       if (cy + CHIP_ROW > y + STATUS_H) {
         bg.destroy();
@@ -225,9 +234,9 @@ export class ShopScene extends Phaser.Scene {
     }
   }
 
-  private chip(chipText: string, color: number): { bg: Phaser.GameObjects.Rectangle; text: Phaser.GameObjects.Text } {
+  private chip(chipText: string, color: number, key: FrameKey): { bg: Phaser.GameObjects.NineSlice; text: Phaser.GameObjects.Text } {
     const text = label(this, 0, 0, chipText, { size: 10, bold: true, color: css(color) });
-    const bg = this.add.rectangle(0, 0, text.width + 10, 16, color, 0.15).setOrigin(0).setStrokeStyle(1, color, 0.7);
+    const bg = frame(this, key, 0, 0, Math.ceil(text.width + 10), 16).setOrigin(0);
     this.layer.add([bg, text]);
     return { bg, text };
   }

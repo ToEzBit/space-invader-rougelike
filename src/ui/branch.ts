@@ -1,9 +1,9 @@
 import type { Branch } from '../core/perks';
 import { COLORS } from '../art/palette';
-import type { IconKey } from '../art/ui';
+import type { FrameKey, IconKey } from '../art/ui';
 
-export const BRANCH_LOOK: Record<Branch, { color: number; icon: IconKey }> = {
-  rapid: { color: COLORS.orange, icon: 'iconRapid' },
-  laser: { color: COLORS.cyan, icon: 'iconLaser' },
-  ram: { color: COLORS.pink, icon: 'iconRam' },
+export const BRANCH_LOOK: Record<Branch, { color: number; icon: IconKey; card: FrameKey; chip: FrameKey }> = {
+  rapid: { color: COLORS.orange, icon: 'iconRapid', card: 'perkCardRapid', chip: 'chipRapid' },
+  laser: { color: COLORS.cyan, icon: 'iconLaser', card: 'perkCardLaser', chip: 'chipLaser' },
+  ram: { color: COLORS.pink, icon: 'iconRam', card: 'perkCard', chip: 'chipRam' },
 };

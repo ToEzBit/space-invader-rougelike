@@ -14,7 +14,7 @@ Re-using a running buff adds its duration to the time left and keeps one multipl
 
 ## Sub-features
 
-- `item-offer` shows an item card (gold frame, ITEM ribbon, `ถืออยู่ n/3`, no tier) in the shop.
+- `item-offer` shows an item card (gold frame, round icon well, `ถืออยู่ n/3`, no tier) in the shop.
 - `item-buy` charges the item's cost, adds 1 to `run.items[id]` and sells out the card.
 - `item-refuse` keeps the item when the use is refused.
 - `item-heal` heals 1 HP and spends one Repair Kit.
@@ -25,7 +25,7 @@ Re-using a running buff adds its duration to the time left and keeps one multipl
 
 ## How to get to it (user POV)
 
-- Clear a stage and press `r` in the shop until a gold ITEM card shows, then press its key.
+- Clear a stage and press `r` in the shop until a gold-framed item card shows, then press its key.
 - Continue, and press the item's key during the fight.
 
 ## Driving it with drive.mjs
@@ -43,7 +43,7 @@ Preconditions:
 - **Extend.** `2` again leaves one `nitro` entry whose `msLeft` grew by more than 7s, and `moveSpeed` stays 1.5x.
 - **Expiry.** Once `buffs` is empty, still `fighting`, `stats` equal `deriveStats`.
 - **Shield.** Stage 1 with `{ barrierCapsule: 1 }`. `1` first, with no Repair Kit held, changes nothing (the tray has no slot for it, so a red `ไม่มี Repair Kit` floats instead). `5` sets `shieldMs` above 9s. While paused, `hit()` leaves HP unchanged and `shieldMs` at 0. After the block's i-frames, `hit()` again costs 1 HP, which proves `hit()` takes the real damage path.
-- **Proof.** The journey runs at device scale 2. `01-shop-item-card.png` shows the gold ITEM card, `02` the sold-out slot and the item chip in the owned panel. Each `*-closeup.png` is the bottom-right tray. `04` shows slot 1 flashing red on the refused repair. `06` shows slots 2, 3 and 4 with sweeps and `x0` on the spent ones. `08` shows the Nitro sweep reset after extending. `10` shows every slot back to ready, spent ones dimmed. `11` and `12` show the ship's shield bubble and the active Barrier slot.
+- **Proof.** The journey runs at device scale 2. `01-shop-item-card.png` shows the gold-framed item card, `02` the sold-out slot and the item chip in the owned panel. Each `*-closeup.png` is the bottom-right tray. `04` shows slot 1 flashing red on the refused repair. `06` shows slots 2, 3 and 4 with sweeps and `x0` on the spent ones. `08` shows the Nitro sweep reset after extending. `10` shows every slot back to ready, spent ones dimmed. `11` and `12` show the ship's shield bubble and the active Barrier slot.
 
 ## Gotchas
 
