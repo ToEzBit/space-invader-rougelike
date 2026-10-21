@@ -74,13 +74,15 @@ export const PATTERNS: Record<BossPattern, PatternDef> = {
         });
     },
   },
-  aimedBurst: { run: (b) => b.repeat(6, 110, () => b.shoot('needle', b.muzzle, b.aimAtPlayer(), 270)) },
+  // Second forms fire the shared patterns denser.
+  aimedBurst: { run: (b) => b.repeat(6 + 3 * b.form, 110, () => b.shoot('needle', b.muzzle, b.aimAtPlayer(), 270)) },
   summonMinions: { run: (b) => b.summon(3 + b.phase) },
   spiral: {
     run: (b) => {
       let angle = 0;
+      const arms = 3 + b.form;
       b.repeat(26, 65, () => {
-        for (const arm of [0, 120, 240]) b.shoot(b.look.orb, b.muzzle, angle + arm, 150);
+        for (let arm = 0; arm < arms; arm++) b.shoot(b.look.orb, b.muzzle, angle + (360 * arm) / arms, 150);
         angle += 17;
       });
     },
@@ -93,7 +95,7 @@ export const PATTERNS: Record<BossPattern, PatternDef> = {
   },
   bulletRain: {
     run: (b) =>
-      b.repeat(24, 80, () => {
+      b.repeat(24 + 12 * b.form, 80, () => {
         const x = 20 + Math.random() * (VIEW.w - 40);
         b.fire({ kind: 'pellet', x, y: 40, vx: 0, vy: 170 + Math.random() * 70 });
       }),
