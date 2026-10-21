@@ -12,7 +12,7 @@ This directory is the maintained source for verifying what a player can do in th
 
 - Every journey starts in a fresh browser context, so no run, money or perks carry over between journeys.
 - The game is one canvas. Drive with keyboard keys and read results from `window.__game.state()`. Never click by coordinates.
-- `__game.start`, `kill`, `hurt` and `bossHp` only set preconditions. The feature itself is driven with real keys.
+- `__game.start`, `kill`, `hurt`, `hit` and `bossHp` only set preconditions. The feature itself is driven with real keys.
 - Compute expected numbers with the game's own `src/core/run.ts` (via `h.core`), not hand-copied constants.
 
 ## Proof and skip reporting
@@ -28,6 +28,7 @@ This directory is the maintained source for verifying what a player can do in th
 - [Stage combat](./combat.md) covers moving, shooting, kills and coins.
 - [Perk shop](./shop.md) covers offers, refresh, buying, sold-out cards and continuing.
 - [Laser and dash perks](./perk-mechanics.md) covers the Prism Lance beam and the Afterburner Dash, locked and unlocked.
+- [Consumable items](./items.md) covers item offers in the shop, buying, keys 1-5, buffs, the item shield and the bottom-right item tray.
 - [Skill cooldown tray](./skill-hud.md) covers the bottom-left skill icons, the clockwise cooldown sweep and countdown, dash charges and the laser cycle.
 - [Boss fights](./bosses.md) covers Crimson Seraph and Void Empress, damage and phases.
 - [Run end](./run-end.md) covers victory, defeat and restarting.

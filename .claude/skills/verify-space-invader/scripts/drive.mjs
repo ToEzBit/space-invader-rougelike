@@ -79,9 +79,9 @@ function harness(page, outDir) {
   };
 
   // Debug start for preconditions only; the feature under test is then driven with real keys.
-  async function startAt(stage, perks = {}, money = 0) {
+  async function startAt(stage, perks = {}, money = 0, items = {}) {
     if (!(await state())) await openTitle();
-    await game('start', stage, perks, money);
+    await game('start', stage, perks, money, items);
     return waitFor(`stage ${stage} fighting`, (s) => s.scenes.includes('Stage') && s.run?.stage === stage && s.life === 'fighting');
   }
 
@@ -307,6 +307,97 @@ const JOURNEYS = {
     h.check('the bought item card is sold out', bought.cards[slot] === null, { cards: bought.cards });
     await sleep(700);
     await h.shot('shop-item-bought');
+
+    const TRAY = { x: 200, y: 566, w: 280, h: 74 };
+    const pausedShots = async (name) => {
+      await h.game('pause');
+      await h.shot(name);
+      await h.shot(`${name}-closeup`, TRAY);
+      await h.game('resume');
+    };
+    const buff = (x, id) => x.buffs.find((b) => b.buff === id);
+    const near = (a, b) => Math.abs(a - b) < 1e-6;
+    const perks = { reinforcedHull: 3 };
+    const base = await h.core(`perks.deriveStats(${JSON.stringify(perks)})`);
+    const f0 = await h.startAt(4, perks, 0, { repairKit: 2, nitro: 2, powerCell: 1, overclock: 1, barrierCapsule: 1 });
+    h.check('stage starts at full HP with base stats', f0.run.hp === base.maxHp && f0.buffs.length === 0 && near(f0.stats.moveSpeed, base.moveSpeed), { hp: f0.run.hp, stats: f0.stats });
+
+    const r1 = await h.step('press 1 at full HP', async () => {
+      await h.page.keyboard.press('1');
+      await sleep(60);
+    });
+    await pausedShots('repair-refused');
+    h.check('repair kit is refused at full HP and not spent', r1.run.items.repairKit === 2 && r1.run.hp === base.maxHp, { items: r1.run.items, hp: r1.run.hp });
+    await h.game('hurt');
+    const hurt = await h.state();
+    const r2 = await h.step('press 1 after a hit', async () => {
+      await h.page.keyboard.press('1');
+      await sleep(150);
+    });
+    h.check('repair kit heals 1 HP and is spent', r2.run.hp === hurt.run.hp + 1 && r2.run.items.repairKit === 1, { before: hurt.run.hp, after: r2.run.hp, items: r2.run.items });
+
+    const x0 = (await h.state()).player.x;
+    const plain = await h.step('hold ArrowLeft 400ms without Nitro', () => h.hold('ArrowLeft', 400));
+    const plainDx = x0 - plain.player.x;
+    await h.step('hold ArrowRight 400ms back to the middle', () => h.hold('ArrowRight', 400));
+    const n1 = await h.step('press 2', async () => {
+      await h.page.keyboard.press('2');
+      await sleep(150);
+    });
+    h.check('Nitro starts a buff and spends one', buff(n1, 'nitro')?.msLeft > 0 && n1.run.items.nitro === 1, { buffs: n1.buffs, items: n1.run.items });
+    h.check('Nitro makes effective moveSpeed 1.5x', near(n1.stats.moveSpeed, base.moveSpeed * 1.5), { moveSpeed: n1.stats.moveSpeed, base: base.moveSpeed });
+    const boosted = await h.step('hold ArrowLeft 400ms with Nitro', () => h.hold('ArrowLeft', 400));
+    const boostedDx = n1.player.x - boosted.player.x;
+    h.check('ArrowLeft for 400ms moves the ship farther with Nitro, away from the wall', boostedDx > plainDx * 1.3 && plain.player.x > 40 && boosted.player.x > 40, {
+      plainDx,
+      boostedDx,
+      ratio: boostedDx / plainDx,
+      ends: [plain.player.x, boosted.player.x],
+    });
+
+    const p1 = await h.step('press 3 then 4', async () => {
+      await h.page.keyboard.press('3');
+      await sleep(80);
+      await h.page.keyboard.press('4');
+      await sleep(150);
+    });
+    h.check('Power Cell and Overclock are both active alongside Nitro', p1.buffs.length === 3 && buff(p1, 'powerCell') && buff(p1, 'overclock'), { buffs: p1.buffs });
+    h.check('effective bulletDamage is 1.5x and fireIntervalMs 0.6x', near(p1.stats.bulletDamage, base.bulletDamage * 1.5) && near(p1.stats.fireIntervalMs, base.fireIntervalMs * 0.6), { stats: p1.stats, base: { bulletDamage: base.bulletDamage, fireIntervalMs: base.fireIntervalMs } });
+    await sleep(1500);
+    await pausedShots('three-buffs');
+
+    const before = buff(await h.state(), 'nitro').msLeft;
+    const n2 = await h.step('press 2 again while Nitro runs', async () => {
+      await h.page.keyboard.press('2');
+      await sleep(100);
+    });
+    h.check('a second Nitro adds its time to the running buff', n2.buffs.filter((b) => b.buff === 'nitro').length === 1 && buff(n2, 'nitro').msLeft > before + 7000 && n2.run.items.nitro === 0, { before, after: buff(n2, 'nitro'), items: n2.run.items });
+    h.check('stacking time does not stack the multiplier', near(n2.stats.moveSpeed, base.moveSpeed * 1.5), { moveSpeed: n2.stats.moveSpeed });
+    await pausedShots('nitro-extended');
+
+    const done = await h.waitFor('every buff to expire', (x) => x.buffs.length === 0 || x.life !== 'fighting', 20000);
+    h.check('the stage is still being fought when the buffs run out', done.life === 'fighting', { life: done.life, hp: done.run.hp });
+    h.check('stats return to base when the buffs expire', near(done.stats.moveSpeed, base.moveSpeed) && near(done.stats.bulletDamage, base.bulletDamage) && near(done.stats.fireIntervalMs, base.fireIntervalMs), { stats: done.stats });
+    await pausedShots('buffs-expired');
+
+    const s1 = await h.startAt(1, {}, 0, { barrierCapsule: 1 });
+    const none = await h.step('press 1 holding no Repair Kit', async () => {
+      await h.page.keyboard.press('1');
+      await sleep(100);
+    });
+    h.check('an item never held is refused without changing the run', JSON.stringify(none.run.items) === JSON.stringify(s1.run.items) && none.run.hp === s1.run.hp, { items: none.run.items });
+    await h.step('press 5', () => h.page.keyboard.press('5'));
+    const sh = await h.waitFor('shield up', (x) => x.shieldMs > 0, 1000);
+    h.check('Barrier Capsule raises a 10s shield and is spent', sh.shieldMs > 9000 && sh.run.items.barrierCapsule === 0, { shieldMs: sh.shieldMs, items: sh.run.items });
+    await h.game('pause');
+    await h.shot('shield-up');
+    await h.shot('shield-up-closeup', TRAY);
+    const blocked = await h.step('hit() through the normal damage path while shielded', () => h.game('hit'));
+    await h.game('resume');
+    h.check('the shield blocks the hit and is consumed', blocked.run.hp === sh.run.hp && blocked.shieldMs === 0, { hp: [sh.run.hp, blocked.run.hp], shieldMs: blocked.shieldMs });
+    await sleep(700);
+    const landed = await h.step('hit() again once the block i-frames pass', () => h.game('hit'));
+    h.check('without the shield the same hit costs 1 HP', landed.run.hp === sh.run.hp - 1, { hp: [sh.run.hp, landed.run.hp] });
   },
 
   async bosses(h) {
