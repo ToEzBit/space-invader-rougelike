@@ -24,7 +24,7 @@ export type Foe = {
   hp: number;
   maxHp: number;
   coin: number;
-  radius: number;
+  readonly radius: number;
   size: 'small' | 'big';
   burn: { dps: number; msLeft: number } | null;
   flashMs: number;
@@ -149,9 +149,9 @@ export class World {
     this.effectiveStats = withBuffs(this.baseStats, left.map((b) => b.buff));
   }
 
-  addFoe(texture: SpriteKey, x: number, y: number, hp: number, coin: number, size: Foe['size'] = 'small'): Foe {
+  addFoe(texture: SpriteKey, x: number, y: number, hp: number, coin: number, radius: number, size: Foe['size'] = 'small'): Foe {
     const sprite = this.scene.add.image(x, y, texture).setDepth(DEPTH.foe);
-    const foe: Foe = { sprite, hp, maxHp: hp, coin, radius: Math.min(sprite.width, sprite.height) * 0.45, size, burn: null, flashMs: 0, hpBar: HIDDEN, dead: false };
+    const foe: Foe = { sprite, hp, maxHp: hp, coin, radius, size, burn: null, flashMs: 0, hpBar: HIDDEN, dead: false };
     this.foes.push(foe);
     return foe;
   }

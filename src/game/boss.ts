@@ -8,6 +8,7 @@ import type { BulletKind } from './bullets';
 import type { Encounter } from './encounter';
 import { enemyFire } from './formation';
 import { distanceToSegment, rayEnd, type Point } from './geometry';
+import { BOSS_RADIUS, FOE_RADIUS } from './hitbox';
 import { hpRatio } from './hpBar';
 import { DEPTH } from './layout';
 import { bossPhaseIndex } from './phases';
@@ -84,8 +85,7 @@ export class BossFight implements Encounter {
   ) {
     this.def = BOSSES[stage.boss];
     this.look = BOSS_LOOK[stage.boss];
-    this.foe = world.addFoe(BOSS_SPRITE[stage.boss], VIEW.w / 2, -70, this.def.hp, 0, 'big');
-    this.foe.radius = 42;
+    this.foe = world.addFoe(BOSS_SPRITE[stage.boss], VIEW.w / 2, -70, this.def.hp, 0, BOSS_RADIUS, 'big');
     this.foe.hpBar = { kind: 'hud' };
     this.halo = world.scene.add
       .image(VIEW.w / 2, -70, BOSS_SPRITE[stage.boss])
@@ -158,7 +158,7 @@ export class BossFight implements Encounter {
     const def = ENEMIES.drone;
     for (let i = 0; i < Math.min(count, room); i++) {
       const s = this.foe.sprite;
-      const foe = this.world.addFoe(ENEMY_FRAMES.drone[0], s.x, s.y, def.hp * MINION_HP_SCALE, def.coin);
+      const foe = this.world.addFoe(ENEMY_FRAMES.drone[0], s.x, s.y, def.hp * MINION_HP_SCALE, def.coin, FOE_RADIUS.drone);
       this.minions.push({ foe, tx: 50 + Math.random() * (VIEW.w - 100), ty: 210 + Math.random() * 90, t: Math.random() * 1000, fireCd: 900 + Math.random() * 900 });
     }
     this.world.fx.spark(this.foe.sprite.x, this.foe.sprite.y, 20);

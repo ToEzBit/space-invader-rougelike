@@ -3,6 +3,7 @@ import { ENEMY_FRAMES } from '../art/sprites';
 import { VIEW } from '../view';
 import type { BulletKind } from './bullets';
 import type { Encounter } from './encounter';
+import { FOE_RADIUS } from './hitbox';
 import { BREACH_Y, PLAYFIELD } from './layout';
 import { frontRank, marchSpeed } from './march';
 import type { Foe, World } from './world';
@@ -53,7 +54,7 @@ export class Formation implements Encounter {
     def.rows.forEach((kind, row) => {
       const enemy = ENEMIES[kind];
       for (let col = 0; col < def.cols; col++) {
-        const foe = world.addFoe(ENEMY_FRAMES[kind][0], 0, 0, Math.ceil(enemy.hp * def.hpMultiplier), enemy.coin);
+        const foe = world.addFoe(ENEMY_FRAMES[kind][0], 0, 0, Math.ceil(enemy.hp * def.hpMultiplier), enemy.coin, FOE_RADIUS[kind]);
         this.members.push({ foe, kind, col, row, mode: { kind: 'ranked' } });
       }
     });

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { COLORS } from '../art/palette';
 import type { Controls } from './controls';
 import { stepWithin } from './geometry';
+import { PLAYER_RADIUS } from './hitbox';
 import { DEPTH, PLAYER_Y, PLAYER_ZONE, PLAYFIELD } from './layout';
 import type { World } from './world';
 
@@ -11,9 +12,8 @@ export class Player {
   readonly sprite: Phaser.GameObjects.Image;
   private readonly flame: Phaser.GameObjects.Image;
   private readonly shield: Phaser.GameObjects.Arc;
-  // Enemy bullets only count when they reach the cockpit, as in most shmups.
-  readonly coreRadius = 5;
-  readonly bodyRadius = 14;
+  readonly coreRadius = PLAYER_RADIUS.core;
+  readonly bodyRadius = PLAYER_RADIUS.body;
   invulnMs = 0;
   shieldMs = 0;
   // What shieldMs started from, so the HUD can sweep the time left.
