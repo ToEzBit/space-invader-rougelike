@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { COLORS } from '../art/palette';
 import type { Controls } from './controls';
-import { stepWithin } from './geometry';
+import { stepWithin, type Box, type Point } from './geometry';
 import { PLAYER_RADIUS } from './hitbox';
 import { DEPTH, PLAYER_Y, PLAYER_ZONE, PLAYFIELD } from './layout';
 import type { World } from './world';
@@ -45,11 +45,20 @@ export class Player {
 
   steer(input: Controls, dtSec: number): void {
     const dir = { x: Number(input.right) - Number(input.left), y: Number(input.down) - Number(input.up) };
-    const half = this.sprite.displayWidth / 2;
-    const box = { left: PLAYFIELD.left + half, right: PLAYFIELD.right - half, ...PLAYER_ZONE };
-    const to = stepWithin(this.sprite, dir, this.world.stats.moveSpeed * dtSec, box);
+    const to = stepWithin(this.sprite, dir, this.world.stats.moveSpeed * dtSec, this.zone());
     this.sprite.setPosition(to.x, to.y).setRotation(dir.x * 0.08);
     this.thrust = -dir.y;
+  }
+
+  // An outside force, such as a gravity well, moves the ship inside the same zone it steers in.
+  nudge(by: Point): void {
+    const to = stepWithin(this.sprite, by, Math.hypot(by.x, by.y), this.zone());
+    this.sprite.setPosition(to.x, to.y);
+  }
+
+  private zone(): Box {
+    const half = this.sprite.displayWidth / 2;
+    return { left: PLAYFIELD.left + half, right: PLAYFIELD.right - half, ...PLAYER_ZONE };
   }
 
   update(dtMs: number): void {

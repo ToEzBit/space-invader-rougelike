@@ -1,4 +1,4 @@
-import { VIEW } from '../view';
+import { VIEW } from '../viewSize';
 
 export const PLAYER_Y = 572;
 // The ship's center roams this band; it spawns on the bottom edge.

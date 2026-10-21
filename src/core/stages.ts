@@ -20,7 +20,17 @@ export type BossId = 'crimsonSeraph' | 'voidEmpress';
 // The character texture a boss form wears. Each first form wears its boss id.
 export type BossTexture = BossId | 'crimsonSeraphAscended' | 'voidEmpressEclipse';
 
-export type BossPattern = 'fanSpread' | 'aimedBurst' | 'summonMinions' | 'spiral' | 'sweepLaser' | 'bulletRain';
+export type BossPattern =
+  | 'fanSpread'
+  | 'aimedBurst'
+  | 'summonMinions'
+  | 'spiral'
+  | 'sweepLaser'
+  | 'bulletRain'
+  | 'featherStorm'
+  | 'crossJudgement'
+  | 'blackHole'
+  | 'eclipseNova';
 
 // A phase starts when boss HP falls to hpRatio or below; the boss cycles its patterns.
 export type BossPhase = { hpRatio: number; patterns: readonly BossPattern[]; patternGapMs: number };
@@ -59,7 +69,10 @@ export const BOSSES: Record<BossId, BossDef> = {
       {
         name: 'Crimson Seraph · Ascended',
         texture: 'crimsonSeraphAscended',
-        phases: [{ hpRatio: 1, patterns: ['fanSpread', 'aimedBurst'], patternGapMs: 1200 }],
+        phases: [
+          { hpRatio: 1, patterns: ['featherStorm', 'aimedBurst', 'crossJudgement', 'aimedBurst'], patternGapMs: 1100 },
+          { hpRatio: 0.3, patterns: ['featherStorm', 'crossJudgement', 'aimedBurst', 'fanSpread'], patternGapMs: 900 },
+        ],
         bulletSpeedScale: 1.15,
         minionKind: 'drone',
       },
@@ -82,7 +95,10 @@ export const BOSSES: Record<BossId, BossDef> = {
       {
         name: 'Void Empress · Eclipse',
         texture: 'voidEmpressEclipse',
-        phases: [{ hpRatio: 1, patterns: ['bulletRain', 'sweepLaser', 'spiral', 'aimedBurst'], patternGapMs: 1000 }],
+        phases: [
+          { hpRatio: 1, patterns: ['blackHole', 'spiral', 'bulletRain', 'eclipseNova'], patternGapMs: 1100 },
+          { hpRatio: 0.25, patterns: ['eclipseNova', 'blackHole', 'spiral', 'bulletRain', 'aimedBurst'], patternGapMs: 900 },
+        ],
         bulletSpeedScale: 1.15,
         minionKind: 'gunner',
       },

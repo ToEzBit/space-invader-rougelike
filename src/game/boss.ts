@@ -8,17 +8,22 @@ import type { BulletKind, BulletSpawn } from './bullets';
 import type { Encounter } from './encounter';
 import { enemyFire } from './formation';
 import { distanceToSegment, rayEnd, type Point } from './geometry';
+import { PATTERNS, WELL } from './patterns';
 import { BOSS_RADIUS, FOE_RADIUS } from './hitbox';
 import { hpRatio } from './hpBar';
 import { beatAt, hop } from './idle';
 import { DEPTH } from './layout';
+import { label } from '../ui/text';
 import type { Foe, World } from './world';
 
 const HOME_Y = 138;
 const ENTER_SPEED = 70;
 const MAX_MINIONS = 6;
 const MINION_HP_SCALE = 2;
-const SWEEP = { telegraphMs: 850, sweepMs: 1500, fromDeg: -55, toDeg: 55, width: 18, length: 900 } as const;
+const BEAM = { width: 18, length: 900 } as const;
+const CAST = { pulse: 0.07, convergeEveryMs: 35, releaseShake: 0.01 } as const;
+// Callouts stay below the HUD's boss name and HP bar.
+const CALLOUT_MIN_Y = 98;
 
 // Fractions of the transformation's duration, except shockMs.
 const TRANSFORM = { peak: 0.45, healFrom: 0.3, healTo: 0.9, shockMs: 650, shockReach: 820, crossfadeMs: 380 } as const;
@@ -33,50 +38,24 @@ const FORM_LOOK: Record<BossTexture, Look> = {
   voidEmpressEclipse: { orb: 'voidOrb', beam: COLORS.violet, glow: COLORS.violet, subtitle: 'สุริยุปราคากลืนกินท้องฟ้า!' },
 };
 
-// Angles here are screen angles in degrees where 0 points straight down at the player.
-type SweepBeam =
-  | { kind: 'idle' }
-  | { kind: 'telegraph'; msLeft: number; angle: number }
-  | { kind: 'sweeping'; msLeft: number; angle: number; dir: 1 | -1 };
+// A beam sweeps its down-angle (0 straight down, positive leaning right) from fromDeg to toDeg after blinking
+// for telegraphMs. A 'muzzle' origin follows the boss; a fixed origin was set when its cast was aimed.
+export type BeamSpec = { origin: 'muzzle' | Point; fromDeg: number; toDeg: number; telegraphMs: number; sweepMs: number };
+type Beam = BeamSpec & { t: number };
+
+type Well = { at: Point; msLeft: number; fullMs: number; spin: number };
 
 type Minion = { foe: Foe; kind: EnemyKind; tx: number; ty: number; t: number; fireCd: number };
 
 // Drift and pattern gaps only run while fighting, so the boss resumes where it stopped.
-// While transforming the boss is immune and climbs from fromHp back up by its heal.
+// Casting charges a special for msLeft with the aim its telegraph shows. While transforming the boss is immune and
+// climbs from fromHp back up by its heal.
 type Stance =
   | { kind: 'entering' }
   | { kind: 'fighting'; gapMs: number }
+  | { kind: 'casting'; pattern: BossPattern; msLeft: number; aim: unknown; callout: Phaser.GameObjects.Text; convergeMs: number }
   | { kind: 'transforming'; msLeft: number; fromHp: number }
   | { kind: 'dead' };
-
-const PATTERNS: Record<BossPattern, (b: BossFight) => void> = {
-  fanSpread: (b) => {
-    const waves = b.phase + 1;
-    for (let w = 0; w < waves; w++)
-      b.after(w * 260, () => {
-        const count = 9 + w;
-        for (let i = 0; i < count; i++) b.shoot(b.look.orb, b.muzzle, -55 + (110 * i) / (count - 1), 165);
-      });
-  },
-  aimedBurst: (b) => {
-    b.repeat(6, 110, () => b.shoot('needle', b.muzzle, b.aimAtPlayer(), 270));
-  },
-  summonMinions: (b) => b.summon(3 + b.phase),
-  spiral: (b) => {
-    let angle = 0;
-    b.repeat(26, 65, () => {
-      for (const arm of [0, 120, 240]) b.shoot(b.look.orb, b.muzzle, angle + arm, 150);
-      angle += 17;
-    });
-  },
-  sweepLaser: (b) => b.startSweep(),
-  bulletRain: (b) => {
-    b.repeat(24, 80, () => {
-      const x = 20 + Math.random() * (VIEW.w - 40);
-      b.fire({ kind: 'pellet', x, y: 40, vx: 0, vy: 170 + Math.random() * 70 });
-    });
-  },
-};
 
 export class BossFight implements Encounter {
   readonly boss = this;
@@ -91,7 +70,8 @@ export class BossFight implements Encounter {
   private stance: Stance = { kind: 'entering' };
   private patternIndex = 0;
   private driftMs = 0;
-  private sweep: SweepBeam = { kind: 'idle' };
+  private beams: Beam[] = [];
+  private well: Well | null = null;
   private minions: Minion[] = [];
   private timers: Phaser.Time.TimerEvent[] = [];
   private readonly gfx: Phaser.GameObjects.Graphics;
@@ -133,6 +113,12 @@ export class BossFight implements Encounter {
     return this.stance.kind;
   }
 
+  // What a special shows while it charges, for debug state.
+  get casting(): { pattern: BossPattern; castMsLeft: number; callout: string } | null {
+    const s = this.stance;
+    return s.kind === 'casting' ? { pattern: s.pattern, castMsLeft: s.msLeft, callout: s.callout.text } : null;
+  }
+
   get minionCount(): number {
     return this.minions.length;
   }
@@ -146,7 +132,8 @@ export class BossFight implements Encounter {
   }
 
   get muzzle(): Point {
-    return { x: this.foe.sprite.x, y: this.foe.sprite.y + 30 };
+    const s = this.foe.sprite;
+    return { x: s.x, y: s.y + s.displayHeight * 0.28 };
   }
 
   update(dtMs: number): void {
@@ -168,7 +155,14 @@ export class BossFight implements Encounter {
           break;
         }
         this.advancePhase();
-        if ((stance.gapMs -= dtMs) <= 0) stance.gapMs = this.nextPattern();
+        if ((stance.gapMs -= dtMs) <= 0) this.nextPattern(stance);
+        break;
+      case 'casting':
+        if (transformDue(this.def, this.form, this.hpRatio)) {
+          this.startTransform();
+          break;
+        }
+        this.castStep(stance, dtMs);
         break;
       case 'transforming':
         this.transformStep(stance, dtMs);
@@ -176,8 +170,10 @@ export class BossFight implements Encounter {
       case 'dead':
         break;
     }
-    if (stance.kind !== 'transforming') this.halo.setPosition(s.x, s.y).setAlpha(0.18 + Math.sin(this.driftMs / 200) * 0.08 + this.phase * 0.08);
-    this.updateSweep(dtMs);
+    if (this.stance.kind !== 'transforming' && this.stance.kind !== 'casting')
+      this.halo.setPosition(s.x, s.y).setAlpha(0.18 + Math.sin(this.driftMs / 200) * 0.08 + this.phase * 0.08);
+    this.updateBeams(dtMs);
+    this.updateWell(dtMs);
     for (const m of this.minions) this.updateMinion(m, dtMs);
   }
 
@@ -218,10 +214,12 @@ export class BossFight implements Encounter {
     this.world.fx.spark(this.foe.sprite.x, this.foe.sprite.y, 20);
   }
 
-  startSweep(): void {
-    if (this.sweep.kind !== 'idle') return;
-    const flip = Math.random() < 0.5 ? 1 : -1;
-    this.sweep = { kind: 'telegraph', msLeft: SWEEP.telegraphMs, angle: SWEEP.fromDeg * flip };
+  addBeam(spec: BeamSpec): void {
+    this.beams.push({ ...spec, t: 0 });
+  }
+
+  openWell(at: Point, ms: number): void {
+    this.well = { at, msLeft: ms, fullMs: ms, spin: 0 };
   }
 
   private drift(dtMs: number): void {
@@ -255,8 +253,8 @@ export class BossFight implements Encounter {
   }
 
   private startTransform(): void {
-    this.stance = { kind: 'transforming', msLeft: this.def.transform.durationMs, fromHp: this.foe.hp };
     this.cancelAttacks();
+    this.stance = { kind: 'transforming', msLeft: this.def.transform.durationMs, fromHp: this.foe.hp };
     const { fx } = this.world;
     fx.flash(120, 255, 255, 255);
     fx.shake(0.008, 300);
@@ -349,44 +347,148 @@ export class BossFight implements Encounter {
     return true;
   }
 
-  // Stops every attack in flight: pending bursts and beams.
+  // Stops every attack in flight: pending bursts, beams, the well and a special still charging.
   private cancelAttacks(): void {
     for (const t of this.timers) t.remove();
     this.timers = [];
-    this.sweep = { kind: 'idle' };
+    this.beams = [];
+    this.well = null;
+    if (this.stance.kind === 'casting') this.stance.callout.destroy();
+    this.foe.sprite.setScale(1);
   }
 
-  // Returns the gap before the next pattern.
-  private nextPattern(): number {
+  // Runs the next pattern of the cycle, or starts charging it when it is a special.
+  private nextPattern(stance: Extract<Stance, { kind: 'fighting' }>): void {
     const phase = this.current.phases[this.phase]!;
     const pattern = phase.patterns[this.patternIndex % phase.patterns.length]!;
     this.patternIndex++;
-    PATTERNS[pattern](this);
-    return phase.patternGapMs;
+    stance.gapMs = phase.patternGapMs;
+    const { cast } = PATTERNS[pattern];
+    if (!cast) return PATTERNS[pattern].run(this);
+    const s = this.foe.sprite;
+    const callout = label(this.world.scene, s.x, Math.max(CALLOUT_MIN_Y, s.y - s.displayHeight / 2 - 16), cast.callout, {
+      size: 18,
+      bold: true,
+      color: css(this.look.glow),
+      align: 'center',
+      stroke: '#0d0b26',
+    }).setDepth(DEPTH.fx);
+    callout.setOrigin(0.5).setScale(0);
+    this.world.scene.tweens.add({ targets: callout, scale: 1, duration: 260, ease: 'Back.easeOut' });
+    this.stance = { kind: 'casting', pattern, msLeft: cast.chargeMs, aim: cast.aim(this), callout, convergeMs: 0 };
+    sfx('phase');
   }
 
-  private updateSweep(dtMs: number): void {
-    const g = this.gfx;
-    const s = this.sweep;
-    if (s.kind === 'idle') return;
-    const from = this.muzzle;
-    const to = rayEnd(from, 180 - s.angle, SWEEP.length);
-    if (s.kind === 'telegraph') {
-      const blink = Math.floor(s.msLeft / 90) % 2 === 0;
-      g.lineStyle(2, this.look.beam, blink ? 0.9 : 0.35).lineBetween(from.x, from.y, to.x, to.y);
-      g.fillStyle(this.look.beam, 0.5).fillCircle(from.x, from.y, 4 + (SWEEP.telegraphMs - s.msLeft) / 60);
-      if ((s.msLeft -= dtMs) <= 0) this.sweep = { kind: 'sweeping', msLeft: SWEEP.sweepMs, angle: s.angle, dir: s.angle < 0 ? 1 : -1 };
-      return;
+  // The charge: the boss holds still and pulses in its form's glow while light gathers into it and the telegraph
+  // shows where the attack lands. Then it releases with a flash.
+  private castStep(stance: Extract<Stance, { kind: 'casting' }>, dtMs: number): void {
+    const cast = PATTERNS[stance.pattern].cast!;
+    stance.msLeft -= dtMs;
+    const p = Math.min(1, 1 - stance.msLeft / cast.chargeMs);
+    const s = this.foe.sprite;
+    const beat = 0.5 - 0.5 * Math.cos(p * Math.PI * (4 + 4 * p));
+    s.setScale(1 + CAST.pulse * beat);
+    this.halo.setPosition(s.x, s.y).setScale(1.1 + 0.12 * beat).setAlpha(0.45 + 0.45 * beat);
+    cast.telegraph(this, stance.aim, this.gfx, p);
+    if ((stance.convergeMs -= dtMs) <= 0) {
+      stance.convergeMs = CAST.convergeEveryMs;
+      this.converge();
     }
-    const total = SWEEP.toDeg - SWEEP.fromDeg;
-    s.angle += (s.dir * total * dtMs) / SWEEP.sweepMs;
-    const w = SWEEP.width * (1 + Math.sin(this.world.scene.time.now / 25) * 0.15);
-    g.lineStyle(w + 12, this.look.beam, 0.3).lineBetween(from.x, from.y, to.x, to.y);
-    g.lineStyle(w, this.look.beam, 0.85).lineBetween(from.x, from.y, to.x, to.y);
-    g.lineStyle(w * 0.35, COLORS.white, 1).lineBetween(from.x, from.y, to.x, to.y);
+    if (stance.msLeft > 0) return;
+    s.setScale(1);
+    this.halo.setScale(1.08);
+    const { callout } = stance;
+    this.world.scene.tweens.add({ targets: callout, y: callout.y - 18, alpha: 0, duration: 360, onComplete: () => callout.destroy() });
+    const glow = Phaser.Display.Color.IntegerToRGB(this.look.glow);
+    this.world.fx.flash(140, glow.r, glow.g, glow.b);
+    this.world.fx.shake(CAST.releaseShake, 220);
+    sfx('boom');
+    this.stance = { kind: 'fighting', gapMs: this.current.phases[this.phase]!.patternGapMs };
+    PATTERNS[stance.pattern].run(this, stance.aim);
+  }
+
+  // One mote of light flies in from a ring around the boss.
+  private converge(): void {
+    const { scene } = this.world;
+    const s = this.foe.sprite;
+    const a = Math.random() * Math.PI * 2;
+    const r = s.displayWidth * (0.6 + Math.random() * 0.35);
+    const mote = scene.add
+      .image(s.x + Math.cos(a) * r, s.y + Math.sin(a) * r, 'spark')
+      .setTint(Math.random() < 0.5 ? this.look.glow : COLORS.white)
+      .setScale(2.4)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(DEPTH.fx);
+    scene.tweens.add({ targets: mote, x: s.x, y: s.y, scale: 0.4, alpha: 0.2, duration: 380, ease: 'Quad.easeIn', onComplete: () => mote.destroy() });
+  }
+
+  private updateBeams(dtMs: number): void {
+    const g = this.gfx;
     const { player } = this.world;
-    if (distanceToSegment(player, from, to) <= w / 2 + player.coreRadius) this.world.hurtPlayer();
-    if ((s.msLeft -= dtMs) <= 0) this.sweep = { kind: 'idle' };
+    for (const beam of this.beams) {
+      beam.t += dtMs;
+      const from = beam.origin === 'muzzle' ? this.muzzle : beam.origin;
+      const sweepT = beam.t - beam.telegraphMs;
+      const k = Phaser.Math.Clamp(sweepT / beam.sweepMs, 0, 1);
+      const to = rayEnd(from, 180 - Phaser.Math.Linear(beam.fromDeg, beam.toDeg, k), BEAM.length);
+      if (sweepT < 0) {
+        const blink = Math.floor(sweepT / 90) % 2 === 0;
+        g.lineStyle(2, this.look.beam, blink ? 0.9 : 0.35).lineBetween(from.x, from.y, to.x, to.y);
+        g.fillStyle(this.look.beam, 0.5).fillCircle(from.x, from.y, 4 + beam.t / 60);
+        continue;
+      }
+      const w = BEAM.width * (1 + Math.sin(this.world.scene.time.now / 25) * 0.15);
+      g.lineStyle(w + 12, this.look.beam, 0.3).lineBetween(from.x, from.y, to.x, to.y);
+      g.lineStyle(w, this.look.beam, 0.85).lineBetween(from.x, from.y, to.x, to.y);
+      g.lineStyle(w * 0.35, COLORS.white, 1).lineBetween(from.x, from.y, to.x, to.y);
+      if (distanceToSegment(player, from, to) <= w / 2 + player.coreRadius) this.world.hurtPlayer();
+    }
+    this.beams = this.beams.filter((b) => b.t < b.telegraphMs + b.sweepMs);
+  }
+
+  // The well pulls the ship (slower than it can fly, and never while dashing) and bends enemy bullets into its core,
+  // which swallows them. It never hurts the ship itself.
+  private updateWell(dtMs: number): void {
+    const well = this.well;
+    if (!well) return;
+    const dt = dtMs / 1000;
+    well.msLeft -= dtMs;
+    well.spin += dt * 3;
+    const { at } = well;
+    const { world } = this;
+    const fade = Math.min(1, well.msLeft / 300, (well.fullMs - well.msLeft) / 200);
+    const p = world.player;
+    const toShip = Math.hypot(at.x - p.x, at.y - p.y);
+    if (!world.dash.active && toShip > 4 && toShip < WELL.pullRadius * 1.8) {
+      const pull = (WELL.shipPull * fade * dt) / toShip;
+      p.nudge({ x: (at.x - p.x) * pull, y: (at.y - p.y) * pull });
+    }
+    for (const b of world.enemyShots.list) {
+      if (!b.alive) continue;
+      const dx = at.x - b.sprite.x;
+      const dy = at.y - b.sprite.y;
+      const d = Math.hypot(dx, dy);
+      if (d < WELL.coreRadius) {
+        world.enemyShots.kill(b);
+        continue;
+      }
+      if (d > WELL.pullRadius) continue;
+      const a = (WELL.bulletPull * (1 - d / WELL.pullRadius) * fade * dt) / d;
+      b.vx += dx * a;
+      b.vy += dy * a;
+    }
+    const g = this.gfx;
+    g.fillStyle(this.look.beam, 0.07 * fade).fillCircle(at.x, at.y, WELL.pullRadius);
+    g.lineStyle(1, this.look.beam, 0.35 * fade).strokeCircle(at.x, at.y, WELL.pullRadius);
+    for (let i = 0; i < 3; i++) {
+      const r = WELL.coreRadius + 10 + i * 16;
+      const start = well.spin * (1.6 - i * 0.4) + i * 2;
+      g.lineStyle(3 - i * 0.6, i === 0 ? COLORS.gold : this.look.beam, 0.9 * fade).beginPath().arc(at.x, at.y, r, start, start + 2.2).strokePath();
+      g.beginPath().arc(at.x, at.y, r, start + Math.PI, start + Math.PI + 2.2).strokePath();
+    }
+    g.fillStyle(COLORS.violet, 0.8 * fade).fillCircle(at.x, at.y, WELL.coreRadius + 4);
+    g.fillStyle(0x05040f, fade).fillCircle(at.x, at.y, WELL.coreRadius);
+    if (well.msLeft <= 0) this.well = null;
   }
 
   private updateMinion(m: Minion, dtMs: number): void {
@@ -403,9 +505,9 @@ export class BossFight implements Encounter {
 
   private die(): void {
     if (this.stance.kind === 'dead') return;
+    this.cancelAttacks();
     this.stance = { kind: 'dead' };
     this.halo.setVisible(false);
-    this.cancelAttacks();
     this.gfx.clear();
     for (const m of this.minions) this.world.damage(m.foe, m.foe.hp, 'bullet');
     const { x, y } = this.foe.sprite;

@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
 import { sharpenLabels } from './ui/text';
+import { VIEW } from './viewSize';
 
-// Scenes work in a 480x640 world. The canvas fills the window in device pixels, and the camera
-// zooms the world to the largest size that fits, so the area around it shows open space.
-export const VIEW = { w: 480, h: 640 } as const;
+export { VIEW };
+
+// The canvas fills the window in device pixels, and the camera zooms the world to the largest size
+// that fits, so the area around it shows open space.
 
 export type Viewport = { zoom: number; x: number; y: number; w: number; h: number };
 

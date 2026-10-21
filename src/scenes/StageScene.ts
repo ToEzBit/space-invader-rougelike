@@ -52,6 +52,7 @@ export class StageScene extends Phaser.Scene {
     this.hud = new Hud(this, this.world, this.encounter.boss);
     this.controls = new KeyboardControls(this);
     this.life = { kind: 'intro', msLeft: INTRO_MS };
+    this.clock = { fightMs: 0, frames: 0, capped: 0 };
     const final = this.run.stage === STAGE_COUNT;
     banner(
       this,
@@ -94,6 +95,7 @@ export class StageScene extends Phaser.Scene {
           stance: this.encounter.boss.stanceKind,
           minions: this.encounter.boss.minionCount,
           deflected: this.encounter.boss.deflected,
+          ...this.encounter.boss.casting,
           x: this.encounter.boss.foe.sprite.x,
           y: this.encounter.boss.foe.sprite.y,
           maxHp: this.encounter.boss.foe.maxHp,
