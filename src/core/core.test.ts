@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BASE_STATS } from './stats';
 import { PERKS, PERK_IDS, deriveStats, describePerk, type PerkId } from './perks';
 import { STAGES } from './stages';
-import { buyOffer, clearStage, leaveShop, newRun, refreshCost, refreshShop, rollOffers, type RunState } from './run';
+import { buyOffer, clearStage, heal, leaveShop, newRun, refreshCost, refreshShop, rollOffers, takeHit, type RunState } from './run';
 
 function shopOf(run: RunState) {
   if (run.phase.kind !== 'shop') throw new Error(`expected shop, got ${run.phase.kind}`);
@@ -125,5 +125,21 @@ describe('run loop', () => {
     expect(kinds).toHaveLength(10);
     expect(kinds[4]).toBe('boss');
     expect(kinds[9]).toBe('boss');
+  });
+
+  it('hits lower HP and the last one ends the run', () => {
+    const run = newRun(3);
+    const hit = takeHit(run, 1);
+    expect(hit.hp).toBe(run.hp - 1);
+    expect(hit.phase.kind).toBe('playing');
+    const dead = takeHit(hit, 99);
+    expect(dead.hp).toBe(0);
+    expect(dead.phase.kind).toBe('defeat');
+  });
+
+  it('heals up to max HP only', () => {
+    const run = takeHit(newRun(3), 2);
+    expect(heal(run, 1).hp).toBe(run.hp + 1);
+    expect(heal(run, 99).hp).toBe(deriveStats(run.perks).maxHp);
   });
 });

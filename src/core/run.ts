@@ -61,6 +61,16 @@ export function failRun(run: RunState): RunState {
   return { ...run, phase: { kind: 'defeat' } };
 }
 
+// HP lives on the run so damage carries across stages; reaching 0 is the defeat transition.
+export function takeHit(run: RunState, amount: number): RunState {
+  const hp = Math.max(0, run.hp - amount);
+  return hp === 0 ? { ...run, hp, phase: { kind: 'defeat' } } : { ...run, hp };
+}
+
+export function heal(run: RunState, amount: number): RunState {
+  return { ...run, hp: Math.min(run.hp + amount, deriveStats(run.perks).maxHp) };
+}
+
 export function leaveShop(run: RunState): RunState {
   if (run.phase.kind !== 'shop') return run;
   return { ...run, stage: run.stage + 1, phase: { kind: 'playing' } };
