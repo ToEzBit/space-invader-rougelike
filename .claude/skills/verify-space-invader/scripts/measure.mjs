@@ -2,7 +2,8 @@
 // Usage: measure.mjs <run-id> <cell...|all> [--runs N] [--headed]
 // Fights a boss with __game.god(true) and a ship that weaves left and right under it, one run at a time, and prints
 // one JSON line per run plus a median/range summary per cell. Time-to-kill is game time (capped frame deltas while
-// life is 'fighting'), so a slow frame rate cannot stretch it. Reads only debug fields: boss {x, maxHp}, clock, tally.
+// life is 'fighting'), so a slow frame rate cannot stretch it. Reads boss {x, maxHp}, clock and tally, plus boss.form
+// where the build has it, to split hits per minute by form.
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -61,7 +62,10 @@ async function fight(page, cell) {
   let key = 'ArrowRight';
   await page.keyboard.down(key);
   let last = s;
+  // The tally when the second form first shows, so each form's pressure can be read on its own.
+  let split = null;
   while (s.life === 'fighting' && s.clock.fightMs < MAX_GAME_MS) {
+    if (!split && s.boss?.form === 1) split = { ms: s.clock.fightMs, hits: s.tally.hits, contacts: s.tally.contacts };
     const x = s.player.x;
     const bx = s.boss?.x ?? 240;
     const turn = key === 'ArrowRight' ? x > Math.min(bx + WEAVE_PX, WALLS.right) : x < Math.max(bx - WEAVE_PX, WALLS.left);
@@ -79,6 +83,15 @@ async function fight(page, cell) {
   const { clock, tally } = end;
   const min = clock.fightMs / 60000;
   const shotDealt = (tally.dealt.bullet ?? 0) + (tally.dealt.missile ?? 0);
+  const perMin = (n, ms) => +(n / (ms / 60000)).toFixed(1);
+  const forms = split && {
+    form1: { s: +(split.ms / 1000).toFixed(1), hitsPerMin: perMin(split.hits, split.ms), contactsPerMin: perMin(split.contacts, split.ms) },
+    form2: {
+      s: +((clock.fightMs - split.ms) / 1000).toFixed(1),
+      hitsPerMin: perMin(tally.hits - split.hits, clock.fightMs - split.ms),
+      contactsPerMin: perMin(tally.contacts - split.contacts, clock.fightMs - split.ms),
+    },
+  };
   return {
     killed: s.life !== 'fighting',
     ttkS: +(clock.fightMs / 1000).toFixed(1),
@@ -92,6 +105,7 @@ async function fight(page, cell) {
     dealt: Object.fromEntries(Object.entries(tally.dealt).map(([k, v]) => [k, Math.round(v)])),
     meanFrameMs: +(clock.fightMs / clock.frames).toFixed(2),
     cappedPct: +((100 * clock.capped) / clock.frames).toFixed(2),
+    ...(forms && { forms }),
   };
 }
 
