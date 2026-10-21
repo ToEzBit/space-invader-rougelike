@@ -1,0 +1,781 @@
+{
+  "world": [
+    480,
+    640
+  ],
+  "notes": [
+    "Every file is baked at display size: one texture pixel is one world unit. Load with pixelArt (nearest) filtering and never scale by a non-integer.",
+    "nineSlice: scene.add.nineslice(x, y, key, undefined, width, height, insets.left, insets.right, insets.top, insets.bottom). Edges and center stretch (default tileX/tileY false); the art keeps edges uniform so stretching is lossless.",
+    "Frame interiors carry the translucency the code used to set with fill alpha, so do not also set alpha on the frame.",
+    "All text stays code-rendered with ui/text.ts label()."
+  ],
+  "assets": [
+    {
+      "key": "perkCard",
+      "file": "out/perkCard.png",
+      "kind": "nineSlice",
+      "w": 24,
+      "h": 20,
+      "insets": {
+        "left": 10,
+        "right": 10,
+        "top": 8,
+        "bottom": 8
+      },
+      "border": {
+        "top": 7,
+        "bottom": 7,
+        "left": 7,
+        "right": 7
+      },
+      "suggestedUse": "ShopScene.drawPerk, ram branch (pink). 440x116 cards.",
+      "raw": "raw/perkCard-v2.png",
+      "colors": 10,
+      "keying": {
+        "background": [
+          13,
+          249,
+          11
+        ],
+        "trimmed": [
+          2080,
+          557
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "perkCardRapid",
+      "file": "out/perkCardRapid.png",
+      "kind": "nineSlice",
+      "w": 24,
+      "h": 20,
+      "insets": {
+        "left": 10,
+        "right": 10,
+        "top": 8,
+        "bottom": 8
+      },
+      "border": {
+        "top": 7,
+        "bottom": 7,
+        "left": 7,
+        "right": 7
+      },
+      "suggestedUse": "ShopScene.drawPerk, rapid branch (orange).",
+      "raw": "raw/perkCard-v2.png",
+      "colors": 10,
+      "keying": {
+        "background": [
+          13,
+          249,
+          11
+        ],
+        "trimmed": [
+          2080,
+          557
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "perkCardLaser",
+      "file": "out/perkCardLaser.png",
+      "kind": "nineSlice",
+      "w": 24,
+      "h": 20,
+      "insets": {
+        "left": 10,
+        "right": 10,
+        "top": 8,
+        "bottom": 8
+      },
+      "border": {
+        "top": 7,
+        "bottom": 7,
+        "left": 7,
+        "right": 7
+      },
+      "suggestedUse": "ShopScene.drawPerk, laser branch (cyan).",
+      "raw": "raw/perkCard-v2.png",
+      "colors": 10,
+      "keying": {
+        "background": [
+          13,
+          249,
+          11
+        ],
+        "trimmed": [
+          2080,
+          557
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "itemCard",
+      "file": "out/itemCard.png",
+      "kind": "nineSlice",
+      "w": 24,
+      "h": 20,
+      "insets": {
+        "left": 10,
+        "right": 10,
+        "top": 8,
+        "bottom": 8
+      },
+      "border": {
+        "top": 7,
+        "bottom": 7,
+        "left": 7,
+        "right": 7
+      },
+      "suggestedUse": "ShopScene.drawItem. 440x116 cards.",
+      "raw": "raw/itemCard-v2.png",
+      "colors": 8,
+      "keying": {
+        "background": [
+          9,
+          248,
+          23
+        ],
+        "trimmed": [
+          2080,
+          555
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "panel",
+      "file": "out/panel.png",
+      "kind": "nineSlice",
+      "w": 22,
+      "h": 18,
+      "insets": {
+        "left": 9,
+        "right": 9,
+        "top": 7,
+        "bottom": 7
+      },
+      "border": {
+        "top": 6,
+        "bottom": 6,
+        "left": 6,
+        "right": 6
+      },
+      "suggestedUse": "Title controls panel 400x164, Shop status panel 440x124, End stats panel, stage banner strip 480x84.",
+      "raw": "raw/panel-v2.png",
+      "colors": 8,
+      "keying": {
+        "background": [
+          5,
+          249,
+          15
+        ],
+        "trimmed": [
+          1908,
+          531
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "hudBar",
+      "file": "out/hudBar.png",
+      "kind": "nineSlice",
+      "w": 18,
+      "h": 18,
+      "insets": {
+        "left": 7,
+        "right": 7,
+        "top": 7,
+        "bottom": 7
+      },
+      "border": {
+        "top": 5,
+        "bottom": 4,
+        "left": 5,
+        "right": 4
+      },
+      "suggestedUse": "Hud top bar: nineslice at (-2, -2) sized 484x38 so only the bottom trim and lower corners show; replaces the 480x34 rectangle and the 2px violet underline.",
+      "raw": "raw/hudBar-v1.png",
+      "colors": 9,
+      "keying": {
+        "background": [
+          7,
+          249,
+          6
+        ],
+        "trimmed": [
+          2066,
+          494
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "button",
+      "file": "out/button.png",
+      "kind": "nineSlice",
+      "w": 17,
+      "h": 16,
+      "insets": {
+        "left": 7,
+        "right": 6,
+        "top": 6,
+        "bottom": 6
+      },
+      "border": {
+        "top": 2,
+        "bottom": 3,
+        "left": 2,
+        "right": 3
+      },
+      "suggestedUse": "ShopScene.button refresh (neutral), 200x40.",
+      "raw": "raw/button-v1.png",
+      "colors": 6,
+      "keying": {
+        "background": [
+          7,
+          248,
+          4
+        ],
+        "trimmed": [
+          2081,
+          451
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "buttonHover",
+      "file": "out/buttonHover.png",
+      "kind": "nineSlice",
+      "w": 17,
+      "h": 16,
+      "insets": {
+        "left": 7,
+        "right": 6,
+        "top": 6,
+        "bottom": 6
+      },
+      "border": {
+        "top": 2,
+        "bottom": 3,
+        "left": 2,
+        "right": 3
+      },
+      "suggestedUse": "Refresh button on pointerover (swap texture; keep the 1.05 scale tween optional).",
+      "raw": "raw/button-v1.png",
+      "colors": 6,
+      "keying": {
+        "background": [
+          7,
+          248,
+          4
+        ],
+        "trimmed": [
+          2081,
+          451
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "buttonDisabled",
+      "file": "out/buttonDisabled.png",
+      "kind": "nineSlice",
+      "w": 17,
+      "h": 16,
+      "insets": {
+        "left": 7,
+        "right": 6,
+        "top": 6,
+        "bottom": 6
+      },
+      "border": {
+        "top": 2,
+        "bottom": 3,
+        "left": 2,
+        "right": 3
+      },
+      "suggestedUse": "Refresh button when money < refreshCost (replaces the 0x2a2650 color).",
+      "raw": "raw/button-v1.png",
+      "colors": 6,
+      "keying": {
+        "background": [
+          7,
+          248,
+          4
+        ],
+        "trimmed": [
+          2081,
+          451
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "buttonAccent",
+      "file": "out/buttonAccent.png",
+      "kind": "nineSlice",
+      "w": 17,
+      "h": 16,
+      "insets": {
+        "left": 7,
+        "right": 6,
+        "top": 6,
+        "bottom": 6
+      },
+      "border": {
+        "top": 2,
+        "bottom": 3,
+        "left": 2,
+        "right": 3
+      },
+      "suggestedUse": "ShopScene.button continue (accent mint), 200x40.",
+      "raw": "raw/button-v1.png",
+      "colors": 6,
+      "keying": {
+        "background": [
+          7,
+          248,
+          4
+        ],
+        "trimmed": [
+          2081,
+          451
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "buttonAccentHover",
+      "file": "out/buttonAccentHover.png",
+      "kind": "nineSlice",
+      "w": 17,
+      "h": 16,
+      "insets": {
+        "left": 7,
+        "right": 6,
+        "top": 6,
+        "bottom": 6
+      },
+      "border": {
+        "top": 2,
+        "bottom": 3,
+        "left": 2,
+        "right": 3
+      },
+      "suggestedUse": "Continue button on pointerover.",
+      "raw": "raw/button-v1.png",
+      "colors": 6,
+      "keying": {
+        "background": [
+          7,
+          248,
+          4
+        ],
+        "trimmed": [
+          2081,
+          451
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "chip",
+      "file": "out/chip.png",
+      "kind": "nineSlice",
+      "w": 14,
+      "h": 14,
+      "insets": {
+        "left": 5,
+        "right": 5,
+        "top": 5,
+        "bottom": 5
+      },
+      "border": {
+        "top": 2,
+        "bottom": 2,
+        "left": 2,
+        "right": 2
+      },
+      "suggestedUse": "Owned-perk chips, 16 tall; neutral fallback.",
+      "raw": "raw/chip-v1.png",
+      "colors": 6,
+      "keying": {
+        "background": [
+          6,
+          249,
+          4
+        ],
+        "trimmed": [
+          2062,
+          394
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "chipRapid",
+      "file": "out/chipRapid.png",
+      "kind": "nineSlice",
+      "w": 14,
+      "h": 14,
+      "insets": {
+        "left": 5,
+        "right": 5,
+        "top": 5,
+        "bottom": 5
+      },
+      "border": {
+        "top": 2,
+        "bottom": 2,
+        "left": 2,
+        "right": 2
+      },
+      "suggestedUse": "Owned chip, rapid branch.",
+      "raw": "raw/chip-v1.png",
+      "colors": 6,
+      "keying": {
+        "background": [
+          6,
+          249,
+          4
+        ],
+        "trimmed": [
+          2062,
+          394
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "chipLaser",
+      "file": "out/chipLaser.png",
+      "kind": "nineSlice",
+      "w": 14,
+      "h": 14,
+      "insets": {
+        "left": 5,
+        "right": 5,
+        "top": 5,
+        "bottom": 5
+      },
+      "border": {
+        "top": 2,
+        "bottom": 2,
+        "left": 2,
+        "right": 2
+      },
+      "suggestedUse": "Owned chip, laser branch.",
+      "raw": "raw/chip-v1.png",
+      "colors": 6,
+      "keying": {
+        "background": [
+          6,
+          249,
+          4
+        ],
+        "trimmed": [
+          2062,
+          394
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "chipRam",
+      "file": "out/chipRam.png",
+      "kind": "nineSlice",
+      "w": 14,
+      "h": 14,
+      "insets": {
+        "left": 5,
+        "right": 5,
+        "top": 5,
+        "bottom": 5
+      },
+      "border": {
+        "top": 2,
+        "bottom": 2,
+        "left": 2,
+        "right": 2
+      },
+      "suggestedUse": "Owned chip, ram branch.",
+      "raw": "raw/chip-v1.png",
+      "colors": 6,
+      "keying": {
+        "background": [
+          6,
+          249,
+          4
+        ],
+        "trimmed": [
+          2062,
+          394
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "chipGold",
+      "file": "out/chipGold.png",
+      "kind": "nineSlice",
+      "w": 14,
+      "h": 14,
+      "insets": {
+        "left": 5,
+        "right": 5,
+        "top": 5,
+        "bottom": 5
+      },
+      "border": {
+        "top": 2,
+        "bottom": 2,
+        "left": 2,
+        "right": 2
+      },
+      "suggestedUse": "Owned chip, items.",
+      "raw": "raw/chip-v1.png",
+      "colors": 6,
+      "keying": {
+        "background": [
+          6,
+          249,
+          4
+        ],
+        "trimmed": [
+          2062,
+          394
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "heart",
+      "file": "out/heart.png",
+      "kind": "icon",
+      "w": 14,
+      "h": 14,
+      "suggestedUse": "Hud hearts at 16 + i*18, y 17; Shop status hearts.",
+      "replaces": "heart (7x7 art at ART_SCALE 2)",
+      "raw": "raw/icons-hud-v1.png",
+      "colors": 6
+    },
+    {
+      "key": "coin0",
+      "file": "out/coin0.png",
+      "kind": "icon",
+      "w": 12,
+      "h": 12,
+      "suggestedUse": "Hud money icon at MONEY_ANCHOR, fx coin drops.",
+      "replaces": "coin0",
+      "raw": "raw/icons-hud-v1.png",
+      "colors": 10
+    },
+    {
+      "key": "coinLarge",
+      "file": "out/coinLarge.png",
+      "kind": "icon",
+      "w": 18,
+      "h": 18,
+      "suggestedUse": "Shop card price and status money (replaces coin0 at setScale 1.4 / 1.3).",
+      "raw": "raw/icons-hud-v1.png",
+      "colors": 9
+    },
+    {
+      "key": "iconRapid",
+      "file": "out/iconRapid.png",
+      "kind": "icon",
+      "w": 28,
+      "h": 28,
+      "suggestedUse": "Perk card stripe, rapid branch (replaces setScale 1.5).",
+      "replaces": "iconRapid",
+      "raw": "raw/icons-skill-v1.png",
+      "colors": 13
+    },
+    {
+      "key": "iconLaser",
+      "file": "out/iconLaser.png",
+      "kind": "icon",
+      "w": 28,
+      "h": 28,
+      "suggestedUse": "Laser skill slot and perk card stripe, laser branch.",
+      "replaces": "iconLaser",
+      "raw": "raw/icons-skill-v1.png",
+      "colors": 9
+    },
+    {
+      "key": "iconRam",
+      "file": "out/iconRam.png",
+      "kind": "icon",
+      "w": 28,
+      "h": 28,
+      "suggestedUse": "Dash skill slot and perk card stripe, ram branch.",
+      "replaces": "iconRam",
+      "raw": "raw/icons-skill-v1.png",
+      "colors": 8
+    },
+    {
+      "key": "iconOrbital",
+      "file": "out/iconOrbital.png",
+      "kind": "icon",
+      "w": 28,
+      "h": 28,
+      "suggestedUse": "Orbital skill slot.",
+      "replaces": "iconOrbital",
+      "raw": "raw/icons-skill-v1.png",
+      "colors": 12
+    },
+    {
+      "key": "itemRepairKit",
+      "file": "out/itemRepairKit.png",
+      "kind": "icon",
+      "w": 28,
+      "h": 28,
+      "suggestedUse": "Item tray slot and shop item well (RepairKit).",
+      "replaces": "itemRepairKit",
+      "raw": "raw/icons-item-v1.png",
+      "colors": 12
+    },
+    {
+      "key": "itemNitro",
+      "file": "out/itemNitro.png",
+      "kind": "icon",
+      "w": 28,
+      "h": 28,
+      "suggestedUse": "Item tray slot and shop item well (Nitro).",
+      "replaces": "itemNitro",
+      "raw": "raw/icons-item-v1.png",
+      "colors": 13
+    },
+    {
+      "key": "itemPowerCell",
+      "file": "out/itemPowerCell.png",
+      "kind": "icon",
+      "w": 28,
+      "h": 28,
+      "suggestedUse": "Item tray slot and shop item well (PowerCell).",
+      "replaces": "itemPowerCell",
+      "raw": "raw/icons-item-v1.png",
+      "colors": 12
+    },
+    {
+      "key": "itemOverclock",
+      "file": "out/itemOverclock.png",
+      "kind": "icon",
+      "w": 28,
+      "h": 28,
+      "suggestedUse": "Item tray slot and shop item well (Overclock).",
+      "replaces": "itemOverclock",
+      "raw": "raw/icons-item-v1.png",
+      "colors": 11
+    },
+    {
+      "key": "itemBarrier",
+      "file": "out/itemBarrier.png",
+      "kind": "icon",
+      "w": 28,
+      "h": 28,
+      "suggestedUse": "Item tray slot and shop item well (Barrier).",
+      "replaces": "itemBarrier",
+      "raw": "raw/icons-item-v1.png",
+      "colors": 8
+    },
+    {
+      "key": "logo",
+      "file": "out/logo.png",
+      "kind": "image",
+      "w": 426,
+      "h": 138,
+      "suggestedUse": "TitleScene logo container (replaces the two label() lines), centered at (240, 96); keep the bob tween.",
+      "raw": "raw/logo-v1.png",
+      "colors": 12
+    },
+    {
+      "key": "titleBg",
+      "file": "out/titleBg.png",
+      "kind": "image",
+      "w": 480,
+      "h": 640,
+      "suggestedUse": "TitleScene backdrop image at (0, 0) origin 0, instead of Backdrop; replaces nebula + star layers on the title only.",
+      "raw": "raw/titleBg-v1.png",
+      "colors": 32,
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "w": 1086,
+        "h": 1448
+      }
+    },
+    {
+      "key": "titleScene",
+      "file": "out/titleScene.png",
+      "kind": "image",
+      "w": 470,
+      "h": 190,
+      "suggestedUse": "TitleScene character group centered at (240, 312), spanning y 217 to 407 between tagline and controls panel; add the 1200 ms +-6 bob tween; replaces the enemy parade, names, ship and flame.",
+      "raw": "raw/titleScene-v1.png",
+      "colors": 40
+    },
+    {
+      "key": "victoryArt",
+      "file": "out/victoryArt.png",
+      "kind": "image",
+      "w": 240,
+      "h": 200,
+      "suggestedUse": "EndScene victory hero, centered at (240, 272); replaces the dimmed voidEmpress + player pair.",
+      "raw": "raw/victory-v2.png",
+      "colors": 32
+    },
+    {
+      "key": "defeatArt",
+      "file": "out/defeatArt.png",
+      "kind": "image",
+      "w": 240,
+      "h": 200,
+      "suggestedUse": "EndScene defeat hero, centered at (240, 272); replaces gunner0 at setScale 2.5.",
+      "raw": "raw/defeat-v2.png",
+      "colors": 32
+    },
+    {
+      "key": "heartEmpty",
+      "file": "out/heartEmpty.png",
+      "kind": "icon",
+      "w": 14,
+      "h": 14,
+      "suggestedUse": "Lost HP slot; same silhouette as heart.",
+      "replaces": "heartEmpty",
+      "derivedFrom": "heart"
+    },
+    {
+      "key": "coin1",
+      "file": "out/coin1.png",
+      "kind": "icon",
+      "w": 12,
+      "h": 12,
+      "suggestedUse": "Coin spin frame used by fx.ts coin drops.",
+      "replaces": "coin1",
+      "derivedFrom": "coin0"
+    }
+  ]
+}

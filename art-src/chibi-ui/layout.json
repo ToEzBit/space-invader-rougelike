@@ -1,0 +1,42 @@
+{
+  "source": "Read from src/ui/hud.ts, src/scenes/{Title,Shop,End,Stage}Scene.ts, src/ui/banner.ts, src/game/fx.ts at commit 1959cb2. World 480x640. Rects are [x, y, w, h] top-left; points are centers.",
+  "world": [480, 640],
+  "font": "Tahoma, 'Noto Sans Thai', Thonburi, 'Leelawadee UI', sans-serif",
+  "hud": {
+    "topBar": { "rect": [0, 0, 480, 34], "alpha": 0.72, "underline": [0, 34, 480, 2] },
+    "stageLabel": { "center": [240, 7], "size": 14 },
+    "hearts": { "first": [16, 17], "step": 18, "size": [14, 14] },
+    "coin": { "center": [452, 16], "size": [10, 14] },
+    "money": { "rightX": 438, "y": 7, "size": 14 },
+    "bossName": { "center": [240, 40], "size": 13 },
+    "bossBar": { "frame": [58, 62, 364, 12], "fill": [60, 64, 360, 8] },
+    "tray": { "y": 604, "skillX0": 32, "itemRight": 448, "gap": 56, "r": 22, "iconDisplay": [28, 32] }
+  },
+  "banner": { "strip": [0, 258, 480, 84], "title": [240, 268, 34], "subtitle": [240, 314, 15] },
+  "shop": {
+    "title": { "center": [240, 12], "size": 26 },
+    "subtitle": { "center": [240, 54], "size": 13 },
+    "card": { "x": 20, "w": 440, "h": 116, "top": 92, "gap": 10, "stripeW": 52, "perkIconDisplay": [21, 24], "itemWell": [56, 0, 25] },
+    "buttons": { "y": 482, "xs": [130, 350], "size": [200, 40] },
+    "status": { "rect": [20, 510, 440, 124] },
+    "chip": { "h": 16, "row": 18, "padX": 5 }
+  },
+  "title": {
+    "logo": { "line1": [240, 64, 40], "line2": [240, 114, 30], "bob": 8 },
+    "tagline": [240, 196, 13],
+    "parade": { "y": 252, "step": 96, "labelY": 282, "scale": 1.5 },
+    "ship": [240, 350],
+    "controls": { "rect": [40, 410, 400, 164], "header": [240, 418], "rowY": 444, "rowH": 20, "keyX": 60, "whatX": 196 },
+    "prompt": [240, 590, 18],
+    "fullscreen": [468, 10, 12]
+  },
+  "end": {
+    "title": [240, 70, 48],
+    "subtitle": [240, 146, 16],
+    "hero": { "victory": [240, 240], "defeat": [240, 236] },
+    "victoryShip": [240, 330, 1.5],
+    "stats": { "y": 392, "step": 26, "size": 16 },
+    "perkLine": [240, 452, 12],
+    "prompt": [240, 572, 18]
+  }
+}

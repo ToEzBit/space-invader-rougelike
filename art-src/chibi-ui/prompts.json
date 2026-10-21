@@ -1,0 +1,262 @@
+{
+  "common": {
+    "frame": {
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png"
+      ],
+      "head": "Use case: stylized-concept\nAsset type: a 9-slice game UI frame for a cute chibi kawaii pixel art vertical space shooter. A script will cut it into four corners, four edges and a center, and stretch the edges and center to any size, so the straight edges must be uniform.\nReference images: the first attached image is the game's art style sheet and the second shows the finished in-game characters. Match their pixel art style, dark navy outline and pastel candy colors so the UI feels like the same game.\nThe third attached image, when present, is the first finished frame of this UI set: match its pixel size, outline thickness, band thickness, corner rounding and level of detail exactly, changing only what the request says.",
+      "style": "Style/medium: crisp hard-edged square pixel art with chunky, clearly visible pixels, a limited flat palette, a thick soft dark navy outline, simple two-tone pixel shading (a light highlight line along the top and left inner edge, a slightly darker shade along the bottom and right inner edge). No anti-aliasing, no gradients, no blur.",
+      "framing": "Composition/framing: exactly one empty frame, seen flat and front-on, centered, filling most of the canvas with a clear margin of background on every side, nothing cropped, no perspective.",
+      "constraints": "Constraints: the background outside the frame is one flat solid pure green #00FF00 filling the canvas edge to edge. The frame itself uses no green at all. The interior of the frame is one single flat solid color with no texture, pattern or gradient, and is completely empty. All decorations sit only at the four corners; the four straight edges between the corners are plain and identical along their whole length.",
+      "avoid": "Avoid: text, letters, numbers, labels, icons or characters inside the frame, watermark, drop shadow, glow, bloom, sparkles floating outside the frame, a second frame."
+    },
+    "icon": {
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png"
+      ],
+      "head": "Use case: stylized-concept\nAsset type: a set of tiny game UI icons for a cute chibi kawaii pixel art vertical space shooter. Each icon will be cut out and shown very small (about 14 to 28 pixels), so every icon needs a bold simple silhouette that reads at low resolution.\nReference images: the first attached image is the game's art style sheet and the second shows the finished in-game characters. Match their pixel art style, dark navy outline and saturated candy palette so the icons belong to the same game.",
+      "style": "Style/medium: chibi kawaii pixel art, crisp hard-edged square pixels, chunky and simple, a clean dark navy outline around every icon, flat colors with one highlight and one shade, a tiny white glint. No anti-aliasing, no gradients, no blur.",
+      "framing": "Composition/framing: the icons are laid out exactly as described, each the same size, each centered in its own cell, with wide empty background space between icons so none of them touch, nothing cropped. Every icon is front-facing and flat, no perspective.",
+      "constraints": "Constraints: the background is one flat solid pure green #00FF00 filling the entire canvas edge to edge. The icons use no green at all (use teal or mint only if a request asks for it, never pure green). No frames, circles, badges or tiles behind the icons. No drop shadow, glow, aura or sparkles floating between icons.",
+      "avoid": "Avoid: text, letters, numbers, labels, watermark, grid lines, extra icons beyond those requested, characters or faces."
+    },
+    "art": {
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png"
+      ],
+      "head": "Use case: illustration-story\nAsset type: pixel art illustration for a cute chibi kawaii vertical space shooter (portrait game screen). UI and text will be drawn on top by the game, so the image itself must contain no text.\nReference images: the first attached image is the game's art style sheet and the second shows the finished in-game characters (the blue jet with a chibi pilot girl, the Pico Drone robot girl, the pink twin-tail Gunner Girl, the purple armored Bulwark, the orange fox Kamikaze Kitsune, and the two bosses Crimson Seraph and Void Empress). Draw these same characters in the same style.",
+      "style": "Style/medium: chibi kawaii pixel art matching the reference sheet: crisp hard-edged square pixels, clean dark outlines, saturated candy palette, big glossy anime eyes. Deep navy and purple space with small white and pastel pixel stars and soft pixel nebula clouds made of flat color bands (no smooth gradients).",
+      "framing": "",
+      "constraints": "Constraints: no text, no letters, no logo, no UI, no borders.",
+      "avoid": "Avoid: watermark, signature, photo realism, 3D render, blur, lens flare, extra characters not in the references, revealing outfits."
+    },
+    "badge": {
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png"
+      ],
+      "head": "Use case: logo-brand\nAsset type: game title logo for a cute chibi kawaii pixel art vertical space shooter, shown on the title screen about 400 pixels wide.\nReference images: the first attached image is the game's art style sheet and the second shows the in-game characters. Match their pixel art style and candy palette.",
+      "style": "Style/medium: chunky pixel art lettering with crisp hard-edged square pixels, thick dark navy outline around every letter, two-tone candy shading (light highlight on top, darker shade at the bottom of each letter), a few tiny four-point pixel star sparkles. No anti-aliasing, no gradients, no blur.",
+      "framing": "Composition/framing: the logo centered, filling most of the canvas width with a clear margin on every side, nothing cropped, flat front-on, landscape canvas.",
+      "constraints": "Constraints: the background is one flat solid pure green #00FF00 filling the canvas edge to edge. The logo uses no green at all. No drop shadow on the background, no glow, no scene behind the logo.",
+      "avoid": "Avoid: any words other than the requested text, misspellings, extra letters, watermark, characters, planets."
+    }
+  },
+  "assets": [
+    {
+      "key": "perkCard",
+      "raw": "perkCard-v1",
+      "common": "frame",
+      "request": "Primary request: a wide horizontal shop card frame with roughly a 4:1 width to height ratio. Rounded pixel corners. The border is a pastel candy band about as thick as a fat outline: bubblegum pink with a lighter pink highlight, wrapped in the dark navy outline on both the outside and the inside. Each of the four corners carries one tiny cute pixel ornament sitting on the border: a small yellow four-point star at the top-left and bottom-right corners, a tiny pink heart at the top-right and bottom-left corners. The interior is a flat deep navy-purple #1b1640.",
+      "palette": "Color palette: bubblegum pink #ff8fd0, light pink #ffd0ec, lavender #c7a8ff, star yellow #ffe84a, dark navy outline #0d0b26, interior #1b1640."
+    },
+    {
+      "key": "itemCard",
+      "raw": "itemCard-v1",
+      "common": "frame",
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png",
+        "raw/perkCard-v1.png"
+      ],
+      "request": "Primary request: a wide horizontal shop card frame with roughly a 4:1 width to height ratio, built exactly like the third image's card but in treasure gold, for consumable items. Rounded pixel corners. The border band is warm gold with a pale cream-yellow highlight along the top and left and a deeper amber shade along the bottom and right, wrapped in the dark navy outline outside and inside. Each of the four corners carries one tiny cute pixel ornament on the border: a small round cyan gem with a white glint at the top-left and bottom-right corners, a tiny white four-point sparkle at the top-right and bottom-left corners. The interior is a flat deep warm brown #22160a.",
+      "palette": "Color palette: gold #ffb31a, cream yellow #fff0a8, amber #c47a10, gem cyan #46f0ff, white, dark navy outline #0d0b26, interior #22160a."
+    },
+    {
+      "key": "panel",
+      "raw": "panel-v1",
+      "common": "frame",
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png",
+        "raw/perkCard-v1.png"
+      ],
+      "request": "Primary request: a generic information panel frame with roughly a 5:2 width to height ratio, built exactly like the third image's card but in soft lavender. Rounded pixel corners. The border band is pastel lavender with a pale lilac highlight along the top and left and a deeper violet shade along the bottom and right, wrapped in the dark navy outline outside and inside. Each of the four corners carries one tiny round pixel rivet (a small pale lilac stud with a one-pixel white glint), and the two top corners also have a tiny pink heart instead of a rivet. The interior is a flat deep navy #14102e.",
+      "palette": "Color palette: lavender #b48cff, pale lilac #e3c6ff, violet #7a4fe0, pink #ff8fd0, white, dark navy outline #0d0b26, interior #14102e."
+    },
+    {
+      "key": "hudBar",
+      "raw": "hudBar-v1",
+      "common": "frame",
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png",
+        "raw/perkCard-v1.png"
+      ],
+      "request": "Primary request: a very wide, thin horizontal HUD bar frame with roughly an 8:1 width to height ratio, built like the third image's card but slimmer, for the top of the game screen. Rounded pixel corners. The border band is pastel lavender with a pale lilac highlight on top, wrapped in the dark navy outline, and the bottom edge of the band has a second thin bubblegum pink stripe under the lavender so the bar reads as having a candy trim along its bottom. Each of the four corners carries one tiny round pale lilac rivet. The interior is a flat deep navy #0d0b26.",
+      "palette": "Color palette: lavender #b48cff, pale lilac #e3c6ff, violet #7a4fe0, bubblegum pink #ff8fd0, dark navy outline #0d0b26, interior #0d0b26 slightly lighter #15123a."
+    },
+    {
+      "key": "button",
+      "raw": "button-v1",
+      "common": "frame",
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png",
+        "raw/perkCard-v1.png"
+      ],
+      "request": "Primary request: a chunky rounded pill-shaped game button with roughly a 5:1 width to height ratio, built in the same pixel style as the third image's card. Thick dark navy outline. The button face is a flat medium violet #6a48c8. Along the top inside edge is a one-pixel-row pale lilac highlight line, along the bottom inside edge a two-pixel-row deep purple shade band, like a soft raised candy button. At the left and right ends of the face, a tiny white pixel glint dot at the top-left and a tiny lilac star at the top-right. The face between the ends is completely flat and empty.",
+      "palette": "Color palette: face violet #6a48c8, highlight pale lilac #d8c2ff, shade deep purple #3c2490, white glint, dark navy outline #0d0b26."
+    },
+    {
+      "key": "buttonAccent",
+      "raw": "buttonAccent-v1",
+      "common": "frame",
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png",
+        "raw/button-v1.png"
+      ],
+      "request": "Primary request: the exact same chunky rounded pill-shaped game button as the third attached image, same shape, outline, highlight, shade and glints, recolored to a fresh mint green accent: the flat face is green #1f9e64, the top highlight line is pale mint #a8ffd0, the bottom shade band is deep green #0e6040, the glint stays white and the small star becomes pale yellow.",
+      "palette": "Color palette: face green #1f9e64, highlight pale mint #a8ffd0, shade deep green #0e6040, white glint, pale yellow star #ffe84a, dark navy outline #0d0b26."
+    },
+    {
+      "key": "chip",
+      "raw": "chip-v1",
+      "common": "frame",
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png",
+        "raw/perkCard-v1.png"
+      ],
+      "request": "Primary request: a tiny horizontal tag chip frame (like a small name badge), roughly a 4:1 width to height ratio, built like the third image's card but much simpler and thinner because it will be shown only 16 pixels tall: a one-pixel dark navy outline, a thin pastel lavender border band one pixel thick with a single tiny lilac dot at each of the four corners, and a flat deep navy interior #1a1440. Rounded pixel corners. Very few pixels, chunky and simple.",
+      "palette": "Color palette: lavender #b48cff, pale lilac #e3c6ff, dark navy outline #0d0b26, interior #1a1440."
+    },
+    {
+      "key": "iconsHud",
+      "raw": "icons-hud-v1",
+      "common": "icon",
+      "request": "Primary request: exactly two icons side by side in one horizontal row, left to right: (1) a plump cute candy heart for the player's health, glossy red-pink with a white glint at the upper left and a darker raspberry shade at the lower right; (2) a round gold coin seen face-on, with a small embossed five-point star in its center, a pale yellow rim highlight and an amber shade.",
+      "palette": "Color palette: heart red-pink #ff3d5a, light pink #ff8fb0, raspberry #a3123a; coin gold #ffb31a, yellow #ffe84a, amber #c47a10; white glints; dark navy outline #0d0b26."
+    },
+    {
+      "key": "iconsSkill",
+      "raw": "icons-skill-v1",
+      "common": "icon",
+      "request": "Primary request: exactly four ability icons in one horizontal row, left to right: (1) RAPID FIRE: three short glowing bullet shots flying straight up side by side, orange and yellow; (2) LASER: a tall cyan crystal prism shooting one straight white-cyan beam upward; (3) RAM DASH: a pink comet streaking upward, a round pink-white head with a short flaming tail below it; (4) ORBITAL CANNON: a small yellow satellite with two blue solar panel wings firing one short red beam straight down.",
+      "palette": "Color palette: orange #ff9b30, yellow #ffe84a, cyan #46f0ff, azure #1e9bff, pink #ff6ec7, magenta #d81b8c, red #ff3d5a, white; dark navy outline #0d0b26."
+    },
+    {
+      "key": "iconsItem",
+      "raw": "icons-item-v1",
+      "common": "icon",
+      "request": "Primary request: exactly five consumable item icons in one horizontal row, left to right: (1) REPAIR KIT: a small mint-teal first-aid box with a white plus sign on its front and a little silver wrench resting on top; (2) NITRO: a violet nitro bottle with a silver cap and a small orange flame on its label; (3) POWER CELL: a chunky red battery standing upright with a yellow lightning bolt on its front; (4) OVERCLOCK: a round yellow stopwatch with a white face and a small lightning bolt instead of hands; (5) BARRIER CAPSULE: a cyan glass capsule pill lying horizontally with a small white shield emblem inside.",
+      "palette": "Color palette: mint teal #2fe0c0, violet #a66bff, deep purple #5a22b0, red #ff3d5a, crimson #a3123a, yellow #ffe84a, gold #ffb31a, cyan #46f0ff, azure #1e9bff, silver #c9d4ff, white; dark navy outline #0d0b26."
+    },
+    {
+      "key": "perkCard",
+      "raw": "perkCard-v2",
+      "common": "frame",
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png",
+        "raw/perkCard-v1.png"
+      ],
+      "request": "Primary request: a chunkier version of the third attached image's card frame, same wide roughly 4:1 shape, same colors and same dark navy interior #1b1640. Change only two things: (a) the bubblegum pink border band is about twice as thick as in the third image, with a light pink highlight row on its top and left and a deeper pink shade row on its bottom and right, still wrapped in the dark navy outline inside and outside; (b) the corner ornaments are much bigger and cuter, each about one quarter of the frame's height, sitting on top of the rounded corner and overlapping both the band and slightly the interior: a chubby yellow four-point star with a white glint at the top-left and bottom-right corners, a chubby pink heart with a white glint at the top-right and bottom-left corners. The straight edges between the corners stay plain and uniform.",
+      "palette": "Color palette: bubblegum pink #ff8fd0, light pink #ffd0ec, deeper pink #e0559f, star yellow #ffe84a, heart pink #ff6ec7, white glints, dark navy outline #0d0b26, interior #1b1640."
+    },
+    {
+      "key": "titleArt",
+      "raw": "titleArt-v1",
+      "common": "art",
+      "request": "Primary request: the title screen background illustration, portrait 3:4. Layout from top to bottom: the top quarter is open dark starry space with nothing in it except small stars (a logo goes there). The middle band, from about 28% to 62% of the height, holds the scene: the blue chibi pilot jet from the references flying straight up at the horizontal center around 55% height, the four chibi enemy girls (Pico Drone, Gunner Girl, Bulwark, Kamikaze Kitsune) floating in a gentle arc above it at about 38% height, small and cute and evenly spaced, and behind them, large but dim and partly faded into the space, the two bosses: Crimson Seraph with her red wings spread on the left side and Void Empress in purple on the right side, both at about 30% to 50% height. The bottom 38% is calm dark space with only faint stars and the curved edge of a small pastel pink planet at the very bottom (a UI panel goes there), with no characters in it.",
+      "palette": "Color palette: deep navy #0d0b26 and dark purple #1a1040 space, pastel pink, lavender, cyan and yellow stars, character colors as in the references."
+    },
+    {
+      "key": "logo",
+      "raw": "logo-v1",
+      "common": "badge",
+      "request": "Primary request: a two-line game logo. Line 1, large: the words \"SPACE INVADER\" in bright cyan letters with a white highlight and a deep blue shade. Line 2, smaller, centered under line 1: the word \"ROGUELIKE\" in bubblegum pink letters with a light pink highlight and a magenta shade. Text (verbatim): \"SPACE INVADER\" and \"ROGUELIKE\". Spell every letter exactly: S-P-A-C-E, I-N-V-A-D-E-R, R-O-G-U-E-L-I-K-E. A tiny yellow pixel star sparkles at the top-right corner of line 1.",
+      "palette": "Color palette: cyan #46f0ff, white, deep blue #1c2f8f, bubblegum pink #ff6ec7, light pink #ffc7ea, magenta #d81b8c, yellow #ffe84a, dark navy outline #0d0b26."
+    },
+    {
+      "key": "victoryArt",
+      "raw": "victory-v1",
+      "common": "art",
+      "disabled": true,
+      "request": "Primary request: a small cute victory vignette: the blue chibi pilot jet from the references flying up triumphantly in the center with tiny yellow and pink pixel sparkles around it, and behind it the defeated Void Empress sitting dizzy with swirly eyes and her crown tilted, small and comical. Centered composition on a flat solid pure green #00FF00 background edge to edge, the characters use no green, nothing cropped, a wide empty margin on every side, square canvas, no space backdrop.",
+      "palette": "Color palette: character colors as in the references, yellow and pink sparkles."
+    },
+    {
+      "key": "defeatArt",
+      "raw": "defeat-v1",
+      "common": "art",
+      "disabled": true,
+      "request": "Primary request: a small cute game over vignette: the blue chibi pilot jet from the references tilted and broken with a little puff of dark smoke and a bandage on its wing, the chibi pilot girl inside crying cartoon tears, and the pink twin-tail Gunner Girl floating beside it giggling and making a peace sign. Centered composition on a flat solid pure green #00FF00 background edge to edge, the characters use no green, nothing cropped, a wide empty margin on every side, square canvas, no space backdrop.",
+      "palette": "Color palette: character colors as in the references, gray smoke."
+    },
+    {
+      "key": "itemCard",
+      "raw": "itemCard-v2",
+      "common": "frame",
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png",
+        "raw/perkCard-v2.png"
+      ],
+      "request": "Primary request: the same chunky card frame as the third attached image (same shape, same thick band, same outline, same big chubby corner ornament size and placement), recolored in treasure gold for consumable items. The thick border band is warm gold with a pale cream-yellow highlight row along the top and left and a deeper amber shade row along the bottom and right, wrapped in the dark navy outline outside and inside. Corner ornaments, same size as the third image's: a chubby round cyan gem with a white glint at the top-left and bottom-right corners, a chubby white four-point sparkle at the top-right and bottom-left corners. The interior is a flat deep warm brown #22160a.",
+      "palette": "Color palette: gold #ffb31a, cream yellow #fff0a8, amber #c47a10, gem cyan #46f0ff, white, dark navy outline #0d0b26, interior #22160a."
+    },
+    {
+      "key": "panel",
+      "raw": "panel-v2",
+      "common": "frame",
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png",
+        "raw/perkCard-v2.png"
+      ],
+      "request": "Primary request: the same chunky frame as the third attached image (same thick band, same outline, same big chubby corner ornament size and placement) as a generic information panel with roughly a 5:2 width to height ratio, recolored in soft lavender. The thick border band is pastel lavender with a pale lilac highlight row along the top and left and a deeper violet shade row along the bottom and right, wrapped in the dark navy outline outside and inside. Corner ornaments, same size as the third image's: a chubby pink heart with a white glint at the two top corners, a chubby round pale lilac rivet stud with a white glint at the two bottom corners. The interior is a flat deep navy #14102e.",
+      "palette": "Color palette: lavender #b48cff, pale lilac #e3c6ff, violet #7a4fe0, pink #ff8fd0, white, dark navy outline #0d0b26, interior #14102e."
+    },
+    {
+      "key": "titleArt",
+      "raw": "titleArt-v2",
+      "common": "art",
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png",
+        "raw/titleArt-v1.png"
+      ],
+      "request": "Primary request: a re-layout of the third attached image, the title screen background, same style, same characters, same palette, portrait 3:4. Follow these vertical bands exactly, measured from the top of the image: 0% to 33% is open dark starry space with only small stars and soft nebula, no characters and no halos (a logo and a tagline go there). 33% to 62% holds the whole scene and nothing of it may extend outside this band: the two bosses, smaller than in the third image and dimmed so they read as background, Crimson Seraph on the left with her red wings and Void Empress on the right, both between 33% and 50%; the four chibi enemy girls (Pico Drone, Gunner Girl, Bulwark, Kamikaze Kitsune) in a row in front of the bosses at about 48%; the blue chibi pilot jet flying straight up at the horizontal center at about 57%, with a short exhaust flame that ends before 62%. 62% to 100% is calm dark space with only faint stars, and the curved edge of the pastel pink planet appears only in the bottom 8% (a UI panel and a prompt go there). The bosses wear the modest armored outfits of the second attached image, not the first: Crimson Seraph has a solid high-collared red breastplate and a long armored skirt of red and white plates down to her boots, Void Empress has a closed high-necked black and purple gown from collar to floor; only faces and hands show skin.",
+      "palette": "Color palette: deep navy #0d0b26 and dark purple #1a1040 space, pastel pink, lavender, cyan and yellow stars, character colors as in the references."
+    },
+    {
+      "key": "titleScene",
+      "raw": "titleScene-v1",
+      "common": "art",
+      "refs": [
+        "ref/cast.png",
+        "raw/titleArt-v2.png"
+      ],
+      "request": "Primary request: a title screen character group cutout, landscape 3:2. Reference images: the first attached image shows the finished in-game characters with their final modest outfits; draw every character exactly as in the first image. The second image shows the arrangement and style to follow. Arrangement as one tight overlapping group: in the back row, Crimson Seraph on the left with her red wings spread and Void Empress on the right with her orbs; in front of them a row of the four small enemy girls (Pico Drone, Gunner Girl, Bulwark, Kamikaze Kitsune), overlapping the bosses' lower bodies; in the very front at the bottom center, the blue chibi pilot jet flying straight up with a short pink exhaust flame. Outfits must stay modest as in the first image: Crimson Seraph wears a solid high-collared red breastplate and a long armored skirt of red and white plates down to her armored boots; Void Empress wears a closed high-necked black and purple gown from collar to floor; only faces and hands show skin. The whole group sits on one flat solid pure green #00FF00 background that fills the canvas edge to edge, with a clear green margin on every side and nothing cropped. The characters use no green. No space, no stars, no planet, no glow, no halo blur: halos are thin solid pixel rings.",
+      "palette": "Color palette: character colors exactly as in the first reference image."
+    },
+    {
+      "key": "titleBg",
+      "raw": "titleBg-v1",
+      "common": "art",
+      "refs": [
+        "ref/style.png",
+        "raw/titleArt-v2.png"
+      ],
+      "request": "Primary request: the same space background as the second attached image but completely empty of characters and ships: portrait 3:4, deep navy and dark purple space, small white and pastel pixel stars, a few soft pixel nebula bands made of flat color steps along the left and right sides, and the curved top of the pastel pink planet filling only the bottom 9% of the image. The middle of the image is quiet dark space with only small stars. No characters, no ships, no enemies, no bosses, no halos.",
+      "palette": "Color palette: deep navy #0d0b26, dark purple #1a1040, violet nebula #3a1f8a, magenta accents, pastel pink planet #ff9bd8 with lavender patches, white and pastel stars."
+    },
+    {
+      "key": "victoryArt",
+      "raw": "victory-v2",
+      "edit": "victory-v1",
+      "request": "Use case: image edit of a pixel art game illustration.\nEdit target: the attached pixel art of a jet and a dizzy chibi empress sitting below it.\nChange only the empress's outfit so it is fully modest: fill the chest window below her collar with solid black-purple gown fabric so the bodice is closed from the collar down with no skin and no cleavage; replace the bare thighs with a long closed black and purple gown skirt that covers her legs down to her boots, with no skin showing between the skirt and the boots.\nKeep everything else exactly unchanged: same pose, same faces and expressions, hair, crown, accessories, colors, pixel size, framing and position on the canvas, and the same flat solid pure green #00FF00 background edge to edge.\nAvoid: any new elements, text, glow, shadow, or background change."
+    },
+    {
+      "key": "defeatArt",
+      "raw": "defeat-v2",
+      "edit": "defeat-v1",
+      "request": "Use case: image edit of a pixel art game illustration.\nEdit target: the attached pixel art of a crying pilot in a broken jet and a giggling pink twin-tail girl beside it.\nChange only the pink twin-tail girl's outfit so it is fully modest: give her a closed pink and black jacket over her top and a knee-length pleated pink skirt over dark full-length leggings, so no skin shows on her torso, hips or legs; only her face and hands show skin.\nKeep everything else exactly unchanged: same pose, same faces and expressions, hair, crown, accessories, colors, pixel size, framing and position on the canvas, and the same flat solid pure green #00FF00 background edge to edge.\nAvoid: any new elements, text, glow, shadow, or background change."
+    }
+  ]
+}
