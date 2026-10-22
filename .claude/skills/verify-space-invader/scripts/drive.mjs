@@ -1416,6 +1416,34 @@ const JOURNEYS = {
       served.push(new URL(route.request().url()).pathname);
       await route.fulfill({ status: 200, contentType: 'audio/wav', body: toneWav });
     });
+    await h.page.addInitScript(() => {
+      const connect = AudioNode.prototype.connect;
+      const taps = new Map();
+      AudioNode.prototype.connect = function (dest, ...rest) {
+        if (dest instanceof AudioDestinationNode && dest.context instanceof AudioContext) {
+          if (!taps.has(dest.context)) taps.set(dest.context, Object.assign(dest.context.createAnalyser(), { fftSize: 8192 }));
+          connect.call(this, taps.get(dest.context));
+        }
+        return connect.call(this, dest, ...rest);
+      };
+      window.__outputRms = () =>
+        Math.max(
+          0,
+          ...[...taps.values()].map((tap) => {
+            const frame = new Float32Array(tap.fftSize);
+            tap.getFloatTimeDomainData(frame);
+            return Math.sqrt(frame.reduce((sum, v) => sum + v * v, 0) / frame.length);
+          }),
+        );
+    });
+    const outputRms = async () => {
+      const frames = [];
+      for (let i = 0; i < 10; i++) {
+        frames.push(await h.page.evaluate(() => window.__outputRms()));
+        await sleep(150);
+      }
+      return frames.reduce((a, b) => a + b, 0) / frames.length;
+    };
     await h.page.reload();
     await h.waitFor('Title with the song file served', (x) => x.scenes.includes('Title'), 15000);
     await h.page.keyboard.press('Shift');
@@ -1460,9 +1488,18 @@ const JOURNEYS = {
       { toneLoud95, trackGain, fileGain: files.empress.gain, songLoud95, boss1Loud95, ratio: songLoud95 / boss1Loud95 },
     );
 
+    await h.game('pause');
+    await sleep(300);
+    const heard = await outputRms();
+    const toneRms = Math.sqrt(tone.reduce((sum, v) => sum + v * v, 0) / tone.length);
+    const expectedRms = toneRms * trackGain * VOLUME;
+    h.check('the song reaches the speakers at its matched level, measured on the output with the stage paused', Math.abs(heard / expectedRms - 1) < 0.2, { heard, expectedRms, ratio: heard / expectedRms });
     await h.step('press M during the Empress song', () => h.page.keyboard.press('m'));
     const quietSong = await h.waitFor('song muted', (x) => x.music.busGain < 1e-4, 1000);
-    h.check('M mutes the song file like the synth tracks, which keeps playing', quietSong.music.muted && quietSong.music.playing === 'empress' && quietSong.music.url === url, { music: quietSong.music });
+    await sleep(300);
+    const heardMuted = await outputRms();
+    h.check('M mutes the song file like the synth tracks, which keeps playing', quietSong.music.muted && quietSong.music.playing === 'empress' && quietSong.music.url === url && heardMuted < 1e-4, { music: quietSong.music, heardMuted });
+    await h.game('resume');
   },
 };
 
