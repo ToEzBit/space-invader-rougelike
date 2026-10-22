@@ -37,4 +37,5 @@ This directory is the maintained source for verifying what a player can do in th
 - [Boss fights](./bosses.md) covers Crimson Seraph and Void Empress, damage, phases and reaching the second form.
 - [Boss forms](./boss-forms.md) covers the transformation (immunity, shockwave, heal, new name and sprite, minions) and each second form's charged special attacks.
 - [Run end](./run-end.md) covers victory, defeat and restarting.
+- [Background music](./music.md) covers the normal and two boss tracks, which plays when, crossfades, the music through the TRANS-AM cut-in, the M mute and the offline WAV render.
 - [Viewport and fullscreen](./viewport.md) covers filling the window, fitting the playfield, HiDPI, live resize and the F fullscreen toggle.

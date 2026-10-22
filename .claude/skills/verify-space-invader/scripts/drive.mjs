@@ -1240,6 +1240,102 @@ const JOURNEYS = {
     await fits('live-resized 1600x900 stage 1', h.page);
     await h.shot('live-1600x900-stage1');
   },
+
+  async music(h) {
+    const VOLUME = await (async () => {
+      await h.openTitle();
+      return h.page.evaluate(async () => (await import('/src/audio/music.ts')).MUSIC_VOLUME);
+    })();
+    const title = await h.state();
+    h.check('Title asks for the normal track before any key, with no audio context yet', title.music.track === 'normal' && title.music.ctx === null && title.music.playing === null, { music: title.music });
+    await h.step('press Shift on Title (a gesture that starts nothing)', () => h.page.keyboard.press('Shift'));
+    const first = await h.waitFor('normal track playing', (x) => x.music.ctx === 'running' && x.music.playing === 'normal' && x.music.step > 8, 4000);
+    h.check('the first gesture starts the normal track on a running context, unmuted', first.music.plays === 1 && !first.music.muted && Math.abs(first.music.busGain - VOLUME) < 1e-3, { music: first.music });
+    await h.shot('title');
+    await h.shot('title-music-hint', { x: 0, y: 0, w: 240, h: 40 });
+
+    await h.step('press Enter on Title', () => h.page.keyboard.press('Enter'));
+    const s1 = await h.waitFor('stage 1 fighting', (x) => x.scenes.includes('Stage') && x.life === 'fighting');
+    h.check('a wave stage keeps the same normal track playing, not restarted', s1.music.track === 'normal' && s1.music.playing === 'normal' && s1.music.plays === 1 && s1.music.step > first.music.step, { title: first.music, stage: s1.music });
+
+    await h.game('transAmGauge', 100);
+    const stepSec = await h.page.evaluate(async () => {
+      const { TRACKS } = await import('/src/audio/tracks.ts');
+      return 60 / TRACKS.normal.bpm / TRACKS.normal.stepsPerBeat;
+    });
+    const watch = h.page.evaluate(
+      () =>
+        new Promise((resolve, reject) => {
+          const seen = [];
+          const until = performance.now() + 4000;
+          const tick = () => {
+            const s = window.__game.state();
+            if (s.life === 'cutIn') seen.push({ cutInMs: s.cutInMs, step: s.music.step, playing: s.music.playing, foe: s.foeSpots[0] });
+            else if (seen.length) return resolve([seen[0], seen[seen.length - 1]]);
+            if (performance.now() > until) return reject(new Error('no cut-in'));
+            requestAnimationFrame(tick);
+          };
+          tick();
+        }),
+    );
+    await h.page.keyboard.press('Space');
+    const [cutFrom, cutTo] = await watch;
+    h.log.steps.push({ action: 'press Space on a full gauge and watch the music through the cut-in', from: cutFrom, to: cutTo });
+    const frozenSec = (cutTo.cutInMs - cutFrom.cutInMs) / 1000;
+    h.check(
+      'the music keeps stepping on the audio clock through the TRANS-AM cut-in while the stage is frozen',
+      cutFrom.playing === 'normal' && frozenSec > 0.6 && cutTo.foe.x === cutFrom.foe.x && cutTo.foe.y === cutFrom.foe.y && cutTo.step - cutFrom.step >= Math.floor((frozenSec / stepSec) * 0.8),
+      { from: cutFrom, to: cutTo, stepSec },
+    );
+
+    for (const [stage, name] of [[5, 'Crimson Seraph'], [10, 'Void Empress']]) {
+      const atHpRatio = await h.page.evaluate(async (stage) => {
+        const stages = await import('/src/core/stages.ts');
+        return stages.BOSSES[stage === 5 ? 'crimsonSeraph' : 'voidEmpress'].transform.atHpRatio;
+      }, stage);
+      await h.startAt(stage);
+      await h.game('god', true);
+      const entering = await h.waitFor(`${name}: boss track`, (x) => x.music.playing === 'boss1', 3000);
+      h.check(`${name}: the boss stage starts on the first boss track`, entering.music.track === 'boss1' && entering.boss.form === 0, { music: entering.music, boss: entering.boss });
+      await h.waitFor(`${name} in place`, (x) => x.boss?.stance === 'fighting', 12000);
+      await h.game('bossHp', atHpRatio - 0.05);
+      const turning = await h.waitFor(`${name} transforming`, (x) => x.boss?.stance === 'transforming', 4000);
+      h.check(`${name}: the transformation switches to the second boss track at once`, turning.music.track === 'boss2', { music: turning.music, boss: { form: turning.boss.form, stance: turning.boss.stance } });
+      if (turning.boss.form === 0) h.log.steps.push({ action: `${name}: boss2 asked for while still in form 0`, music: turning.music });
+      await sleep(1100);
+      await h.game('pause');
+      await h.shot(`${name.split(' ')[1].toLowerCase()}-transform`);
+      await h.game('resume');
+      const second = await h.waitFor(`${name} second form`, (x) => x.boss?.form === 1 && x.boss.stance === 'fighting' && x.music.playing === 'boss2', 10000);
+      h.check(`${name}: the second form fights to the second boss track`, second.music.track === 'boss2' && second.music.playing === 'boss2', { music: second.music });
+      if (stage === 5) {
+        await h.game('kill');
+        const quiet = await h.waitFor('Seraph dead, music fading out', (x) => x.boss?.stance === 'dead', 4000);
+        h.check('a dead boss fades the music out for the clear', quiet.music.track === null, { music: quiet.music });
+        const silent = await h.waitFor('music silent', (x) => x.music.playing === null, 2000);
+        const shop = await h.waitFor('shop after the boss', (x) => x.scenes.includes('Shop'), 8000);
+        h.check('the shop after the boss brings the normal track back', shop.music.track === 'normal', { silent: silent.music, shop: shop.music });
+        const back = await h.waitFor('normal track playing in the shop', (x) => x.music.playing === 'normal', 2000);
+        h.log.steps.push({ action: 'shop after the Seraph', music: back.music });
+      }
+    }
+
+    await h.step('press M', () => h.page.keyboard.press('m'));
+    const muted = await h.waitFor('music bus ramped to silence', (x) => x.music.busGain < 1e-4, 1000);
+    h.check('M mutes the music: the bus ramps to 0 and the track keeps its place', muted.music.muted && muted.music.playing === 'boss2', { music: muted.music });
+    await h.page.reload();
+    const reloaded = await h.waitFor('Title after reload', (x) => x.scenes.includes('Title'), 15000);
+    await h.page.keyboard.press('Shift');
+    const stillMuted = await h.waitFor('context after reload', (x) => x.music.ctx === 'running' && x.music.playing === 'normal', 4000);
+    h.check('mute survives a reload', reloaded.music.muted && stillMuted.music.muted && stillMuted.music.busGain < 1e-4, { reloaded: reloaded.music, after: stillMuted.music });
+    await h.shot('title-music-muted', { x: 0, y: 0, w: 240, h: 40 });
+    await h.step('press M again', () => h.page.keyboard.press('m'));
+    const unmuted = await h.waitFor('music bus back up', (x) => Math.abs(x.music.busGain - VOLUME) < 1e-3, 1000);
+    h.check('M again brings the music back', !unmuted.music.muted, { music: unmuted.music });
+    await h.page.reload();
+    const again = await h.waitFor('Title after second reload', (x) => x.scenes.includes('Title'), 15000);
+    h.check('unmute survives a reload too', !again.music.muted, { music: again.music });
+  },
 };
 
 // Close-ups of small HUD art need the canvas's full backing resolution.
