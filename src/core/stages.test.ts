@@ -43,7 +43,7 @@ describe('boss forms', () => {
     for (const def of Object.values(BOSSES)) {
       const at = def.hp * def.transform.atHpRatio;
       expect(healedHp(def, at)).toBeCloseTo(at + def.hp * def.transform.healRatio);
-      expect(healedHp(def, def.hp * 0.95)).toBe(def.hp);
+      expect(healedHp(def, def.hp)).toBe(def.hp);
     }
   });
 

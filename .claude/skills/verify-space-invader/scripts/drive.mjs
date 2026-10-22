@@ -640,7 +640,7 @@ const JOURNEYS = {
       h.check(`${two.name}: she fights on in her second form`, after.boss.stance === 'fighting' && after.boss.form === 1 && after.boss.name === two.name, { boss: after.boss });
       // One poll of player fire can land between fighting resuming and this read.
       h.check(
-        `${two.name}: HP rose by the heal (${def.transform.healRatio} of full)`,
+        `${two.name}: HP ends ${def.transform.healRatio} of full above where she started`,
         after.boss.hpRatio >= first.hpRatio + def.transform.healRatio - 0.03,
         { before: first.hpRatio, after: after.boss.hpRatio, healRatio: def.transform.healRatio },
       );

@@ -70,14 +70,14 @@ export const BOSSES: Record<BossId, BossDef> = {
         name: 'Crimson Seraph · Ascended',
         texture: 'crimsonSeraphAscended',
         phases: [
-          { hpRatio: 1, patterns: ['featherStorm', 'aimedBurst', 'crossJudgement', 'aimedBurst'], patternGapMs: 900 },
-          { hpRatio: 0.3, patterns: ['featherStorm', 'crossJudgement', 'aimedBurst', 'fanSpread'], patternGapMs: 750 },
+          { hpRatio: 1, patterns: ['featherStorm', 'aimedBurst', 'crossJudgement', 'aimedBurst'], patternGapMs: 1200 },
+          { hpRatio: 0.3, patterns: ['featherStorm', 'crossJudgement', 'aimedBurst', 'fanSpread'], patternGapMs: 1000 },
         ],
-        bulletSpeedScale: 1.15,
+        bulletSpeedScale: 1,
         minionKind: 'drone',
       },
     ],
-    transform: { atHpRatio: 0.5, healRatio: 0.2, summon: 4, durationMs: 2200 },
+    transform: { atHpRatio: 0.5, healRatio: 0, summon: 2, durationMs: 2200 },
   },
   voidEmpress: {
     hp: 4600,

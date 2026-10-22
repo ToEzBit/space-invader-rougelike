@@ -1,6 +1,6 @@
 # Boss forms, transformation and special attacks
 
-Each boss has two forms. At half HP she transforms: she stops, turns immune, a shockwave wipes the enemy bullets on screen, a white flash crossfades her sprite into the second-form art, a banner and the HUD show the new name, the HP bar climbs in green as she heals, and minions arrive. Her second form casts special attacks: she holds still, pulses in her form's glow while light gathers into her, a callout pops above her and a telegraph shows where the attack lands, then it releases with a flash.
+Each boss has two forms. At half HP she transforms: she stops, turns immune, a shockwave wipes the enemy bullets on screen, a white flash crossfades her sprite into the second-form art, a banner and the HUD show the new name, the HP bar climbs in green as she heals (the Crimson Seraph has `healRatio` 0, so her bar stays red), and minions arrive. Her second form casts special attacks: she holds still, pulses in her form's glow while light gathers into her, a callout pops above her and a telegraph shows where the attack lands, then it releases with a flash.
 
 | Boss | Second form | Specials (callout) |
 | --- | --- | --- |
