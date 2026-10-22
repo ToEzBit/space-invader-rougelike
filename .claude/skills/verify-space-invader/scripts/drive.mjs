@@ -2041,6 +2041,13 @@ const JOURNEYS = {
       m.check('a tap on the TRANS-AM slot with a full gauge starts the cut-in', cut.life === 'cutIn' && cut.transAm.kind === 'active', { transAm: cut.transAm });
       await up(1);
 
+      const full = await m.startAt(6, { afterburnerDash: 1, prismLance: 1, orbitalCannon: 1 }, 0, { repairKit: 1, nitro: 1, powerCell: 1, overclock: 1, barrierCapsule: 1 });
+      const apart = full.tray.every((a, i) => full.tray.slice(i + 1).every((b) => Math.hypot(a.x - b.x, a.y - b.y) >= a.r + b.r - 1e-6));
+      m.check('a full tray keeps seven tap targets in the band, each at least 48 CSS px, none overlapping', full.tray.length === 7 && full.tray.every((t) => t.r * 2 * cssPerWorld >= 48 && t.y - t.r >= 640) && apart, { tray: full.tray, cssPerWorld });
+      await m.game('pause');
+      await m.shot('full-tray');
+      await m.game('resume');
+
       const center = (r) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
       const target = (s, id) => s.targets.find((t) => t.id === id);
       const costs = () =>
