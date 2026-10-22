@@ -9,16 +9,18 @@ import type { IconKey } from '../art/ui';
 import { MONEY_ANCHOR } from '../game/fx';
 import { barAlpha, hpBarColor, hpRatio, visibleBar } from '../game/hpBar';
 import type { TrayButton, TrayHit } from '../game/controls';
+import type { Point } from '../game/geometry';
 import { DEPTH } from '../game/layout';
 import { godMode } from '../godMode';
-import { WORDS, type SkillId } from '../input';
+import { INPUT_MODE, WORDS, type SkillId } from '../input';
 import type { BossFight } from '../game/boss';
 import { sweepAngle, type SkillMeter } from '../game/skills';
 import type { World } from '../game/world';
-import { VIEW } from '../view';
+import { onViewport, VIEW } from '../view';
 import { frame } from './frame';
 import { ITEM_LOOK } from './itemLook';
 import { label } from './text';
+import { ITEM_TRAY_RIGHT, placeTray, TRAY } from './trayLayout';
 
 export class Hud {
   private readonly hearts: Phaser.GameObjects.Image[] = [];
@@ -48,16 +50,24 @@ export class Hud {
     this.foeBars = scene.add.graphics().setDepth(DEPTH.hpBar);
     this.bossName = boss && label(scene, VIEW.w / 2, 40, boss.name.toUpperCase(), { size: 13, bold: true, color: css(COLORS.red), align: 'center', stroke: '#0d0b26' }).setDepth(d);
     const shown = SKILL_SLOTS.filter((def) => def.meter(world));
-    this.skills = new Map(shown.map((def, i) => [def.id, new SkillSlot(scene, TRAY.x + i * TRAY.gap, TRAY.y, def)]));
+    this.skills = new Map(shown.map((def) => [def.id, new SkillSlot(scene, def)]));
     // Items can only be spent during a stage, so the slots held at the start stay put (dimmed at x0) until it ends.
     const held = ITEM_IDS.filter((id) => world.run.items[id]);
-    this.items = new Map(held.map((id, i) => [id, new SkillSlot(scene, ITEM_TRAY_RIGHT - (held.length - 1 - i) * TRAY.gap, TRAY.y, ITEM_SLOTS[id])]));
+    this.items = new Map(held.map((id) => [id, new SkillSlot(scene, ITEM_SLOTS[id])]));
+    // On a touch screen a tall enough band under the playfield takes the tray, out of the way and under the thumb.
+    onViewport(scene, (view) => {
+      const band = INPUT_MODE === 'touch' ? view.y + view.h - VIEW.h : null;
+      const { scale, skills, items } = placeTray(this.skills.size, this.items.size, band);
+      const slots = [...this.skills.values(), ...this.items.values()];
+      [...skills, ...items].forEach((at, i) => slots[i]?.place(at, scale));
+    });
   }
 
   // Where a tap presses each slot that does something when pressed.
   trayButtons(): TrayHit[] {
-    const r = TRAY.gap / 2;
-    return [...this.skills.values(), ...this.items.values()].flatMap((slot) => (slot.button ? [{ button: slot.button, x: slot.x, y: slot.y, r }] : []));
+    return [...this.skills.values(), ...this.items.values()].flatMap((slot) =>
+      slot.button ? [{ button: slot.button, x: slot.at.x, y: slot.at.y, r: (slot.scale * TRAY.gap) / 2 }] : [],
+    );
   }
 
   refuseItem(id: ItemId): void {
@@ -69,9 +79,10 @@ export class Hud {
 
   refuseTransAm(): void {
     sfx('deny');
-    this.skills.get('transAm')?.refuse();
+    const slot = this.skills.get('transAm');
+    slot?.refuse();
     const t = this.world.transAm;
-    if (t.kind === 'charging' && t.gauge < TRANS_AM.gaugeMax) this.world.fx.float(TRAY.x + 30, TRAY.y - 36, 'เกจยังไม่เต็ม', COLORS.red);
+    if (slot && t.kind === 'charging' && t.gauge < TRANS_AM.gaugeMax) this.world.fx.float(slot.at.x + 30, slot.at.y - 36, 'เกจยังไม่เต็ม', COLORS.red);
   }
 
   update(): void {
@@ -170,10 +181,7 @@ const ITEM_SLOTS = Object.fromEntries(
   ]),
 ) as Record<ItemId, SlotDef>;
 
-// Four skill slots and five item slots fit across the bottom edge at this gap.
-const TRAY = { x: 32, y: 604, gap: 52, r: 22 } as const;
 const FOE_BAR = { h: 3, gap: 3 } as const;
-const ITEM_TRAY_RIGHT = VIEW.w - TRAY.x;
 const FULL_TURN = sweepAngle(1);
 // Icons drawn for a slot are 28 px; anything larger, such as the ship, is scaled down to that.
 const ICON_FIT = 28;
@@ -186,11 +194,11 @@ class SkillSlot {
   private readonly badge: Phaser.GameObjects.Text | null;
   private shown: SkillMeter['kind'] | null = null;
   private shownCount: number | null = null;
+  at: Point = { x: 0, y: 0 };
+  scale = 1;
 
   constructor(
     private readonly scene: Phaser.Scene,
-    readonly x: number,
-    readonly y: number,
     private readonly def: SlotDef,
   ) {
     const { r } = TRAY;
@@ -205,17 +213,24 @@ class SkillSlot {
     this.countdown.setOrigin(0.5);
     const hint = label(scene, 0, r - 4, def.hint, { size: 8, bold: true, color: css(def.color), align: 'center', stroke: css(COLORS.ink) });
     this.badge = def.count ? label(scene, r + 4, -r - 4, '', { size: 11, bold: true, align: 'right', stroke: css(COLORS.ink) }) : null;
-    this.root = scene.add.container(x, y, [base, this.icon, this.overlay, this.countdown, hint, ...(this.badge ? [this.badge] : [])]).setDepth(DEPTH.skillTray);
+    this.root = scene.add.container(0, 0, [base, this.icon, this.overlay, this.countdown, hint, ...(this.badge ? [this.badge] : [])]).setDepth(DEPTH.skillTray);
   }
 
   get button(): TrayButton | null {
     return this.def.button;
   }
 
+  place(at: Point, scale: number): void {
+    this.at = at;
+    this.scale = scale;
+    this.scene.tweens.killTweensOf(this.root);
+    this.root.setPosition(at.x, at.y).setScale(scale);
+  }
+
   refuse(): void {
-    const { scene } = this;
-    scene.tweens.add({ targets: this.root, x: { from: this.x - 5, to: this.x }, duration: 260, ease: 'Bounce.easeOut' });
-    const flash = scene.add.circle(this.x, this.y, TRAY.r, COLORS.red, 0.55).setStrokeStyle(3, COLORS.red, 1).setDepth(DEPTH.skillTray);
+    const { scene, at, scale } = this;
+    scene.tweens.add({ targets: this.root, x: { from: at.x - 5 * scale, to: at.x }, duration: 260, ease: 'Bounce.easeOut' });
+    const flash = scene.add.circle(at.x, at.y, TRAY.r * scale, COLORS.red, 0.55).setStrokeStyle(3, COLORS.red, 1).setDepth(DEPTH.skillTray);
     scene.tweens.add({ targets: flash, alpha: 0, duration: 320, ease: 'Quad.easeIn', onComplete: () => flash.destroy() });
   }
 
@@ -289,9 +304,9 @@ class SkillSlot {
   }
 
   private pop(): void {
-    const { scene } = this;
-    scene.tweens.add({ targets: this.root, scale: { from: 1.25, to: 1 }, duration: 220, ease: 'Back.easeOut' });
-    const flash = scene.add.circle(this.x, this.y, TRAY.r).setStrokeStyle(3, COLORS.white, 1).setDepth(DEPTH.skillTray);
+    const { scene, at, scale } = this;
+    scene.tweens.add({ targets: this.root, scale: { from: 1.25 * scale, to: scale }, duration: 220, ease: 'Back.easeOut' });
+    const flash = scene.add.circle(at.x, at.y, TRAY.r * scale).setStrokeStyle(3, COLORS.white, 1).setDepth(DEPTH.skillTray);
     scene.tweens.add({ targets: flash, scale: 1.7, alpha: 0, duration: 320, ease: 'Quad.easeOut', onComplete: () => flash.destroy() });
   }
 }
