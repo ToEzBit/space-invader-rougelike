@@ -11,7 +11,7 @@ const EDGE_SEC = 0.005;
 export type VoiceLine = { buffer: AudioBuffer; segments: Segment[]; slices: Slice[]; shoutAtMs: number; gain: number };
 type LineLoad = { status: 'loading' } | { status: 'ready'; line: VoiceLine } | { status: 'failed'; why: string };
 // shoutAtMs is when the shout lands, counted from the press on the audio clock the line plays on.
-export type Speech = { line: number; shoutAtMs: number; elapsedMs: () => number };
+export type Speech = { shoutAtMs: number; elapsedMs: () => number };
 
 const loads: LineLoad[] = VOICE_URLS.map(() => ({ status: 'loading' }));
 let last: number | null = null;
@@ -34,7 +34,7 @@ export function speak(leadMs: number, atLeastMs: number): Speech | null {
   playLine(ctx, ctx.destination, line, t0 + (shoutAtMs - line.shoutAtMs) / 1000);
   last = pick;
   spoken++;
-  return { line: pick, shoutAtMs, elapsedMs: () => (ctx.currentTime - t0) * 1000 };
+  return { shoutAtMs, elapsedMs: () => (ctx.currentTime - t0) * 1000 };
 }
 
 export function playLine(ctx: BaseAudioContext, out: AudioNode, line: VoiceLine, when: number): void {
