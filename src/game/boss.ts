@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
+import { CAST_PITCH, CAST_SOUND } from '../audio/sfxRecipes';
 import { BOSSES, ENEMIES, bossPhaseAt, healedHp, transformDue, type BossDef, type BossForm, type BossId, type BossPattern, type BossStage, type BossTexture, type EnemyKind, type FormIndex } from '../core/stages';
 import type { CharacterKey } from '../art/characters';
 import { COLORS, css } from '../art/palette';
@@ -391,6 +392,7 @@ export class BossFight implements Encounter {
     else this.patternIndex++;
     const overshootMs = -stance.gapMs;
     stance.gapMs = this.current.phases[this.phase]!.patternGapMs;
+    sfx(CAST_SOUND[MOTIONS[pattern].tier], CAST_PITCH[this.id]);
     const { cast } = PATTERNS[pattern];
     if (!cast) return this.release(pattern, undefined, overshootMs);
     const s = this.foe.sprite;
@@ -404,7 +406,6 @@ export class BossFight implements Encounter {
     callout.setOrigin(0.5).setScale(0);
     this.world.scene.tweens.add({ targets: callout, scale: 1, duration: 260, ease: 'Back.easeOut' });
     this.stance = { kind: 'casting', pattern, msLeft: cast.chargeMs, aim: cast.aim(this), callout, convergeMs: 0 };
-    sfx('phase');
   }
 
   private upcoming(): BossPattern | null {

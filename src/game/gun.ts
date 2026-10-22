@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { sfx } from '../audio/sfx';
+import { shotPitch } from '../audio/sfxRecipes';
 import { OVERDRIVE_CALM_MS } from '../core/perks';
 import { rayEnd } from './geometry';
 import { DEPTH } from './layout';
@@ -66,6 +68,8 @@ export class Gun {
     tally.fired += this.drones.length * stats.bulletDamage;
     for (const d of this.drones)
       playerShots.spawn({ kind: 'droneShot', x: d.x, y: d.y - 8, vx: 0, vy: -stats.bulletSpeed, damage: stats.bulletDamage, pierce: stats.pierce });
+    // TRANS-AM zips every volley itself.
+    if (this.world.transAm.kind !== 'active') sfx('shot', shotPitch(this.shots));
     this.shots++;
     if (stats.homingEveryShots > 0 && this.shots % stats.homingEveryShots === 0) {
       const side = this.shots % (2 * stats.homingEveryShots) === 0 ? 1 : -1;
