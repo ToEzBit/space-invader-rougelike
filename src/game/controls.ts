@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
 import { itemForCode, type ItemId } from '../core/items';
 
+// Keys give a direction to fly at full speed; a finger gives a world point to fly to.
+export type Move = { kind: 'dir'; x: number; y: number } | { kind: 'to'; x: number; y: number };
+
 export type Controls = {
-  left: boolean;
-  right: boolean;
-  up: boolean;
-  down: boolean;
+  move: Move;
   // True once per press of the dash key.
   dash: boolean;
   // True once per press of Space.
@@ -60,12 +60,10 @@ export class KeyboardControls {
     this.dashQueued = false;
     this.transAmQueued = false;
     this.itemsQueued = [];
-    if (!k) return { left: false, right: false, up: false, down: false, dash, transAm, useItems };
+    if (!k) return { move: { kind: 'dir', x: 0, y: 0 }, dash, transAm, useItems };
+    const held = (...keys: Phaser.Input.Keyboard.Key[]) => Number(keys.some((key) => key.isDown));
     return {
-      left: k.left.isDown || k.a.isDown,
-      right: k.right.isDown || k.d.isDown,
-      up: k.up.isDown || k.w.isDown,
-      down: k.down.isDown || k.s.isDown,
+      move: { kind: 'dir', x: held(k.right, k.d) - held(k.left, k.a), y: held(k.down, k.s) - held(k.up, k.w) },
       dash,
       transAm,
       useItems,

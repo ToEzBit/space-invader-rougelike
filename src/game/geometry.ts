@@ -29,3 +29,10 @@ export function stepWithin(from: Point, dir: Point, distance: number, box: Box):
     y: Math.min(box.bottom, Math.max(box.top, from.y + dir.y * k)),
   };
 }
+
+// Moves at most `distance` straight toward `target` and lands exactly on it once it is in reach, so it never overshoots.
+export function stepToward(from: Point, target: Point, distance: number, box: Box): Point {
+  const dir = { x: target.x - from.x, y: target.y - from.y };
+  if (Math.hypot(dir.x, dir.y) > distance) return stepWithin(from, dir, distance, box);
+  return { x: Math.min(box.right, Math.max(box.left, target.x)), y: Math.min(box.bottom, Math.max(box.top, target.y)) };
+}

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { COLORS } from '../art/palette';
 import type { Controls } from './controls';
-import { stepWithin, type Box, type Point } from './geometry';
+import { stepToward, stepWithin, type Box, type Point } from './geometry';
 import { PLAYER_RADIUS } from './hitbox';
 import { DEPTH, PLAYER_Y, PLAYER_ZONE, PLAYFIELD } from './layout';
 import type { World } from './world';
@@ -43,9 +43,10 @@ export class Player {
     return this.sprite.y;
   }
 
-  steer(input: Controls, dtSec: number): void {
-    const dir = { x: Number(input.right) - Number(input.left), y: Number(input.down) - Number(input.up) };
-    const to = stepWithin(this.sprite, dir, this.world.stats.moveSpeed * dtSec, this.zone());
+  steer({ move }: Controls, dtSec: number): void {
+    const reach = this.world.stats.moveSpeed * dtSec;
+    const to = move.kind === 'dir' ? stepWithin(this.sprite, move, reach, this.zone()) : stepToward(this.sprite, move, reach, this.zone());
+    const dir = move.kind === 'dir' ? move : { x: Math.sign(to.x - this.x), y: Math.sign(to.y - this.y) };
     this.sprite.setPosition(to.x, to.y).setRotation(dir.x * 0.08);
     this.thrust = -dir.y;
   }
