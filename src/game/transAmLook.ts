@@ -1,8 +1,7 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
-import { COLORS, css } from '../art/palette';
+import { COLORS } from '../art/palette';
 import { TRANS_AM, type TransAm } from '../core/transAm';
-import { label } from '../ui/text';
 import { VIEW } from '../view';
 import { DEPTH } from './layout';
 import type { World } from './world';
@@ -38,23 +37,16 @@ export class TransAmLook {
     this.ring = scene.add.graphics().setDepth(DEPTH.fx);
   }
 
+  // Activation plays the cut-in, which shows the title, so the release that follows it only flashes and shakes.
   enter(kind: TransAm['kind']): void {
-    const { scene, fx } = this.world;
-    if (kind === 'depleted') {
-      sfx('powerDown');
-      return;
-    }
-    if (kind !== 'active') return;
-    sfx('transAm');
+    if (kind === 'active') sfx('transAm');
+    if (kind === 'depleted') sfx('powerDown');
+  }
+
+  release(): void {
+    const { fx } = this.world;
     fx.flash(160, 255, 90, 150);
     fx.shake(0.008, 260);
-    const callout = label(scene, VIEW.w / 2, VIEW.h * 0.46, 'TRANS-AM', { size: 34, bold: true, color: css(COLORS.pink), align: 'center', stroke: css(COLORS.ink) })
-      .setOrigin(0.5)
-      .setDepth(DEPTH.banner)
-      .setScale(1.8)
-      .setAlpha(0);
-    scene.tweens.add({ targets: callout, scale: 1, alpha: 1, duration: 180, ease: 'Back.easeOut' });
-    scene.tweens.add({ targets: callout, alpha: 0, y: callout.y - 20, delay: 650, duration: 300, onComplete: () => callout.destroy() });
   }
 
   // shockRadius is the release ring's reach this frame, null outside the release.

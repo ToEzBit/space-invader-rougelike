@@ -4,5 +4,3 @@ import eyesBlue from '../assets/cutin/eyes-blue.png';
 import eyesRed from '../assets/cutin/eyes-red.png';
 
 export const CUT_IN_ART = { eyesBlue, eyesRed };
-
-export type CutInArtKey = keyof typeof CUT_IN_ART;

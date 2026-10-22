@@ -2,8 +2,10 @@ import Phaser from 'phaser';
 import { clearStage, failRun, type RunState } from '../core/run';
 import { stageDef, STAGE_COUNT } from '../core/stages';
 import { COLORS, css } from '../art/palette';
+import { cutInPose } from '../core/cutIn';
 import { setDebugHooks } from '../debug';
 import { KeyboardControls } from '../game/controls';
+import { CutIn } from '../game/cutIn';
 import { createEncounter, type Encounter } from '../game/encounter';
 import { hpRatio, visibleBar } from '../game/hpBar';
 import type { Bullet } from '../game/bullets';
@@ -19,9 +21,11 @@ const OUTRO_MS = 1900;
 const MAX_FRAME_MS = 50;
 
 // Only the exit from 'fighting' produces the next RunState, so a stage ends exactly once.
+// The TRANS-AM cut-in freezes the whole stage, then hands back to 'fighting'.
 type Life =
   | { kind: 'intro'; msLeft: number }
   | { kind: 'fighting' }
+  | { kind: 'cutIn'; elapsedMs: number }
   | { kind: 'ending'; msLeft: number; next: RunState }
   | { kind: 'leaving' };
 
@@ -32,6 +36,7 @@ export class StageScene extends Phaser.Scene {
   private hud!: Hud;
   private backdrop!: Backdrop;
   private controls!: KeyboardControls;
+  private cutIn!: CutIn;
   private life: Life = { kind: 'fighting' };
   // Dev-only: game time spent fighting, in capped frame deltas, and how many frames hit the cap.
   private clock = { fightMs: 0, frames: 0, capped: 0 };
@@ -52,7 +57,8 @@ export class StageScene extends Phaser.Scene {
     this.encounter = createEncounter(this.world, def);
     this.hud = new Hud(this, this.world, this.encounter.boss);
     this.controls = new KeyboardControls(this);
-    this.life = { kind: 'intro', msLeft: INTRO_MS };
+    this.cutIn = new CutIn(this);
+    this.setLife({ kind: 'intro', msLeft: INTRO_MS });
     this.clock = { fightMs: 0, frames: 0, capped: 0 };
     const final = this.run.stage === STAGE_COUNT;
     banner(
@@ -78,7 +84,9 @@ export class StageScene extends Phaser.Scene {
       run: () => this.world.run,
       info: () => ({
         life: this.life.kind,
+        cutInMs: this.life.kind === 'cutIn' ? this.life.elapsedMs : null,
         foes: this.world.foes.length,
+        foeSpots: this.world.foes.map((foe) => ({ x: foe.sprite.x, y: foe.sprite.y })),
         coins: this.world.coins,
         player: { x: this.world.player.x, y: this.world.player.y },
         laserFiring: this.world.laser.firing,
@@ -133,15 +141,23 @@ export class StageScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     const dtMs = Math.min(delta, MAX_FRAME_MS);
+    const life = this.life;
+    if (life.kind === 'cutIn') {
+      // Dash and item presses stay queued for the first frame after; a Space press would only be refused then.
+      this.controls.dropTransAm();
+      const pose = cutInPose((life.elapsedMs += dtMs));
+      this.cutIn.draw(pose, life.elapsedMs);
+      if (!pose) this.setLife({ kind: 'fighting' });
+      this.hud.update();
+      return;
+    }
     const input = this.controls.read();
     this.backdrop.update(dtMs / 1000, 1.5);
-    const life = this.life;
-    if (input.transAm && !(life.kind === 'fighting' && this.world.activateTransAm())) this.hud.refuseTransAm();
     switch (life.kind) {
       case 'intro':
         this.world.update(dtMs, input, false);
         this.world.resolveCollisions();
-        if ((life.msLeft -= dtMs) <= 0) this.life = { kind: 'fighting' };
+        if ((life.msLeft -= dtMs) <= 0) this.setLife({ kind: 'fighting' });
         break;
       case 'fighting':
         this.clock.fightMs += dtMs;
@@ -156,14 +172,30 @@ export class StageScene extends Phaser.Scene {
       case 'ending':
         this.world.update(dtMs, { ...input, dash: false }, false);
         if ((life.msLeft -= dtMs) <= 0) {
-          this.life = { kind: 'leaving' };
+          this.setLife({ kind: 'leaving' });
           goTo(this, life.next);
         }
         break;
       case 'leaving':
         break;
     }
+    if (input.transAm) this.pressTransAm();
     this.hud.update();
+  }
+
+  // After the frame's own update, so the stage freezes on the frame Space was pressed in.
+  private pressTransAm(): void {
+    if (this.life.kind !== 'fighting' || !this.world.activateTransAm()) return this.hud.refuseTransAm();
+    this.setLife({ kind: 'cutIn', elapsedMs: 0 });
+  }
+
+  // Boss patterns run on the scene clock and some effects on tweens, so the cut-in pauses both. The clock keeps its
+  // paused flag across a scene restart, so every life sets it.
+  private setLife(next: Life): void {
+    this.life = next;
+    const frozen = next.kind === 'cutIn';
+    this.time.paused = frozen;
+    this.tweens.paused = frozen;
   }
 
   private checkEnd(): void {
@@ -174,7 +206,7 @@ export class StageScene extends Phaser.Scene {
   }
 
   private end(next: RunState): void {
-    this.life = { kind: 'ending', msLeft: OUTRO_MS, next };
+    this.setLife({ kind: 'ending', msLeft: OUTRO_MS, next });
     this.world.enemyShots.clear();
     if (next.phase.kind === 'defeat') {
       this.world.fx.explode(this.world.player.x, this.world.player.y, 'big');

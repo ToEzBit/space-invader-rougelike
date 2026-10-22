@@ -50,6 +50,11 @@ export class KeyboardControls {
     });
   }
 
+  // Forgets a Space press made while TRANS-AM could not start, so it is not acted on later.
+  dropTransAm(): void {
+    this.transAmQueued = false;
+  }
+
   read(): Controls {
     const k = this.keys;
     const { dashQueued: dash, transAmQueued: transAm, itemsQueued: useItems } = this;

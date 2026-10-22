@@ -285,6 +285,8 @@ export class World {
     this.touchedLastFrame = this.touchedThisFrame;
     this.touchedThisFrame = false;
     this.tickBuffs(dtMs);
+    // No tick has touched an active time activated during the frozen cut-in, so its release starts on this frame.
+    if (releaseProgress(this.trans) === 0) this.look.release();
     this.setTransAm(tick(this.trans, dtMs));
     if (!this.dash.active) this.player.steer(input, dt);
     this.player.update(dtMs);

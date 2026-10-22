@@ -7,6 +7,7 @@ export type LabelStyle = {
   size?: number;
   color?: string;
   bold?: boolean;
+  italic?: boolean;
   align?: 'left' | 'center' | 'right';
   wrap?: number;
   stroke?: string;
@@ -15,12 +16,13 @@ export type LabelStyle = {
 const measureCtx = document.createElement('canvas').getContext('2d');
 
 export function label(scene: Phaser.Scene, x: number, y: number, text: string, style: LabelStyle = {}): Phaser.GameObjects.Text {
-  const { size = 14, color = '#ffffff', bold = false, align = 'left', wrap, stroke } = style;
-  const font = `${bold ? 'bold ' : ''}${size}px ${FONT}`;
+  const { size = 14, color = '#ffffff', bold = false, italic = false, align = 'left', wrap, stroke } = style;
+  const fontStyle = `${italic ? 'italic ' : ''}${bold ? 'bold' : ''}`.trim() || 'normal';
+  const font = `${fontStyle} ${size}px ${FONT}`;
   const obj = scene.add.text(x, y, text, {
     fontFamily: FONT,
     fontSize: `${size}px`,
-    fontStyle: bold ? 'bold' : 'normal',
+    fontStyle,
     color,
     align,
     resolution: scene.cameras.main.zoom,

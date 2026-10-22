@@ -20,4 +20,5 @@ export const DEPTH = {
   fx: 40,
   banner: 90,
   hud: 100,
+  cutIn: 110,
 } as const;
