@@ -53,7 +53,7 @@ export class StageScene extends Phaser.Scene {
 
   create(): void {
     fitCamera(this);
-    this.backdrop = new Backdrop(this);
+    this.backdrop = new Backdrop(this, this.run.stage);
     this.world = new World(this, this.run);
     const def = stageDef(this.run.stage);
     this.encounter = createEncounter(this.world, def);
