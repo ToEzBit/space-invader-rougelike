@@ -1,3 +1,5 @@
+import { audioContext } from './context';
+
 export type Sound = 'pop' | 'boom' | 'hurt' | 'buy' | 'deny' | 'dash' | 'laser' | 'phase' | 'transAm' | 'powerDown';
 
 type Blip = { wave: OscillatorType; from: number; to: number; ms: number; gain: number; minGapMs: number };
@@ -15,27 +17,27 @@ const BLIPS: Record<Sound, Blip> = {
   powerDown: { wave: 'triangle', from: 600, to: 70, ms: 650, gain: 0.1, minGapMs: 300 },
 };
 
-let ctx: AudioContext | null = null;
 const lastPlayed = new Map<Sound, number>();
 
-// Browsers refuse audio before a user gesture, so the context is created on the first one.
-for (const event of ['keydown', 'pointerdown'] as const)
-  window.addEventListener(event, () => (ctx ??= new AudioContext()), { once: true });
-
 export function sfx(name: Sound): void {
+  const ctx = audioContext();
   if (!ctx) return;
-  const blip = BLIPS[name];
   const now = ctx.currentTime;
-  if (now * 1000 - (lastPlayed.get(name) ?? -Infinity) < blip.minGapMs) return;
+  if (now * 1000 - (lastPlayed.get(name) ?? -Infinity) < BLIPS[name].minGapMs) return;
   lastPlayed.set(name, now * 1000);
+  blip(ctx, ctx.destination, name, now);
+}
+
+export function blip(ctx: BaseAudioContext, out: AudioNode, name: Sound, at: number): void {
+  const blip = BLIPS[name];
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = blip.wave;
-  osc.frequency.setValueAtTime(blip.from, now);
-  osc.frequency.exponentialRampToValueAtTime(blip.to, now + blip.ms / 1000);
-  gain.gain.setValueAtTime(blip.gain, now);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + blip.ms / 1000);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start(now);
-  osc.stop(now + blip.ms / 1000);
+  osc.frequency.setValueAtTime(blip.from, at);
+  osc.frequency.exponentialRampToValueAtTime(blip.to, at + blip.ms / 1000);
+  gain.gain.setValueAtTime(blip.gain, at);
+  gain.gain.exponentialRampToValueAtTime(0.0001, at + blip.ms / 1000);
+  osc.connect(gain).connect(out);
+  osc.start(at);
+  osc.stop(at + blip.ms / 1000);
 }
