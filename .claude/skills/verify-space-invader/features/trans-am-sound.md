@@ -10,8 +10,8 @@ TRANS-AM's six active seconds have their own sound. A hit lands on the release f
 - `shot` is a 30 ms triangle zip from 2.6 kHz to 1.2 kHz, once per `Gun` volley while active, quieter than `pop`.
 - `ticks` play at 1500, 1100, 750, 450 and 200 ms left, each closer and higher than the last (1320 to 2640 Hz). A tick fires on the frame whose `msLeft` reaches its time, so frame caps and pauses never move one outside the final window.
 - `muffle` is a lowpass on the music bus (`lowpassMusic` in `src/audio/music.ts`). It drops from fully open (the Nyquist frequency, where it passes the music untouched) to 650 Hz over 0.3 s at the release, and opens again over 0.8 s when the active time ends. It sits after the bus gain, so `M` still mutes only the music, and the voice, sfx and TRANS-AM layers stay unfiltered.
-- `end` fades the hum out over 0.25 s and opens the music again, on `depleted` or any other phase change out of active.
-- `hush` is the same stop for a stage that ends: a clear, a defeat, or a restart through `__game.start`. `StageScene.end` and the scene's `shutdown` call it. After it, the outro frames keep the active look but play no tick, zip or hum. Every source's nodes disconnect once it has ended.
+- `endActive` fades the hum out over 0.25 s and opens the music again, on `depleted` or any other phase change out of active.
+- `endStage` is the same stop for a stage that ends: a clear, a defeat, or a restart through `__game.start`. `StageScene.end` and the scene's `shutdown` call it. After it, the outro frames keep the active look but play no tick, zip or hum. Every source's nodes disconnect once it has ended.
 - `mix` puts each layer on its own gain bus to the speakers at `TRANS_AM_SOUND.level`. `trans-am-sound.mjs` renders and checks it.
 
 ## How to get to it (user POV)
@@ -36,7 +36,7 @@ Run `drive.mjs <run-id> trans-am-sound`. An init script taps the game's `AudioCo
 - **Ticks.** Every frame with sound on the tick bus is active with `msLeft` at or under 1500. There are five ticks, each within 60 ms after its time.
 - **Shots.** Zips sound only while active. There is one per volley, within 3 of `activeMs` over the active fire interval.
 - **Depleted.** 900 ms after `depleted`, nothing is live, every bus reads 0 and the cutoff is back at full.
-- **Endings.** For a stage clear (`kill()` in stage 1), a defeat (`hurt()` until the run is lost) and a restart (`__game.start(4)`), each started at 1700 ms or less left: no tick, zip or release plays after the stage stops fighting. 1 s after it, nothing is live, every bus reads 0 and the cutoff is full. In the next scene (Shop, End, or the new Stage, paused) nothing is live and the muted output reads under 1e-4.
+- **Endings.** For a stage clear (`kill()` in stage 1), a defeat (`hurt()` until the run is lost) and a restart (`__game.start(4)`), each started at 1700 ms or less left (200 ms before the first tick, so the outro would cross them): no tick, zip or release starts after the stage stops fighting, and the taps read 0 from 90 ms after it, once a zip already playing has died away. 1 s after it, nothing is live, every bus reads 0 and the cutoff is full. In the next scene (Shop, End, or the new Stage, paused) nothing is live and the muted output reads under 1e-4.
 
 ## Listening without speakers
 
@@ -44,7 +44,7 @@ Run `drive.mjs <run-id> trans-am-sound`. An init script taps the game's `AudioCo
 .claude/skills/verify-space-invader/scripts/trans-am-sound.mjs <run-id> [--out <dir>]
 ```
 
-Renders a full TRANS-AM offline in Chrome through the game's own `TransAmSound`, `blip`, `playLine`, `playStep` and `openLowpass`. The frame loop copies `World.update`: the release, the tick, the gun at the active fire interval, then the look. It runs at 60 fps from the press: the sweep, the first voice line with its shout on the release, the release hit, the hum, the zips, the ticks and `powerDown`, over `boss1` through the muffle. It writes these files to `.verify/<run-id>/evidence/trans-am-sound/`, and also to `--out` when given:
+Renders a full TRANS-AM offline in Chrome through the game's own `TransAmSound`, `blip`, `playLine`, `playStep` and `openLowpass`. The frame loop copies `World.update` by hand (the release, the tick, the gun at the active fire interval, then the look), so a change to that order needs the same change here. It runs at 60 fps from the press: the sweep, the first voice line with its shout on the release, the release hit, the hum, the zips, the ticks and `powerDown`, over `boss1` through the muffle. It writes these files to `.verify/<run-id>/evidence/trans-am-sound-render/`, and also to `--out` when given:
 
 - `transam-sequence.wav` is the sequence at the in-game level.
 - `transam-sequence-preview.wav` and `transam-before-preview.wav` are the sequence and the same span with only today's sweep, voice and `powerDown` over open music. Both share one gain, normalized to a 0.9 peak, so they compare by ear.

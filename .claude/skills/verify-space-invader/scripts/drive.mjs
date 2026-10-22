@@ -1157,7 +1157,7 @@ const JOURNEYS = {
         analyser.getFloatTimeDomainData(frame);
         return Math.sqrt(frame.reduce((sum, v) => sum + v * v, 0) / frame.length);
       };
-      // Phaser opens an AudioContext of its own at boot, so the journey taps the game's: its output and each layer bus.
+      // Phaser boots its own AudioContext too, so outs taps both outputs and audioContext() picks the game's, with its layer buses.
       window.__tapTransAm = async () => {
         const ctx = (await import('/src/audio/context.ts')).audioContext();
         const buses = Object.entries((await import('/src/audio/transAmSound.ts')).gameBuses());
@@ -1182,10 +1182,9 @@ const JOURNEYS = {
     const open = (await h.waitFor('music muted', (x) => x.music.muted && x.music.busGain < 1e-4, 2000)).music.cutoffHz;
     h.check('the music lowpass sits fully open before any TRANS-AM', open >= 20000, { cutoffHz: open });
 
-    // Every frame until stop holds, then afterMs more.
-    const record = (stop, afterMs, timeoutMs = 15000) =>
+    const record = (stop, msAfterStop, timeoutMs = 15000) =>
       h.page.evaluate(
-        ([stop, afterMs, timeoutMs]) =>
+        ([stop, msAfterStop, timeoutMs]) =>
           new Promise((resolve, reject) => {
             const done = new Function('s', `return (${stop})`);
             const frames = [];
@@ -1193,16 +1192,16 @@ const JOURNEYS = {
             let stoppedAt = null;
             const tick = () => {
               const s = window.__game.state();
-              const { live, releases, ticksAtMsLeft } = s.transAmSound;
-              frames.push({ ...window.__taps(), scenes: s.scenes, life: s.life ?? null, transAm: s.transAm ?? null, cutoffHz: s.music.cutoffHz, live, releases, ticks: ticksAtMsLeft.length });
+              const { live, releases, ticksAtMsLeft, shots } = s.transAmSound;
+              frames.push({ ...window.__taps(), scenes: s.scenes, life: s.life ?? null, transAm: s.transAm ?? null, cutoffHz: s.music.cutoffHz, live, releases, shots, ticks: ticksAtMsLeft.length });
               if (stoppedAt === null && done(s)) stoppedAt = performance.now();
-              if (stoppedAt !== null && performance.now() - stoppedAt >= afterMs) return resolve({ frames, sound: window.__game.state().transAmSound });
+              if (stoppedAt !== null && performance.now() - stoppedAt >= msAfterStop) return resolve({ frames, sound: window.__game.state().transAmSound });
               if (performance.now() > until) return reject(new Error(`timed out recording until ${stop}`));
               requestAnimationFrame(tick);
             };
             tick();
           }),
-        [stop, afterMs, timeoutMs],
+        [stop, msAfterStop, timeoutMs],
       );
     const LAYERS = ['release', 'hum', 'shot', 'tick'];
     const silent = (f) => LAYERS.every((l) => f[l] === 0);
@@ -1241,7 +1240,7 @@ const JOURNEYS = {
     h.check('shots zip only while active, one per volley', zipping.every((f) => active(f) || f.audioMs - depleted.audioMs < SOUND.shot.sec * 1000 + 20) && Math.abs(sound.shots - TA.activeMs / fireMs) <= 3, { shots: sound.shots, expected: TA.activeMs / fireMs });
     h.check('900 ms after depleted every TRANS-AM node is gone, every bus silent and the music open again', liveNodes(after) === 0 && silent(after) && after.cutoffHz >= open * 0.99, { live: after.live, hum: after.hum, cutoffHz: after.cutoffHz });
 
-    // Each way a stage can end with TRANS-AM active, late enough that the outro would cross the ending ticks.
+    const outroCrossesTicksMsLeft = SOUND.tick.atMsLeft[0] + 200;
     const ENDINGS = [
       { name: 'stage clear', stage: 1, end: () => h.game('kill'), next: 'Shop' },
       { name: 'ship down', stage: 4, end: () => h.page.evaluate(() => { window.__game.god(false); while (window.__game.state().run.phase.kind !== 'defeat') window.__game.hurt(); }), next: 'End' },
@@ -1252,7 +1251,7 @@ const JOURNEYS = {
       await h.game('god', true);
       await sleep(300);
       await h.game('transAmGauge', TA.gaugeMax);
-      const late = h.frameWhen(`s.transAm.kind === 'active' && s.transAm.msLeft <= 1700`, false, 15000);
+      const late = h.frameWhen(`s.transAm.kind === 'active' && s.transAm.msLeft <= ${outroCrossesTicksMsLeft}`, false, 15000);
       await h.page.keyboard.press('Space');
       await late;
       const tail = record('true', 2400);
@@ -1260,8 +1259,10 @@ const JOURNEYS = {
       const { frames: ended, sound: endSound } = await tail;
       const cutAt = ended.findIndex((f) => f.life !== 'fighting');
       const settled = ended.filter((f) => f.audioMs - ended[cutAt].audioMs > (SOUND.muffle.upSec + 0.2) * 1000);
-      h.log.steps.push({ action: `${ending.name} with TRANS-AM active at msLeft <= 1700`, sound: endSound, frames: slim(ended) });
-      h.check(`${ending.name}: no tick, zip or release plays once the stage is over`, ended.slice(cutAt + 1).every((f) => f.tick === 0 && f.shot === 0 && f.release === 0 && f.ticks === ended[cutAt].ticks), { ticks: endSound.ticksAtMsLeft, cutAt, life: ended[cutAt].life });
+      h.log.steps.push({ action: `${ending.name} with TRANS-AM active at msLeft <= ${outroCrossesTicksMsLeft}`, sound: endSound, frames: slim(ended) });
+      const over = ended.slice(cutAt);
+      const rung = over.filter((f) => f.audioMs - ended[cutAt].audioMs > SOUND.tick.sec * 1000 + 30);
+      h.check(`${ending.name}: no tick, zip or release starts once the stage is over, and the last zip dies away`, over.every((f) => f.ticks === over[0].ticks && f.shots === over[0].shots && f.releases === over[0].releases) && rung.every((f) => f.tick === 0 && f.shot === 0 && f.release === 0), { ticks: endSound.ticksAtMsLeft, shots: [over[0].shots, over.at(-1).shots], cutAt, life: ended[cutAt].life, loudAfter: Math.max(...rung.map((f) => Math.max(f.tick, f.shot, f.release))) });
       h.check(`${ending.name}: the hum and every other node stop, the buses fall silent and the music opens again`, settled.length > 10 && settled.every((f) => liveNodes(f) === 0 && silent(f) && f.cutoffHz >= open * 0.99), { settled: settled.length, live: settled.at(0)?.live, loudestHum: loudest(settled, 'hum'), lowestCutoff: Math.min(...settled.map((f) => f.cutoffHz)) });
       const landed = await h.waitFor(`${ending.next} after ${ending.name}`, (x) => x.scenes.includes(ending.next) && (ending.next !== 'Stage' || x.life === 'fighting'), 8000);
       // A fresh stage pops its own sfx, so it is paused while the output is read.

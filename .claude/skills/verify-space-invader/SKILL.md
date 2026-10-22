@@ -73,7 +73,7 @@ Anything that calls `Math.random` shifts every later random draw, so a change th
 .claude/skills/verify-space-invader/scripts/trans-am-sound.mjs <run-id> [--out <dir>]
 ```
 
-Renders a full TRANS-AM offline, from the press through `powerDown`, over `boss1` through the music lowpass, to `.verify/<run-id>/evidence/trans-am-sound/` (and `--out`). It prints each layer's peak and loudness next to the sfx, the voice line and `boss1`, and the lowpass's drop above 2 kHz. It fails when a layer misses its level target or the peaks can clip. It is not part of `all`. See `features/trans-am-sound.md`.
+Renders a full TRANS-AM offline, from the press through `powerDown`, over `boss1` through the music lowpass, to `.verify/<run-id>/evidence/trans-am-sound-render/` (and `--out`). It prints each layer's peak and loudness next to the sfx, the voice line and `boss1`, and the lowpass's drop above 2 kHz. It fails when a layer misses its level target or the peaks can clip. It is not part of `all`. See `features/trans-am-sound.md`.
 
 ## Music render
 
