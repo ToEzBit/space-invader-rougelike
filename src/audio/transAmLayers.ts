@@ -1,24 +1,27 @@
 import { TRANS_AM } from '../core/transAm';
 
 export type Layer = 'release' | 'hum' | 'shot' | 'tick';
-export const LAYERS: readonly Layer[] = ['release', 'hum', 'shot', 'tick'];
 
 type Span = { readonly from: number; readonly to: number };
 
 // Every TRANS-AM sound past the press. Each layer plays into its own bus at `level`, beside the sfx and not through
 // the music bus, so M leaves it alone. The release and the hum start on the release frame, after the cut-in.
 export const TRANS_AM_SOUND = {
-  level: { release: 0.2, hum: 0.032, shot: 0.012, tick: 0.045 } satisfies Record<Layer, number>,
+  level: { release: 0.09, hum: 0.0145, shot: 0.02, tick: 0.09 } satisfies Record<Layer, number>,
   release: {
     thump: { hz: { from: 120, to: 34 }, sec: 0.6 },
-    punch: { hz: { from: 420, to: 70 }, sec: 0.09, gain: 0.5 },
-    whoosh: { hz: { from: 9000, to: 1800 }, sec: 0.45, gain: 0.35, q: 0.9 },
+    punch: { hz: { from: 420, to: 70 }, sec: 0.09, gain: 0.8 },
+    whoosh: { hz: { from: 9000, to: 1800 }, sec: 0.45, gain: 0.7, q: 0.9 },
   },
   hum: {
     fadeInMs: 450,
     fadeOutSec: 0.25,
     hz: { from: 55, to: 82.41 },
-    detuneCents: 14,
+    // A sub saw for weight and a detuned one an octave up, which small speakers can still play.
+    saws: [
+      { ratio: 1, cents: 0 },
+      { ratio: 2, cents: 14 },
+    ],
     cutoffHz: { from: 320, to: 1900 },
     q: 6,
     tremoloHz: { from: 9, to: 16 },

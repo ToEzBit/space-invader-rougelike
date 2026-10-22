@@ -66,6 +66,11 @@ const VOICES: Record<Voice, Play> = {
 
 const kits = new WeakMap<BaseAudioContext, Kit>();
 
+// Seeded, because a stage must never draw from Math.random for sound: the boss replay owns its order.
+export function seededNoise(ctx: BaseAudioContext): AudioBuffer {
+  return kitFor(ctx).noise;
+}
+
 function kitFor(ctx: BaseAudioContext): Kit {
   let kit = kits.get(ctx);
   if (!kit) {

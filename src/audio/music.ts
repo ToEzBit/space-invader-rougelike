@@ -24,13 +24,15 @@ let wanted: Cue | null = null;
 let current: Playing | null = null;
 let fading: Playing[] = [];
 let bus: GainNode | null = null;
+let lowpass: BiquadFilterNode | null = null;
 let muted = loadMuted();
 let plays = 0;
 
 onAudio((ctx) => {
   bus = ctx.createGain();
   bus.gain.value = muted ? 0 : MUSIC_VOLUME;
-  bus.connect(ctx.destination);
+  lowpass = openLowpass(ctx);
+  bus.connect(lowpass).connect(ctx.destination);
   setInterval(() => scheduleAheadOfAudioClock(ctx), TICK_MS);
 });
 
@@ -52,6 +54,22 @@ export function toggleMute(): void {
   bus.gain.linearRampToValueAtTime(muted ? 0 : MUSIC_VOLUME, now + MUTE_SEC);
 }
 
+export function openLowpass(ctx: BaseAudioContext): BiquadFilterNode {
+  const f = ctx.createBiquadFilter();
+  f.frequency.value = f.frequency.maxValue;
+  return f;
+}
+
+// null opens the filter all the way, where it passes the music untouched.
+export function lowpassMusic(hz: number | null, sec: number): void {
+  if (!lowpass) return;
+  const f = lowpass.frequency;
+  const now = lowpass.context.currentTime;
+  f.cancelScheduledValues(now);
+  f.setValueAtTime(f.value, now);
+  f.exponentialRampToValueAtTime(hz ?? f.maxValue, now + sec);
+}
+
 export function isMuted(): boolean {
   return muted;
 }
@@ -69,6 +87,7 @@ export function musicState(): Record<string, unknown> {
     muted,
     ctx: bus?.context.state ?? null,
     busGain: bus?.gain.value ?? null,
+    cutoffHz: lowpass?.frequency.value ?? null,
     step: current?.kind === 'score' ? current.next : null,
     plays,
   };
