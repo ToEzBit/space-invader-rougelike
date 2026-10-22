@@ -13,7 +13,7 @@ Three chiptune tracks synthesized with WebAudio, plus one song file the user sup
 - `director` is `cueFor` in `src/audio/director.ts`, a table from `BossId` and form to a cue: a score id, or a song file with the score that stands in for it. `sourceFor` turns the cue and the song's load status into what plays. A stage asks for its cue every frame and only a different source crossfades over 0.8 s. A dead boss asks for no track, so the music fades out under the clear, and the shop brings `normal` back.
 - `audio clock` keeps the music stepping through anything that pauses a scene, the TRANS-AM cut-in included.
 - `mute` is `M`, anywhere. It ramps the music bus to 0 and back, keeps the track's place, and is stored in `localStorage` (`space-invader.musicMuted`). Title shows `M · เพลง เปิด` or `M · เพลง ปิด` top left, and a click on it toggles too.
-- `mix` puts the music on its own bus at `MUSIC_VOLUME` under the sfx, which go straight to the destination.
+- `mix` puts the music on its own bus at `MUSIC_VOLUME` under the sfx, which go straight to the destination. `TRACK_LEVEL` plays the boss tracks and the Empress's song at twice the normal track's level, so boss fights sound bigger.
 
 ## How to get to it (user POV)
 
@@ -47,7 +47,7 @@ The journey serves `/music/void-empress.*` itself with `page.route`, so a song t
 .claude/skills/verify-space-invader/scripts/music.mjs <run-id>
 ```
 
-Renders one loop of each track in Chrome with `OfflineAudioContext`, through the game's own `playStep` and `MUSIC_VOLUME`, and writes `.verify/<run-id>/evidence/music/<track>.wav` at the in-game level, `<track>-preview.wav` normalized to a 0.9 peak for listening, and `report.json`. It prints each track's bpm, bars, seconds, peak, RMS and `loud95` (the 95th-percentile RMS over 50 ms windows), each channel's solo peak and RMS, and the same for the `pop`, `boom`, `hurt` and `buy` sfx. It fails on a console error, a channel that renders silent, a track whose `loud95` is not under the quietest sfx's loudest window (`pop`), or a track whose peak plus the loudest sfx's peak reaches 1. `loudVsSfx` compares a track's `loud95` with the median sfx's loudest window. The tracks sit near 0.3. It also fails when boss1's pre-bus `loud95` drifts more than 2% from `BOSS1_PRE_BUS_LOUD95`, the target song files are matched to.
+Renders one loop of each track in Chrome with `OfflineAudioContext`, through the game's own `playStep`, `MUSIC_VOLUME` and `TRACK_LEVEL`, and writes `.verify/<run-id>/evidence/music/<track>.wav` at the in-game level, `<track>-preview.wav` normalized to a 0.9 peak for listening, and `report.json`. It prints each track's bpm, bars, seconds, peak, RMS and `loud95` (the 95th-percentile RMS over 50 ms windows), each channel's solo peak and RMS, and the same for the `pop`, `boom`, `hurt` and `buy` sfx. It fails on a console error, a channel that renders silent, a level-1 track (`normal`) whose `loud95` is not under the quietest sfx's loudest window (`pop`), or a track whose peak plus the loudest sfx's peak reaches 1. `loudVsSfx` compares a track's `loud95` with the median sfx's loudest window. `normal` sits near 0.3 and the boss tracks near 0.6 to 0.7. It also fails when boss1's pre-bus `loud95` drifts more than 2% from `BOSS1_PRE_BUS_LOUD95`, the target song files are matched to.
 
 ## Gotchas
 

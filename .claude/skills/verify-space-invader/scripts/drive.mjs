@@ -1461,12 +1461,12 @@ const JOURNEYS = {
 
     const boss1Loud95 = await h.page.evaluate(async () => {
       const { compile, playStep } = await import('/src/audio/synth.ts');
-      const { MUSIC_VOLUME } = await import('/src/audio/music.ts');
+      const { MUSIC_VOLUME, TRACK_LEVEL } = await import('/src/audio/music.ts');
       const RATE = 44100;
       const song = compile('boss1');
       const ctx = new OfflineAudioContext(1, Math.ceil(song.steps * song.stepSec * RATE), RATE);
       const bus = ctx.createGain();
-      bus.gain.value = MUSIC_VOLUME;
+      bus.gain.value = MUSIC_VOLUME * TRACK_LEVEL.boss1;
       bus.connect(ctx.destination);
       for (let step = 0; step < song.steps; step++) playStep(ctx, bus, song, step, step * song.stepSec);
       const data = (await ctx.startRendering()).getChannelData(0);
@@ -1481,10 +1481,11 @@ const JOURNEYS = {
       return windows[Math.floor(0.95 * windows.length)];
     });
     const { trackGain, files } = own.after.music;
+    const empressLevel = await h.page.evaluate(async () => (await import('/src/audio/music.ts')).TRACK_LEVEL.empress);
     const songLoud95 = toneLoud95 * trackGain * VOLUME;
     h.check(
       "the song's gain turns it down to within 20% of Crimson Verdict's loudness on the bus",
-      trackGain < 0.6 && Math.abs(trackGain - files.empress.gain) < 1e-3 && Math.abs(songLoud95 / boss1Loud95 - 1) < 0.2,
+      files.empress.gain < 0.6 && Math.abs(trackGain - files.empress.gain * empressLevel) < 1e-3 && Math.abs(songLoud95 / boss1Loud95 - 1) < 0.2,
       { toneLoud95, trackGain, fileGain: files.empress.gain, songLoud95, boss1Loud95, ratio: songLoud95 / boss1Loud95 },
     );
 

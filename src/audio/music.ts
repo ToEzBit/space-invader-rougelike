@@ -2,9 +2,12 @@ import { onAudio } from './context';
 import { sourceFor, type Cue, type FileLoad, type ReadyFile, type Source } from './director';
 import { gainToMatch } from './loudness';
 import { compile, playStep, type Song } from './synth';
-import { FILE_TRACKS, type FileId, type ScoreId } from './tracks';
+import { FILE_TRACKS, type FileId, type ScoreId, type TrackId } from './tracks';
 
 export const MUSIC_VOLUME = 0.038;
+// Boss fights play louder than the rest of the game, on top of the bus volume.
+const BOSS_LEVEL = 2;
+export const TRACK_LEVEL: Record<TrackId, number> = { normal: 1, boss1: BOSS_LEVEL, boss2: BOSS_LEVEL, empress: BOSS_LEVEL };
 const FADE_SEC = 0.8;
 const MUTE_SEC = 0.08;
 const LOOKAHEAD_SEC = 0.2;
@@ -135,7 +138,7 @@ function crossfade(ctx: AudioContext, now: number, target: Exclude<Source, { kin
 function startScore(now: number, id: ScoreId, gain: GainNode): Playing {
   let song = songs.get(id);
   if (!song) songs.set(id, (song = compile(id)));
-  fadeIn(gain, now, 1);
+  fadeIn(gain, now, TRACK_LEVEL[id]);
   return { kind: 'score', id, song, gain, t0: now + 0.05, next: 0, until: Infinity };
 }
 
@@ -145,7 +148,7 @@ function startFile(ctx: AudioContext, now: number, id: FileId, file: ReadyFile, 
   source.loop = true;
   source.connect(gain);
   source.start(now);
-  fadeIn(gain, now, file.gain);
+  fadeIn(gain, now, file.gain * TRACK_LEVEL[id]);
   return { kind: 'file', id, url: file.url, source, gain, until: Infinity };
 }
 

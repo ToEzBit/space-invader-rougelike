@@ -25,7 +25,7 @@ await page.goto(`http://127.0.0.1:${port}/`);
 const result = await page.evaluate(async () => {
   const { compile, playStep } = await import('/src/audio/synth.ts');
   const { TRACKS } = await import('/src/audio/tracks.ts');
-  const { MUSIC_VOLUME } = await import('/src/audio/music.ts');
+  const { MUSIC_VOLUME, TRACK_LEVEL } = await import('/src/audio/music.ts');
   const { blip } = await import('/src/audio/sfx.ts');
   const { BOSS1_PRE_BUS_LOUD95, loud95 } = await import('/src/audio/loudness.ts');
   const RATE = 44100;
@@ -60,7 +60,7 @@ const result = await page.evaluate(async () => {
     const sec = song.steps * song.stepSec;
     const ctx = new OfflineAudioContext(1, Math.ceil(sec * RATE), RATE);
     const bus = ctx.createGain();
-    bus.gain.value = MUSIC_VOLUME;
+    bus.gain.value = MUSIC_VOLUME * TRACK_LEVEL[id];
     bus.connect(ctx.destination);
     for (let step = 0; step < song.steps; step++) playStep(ctx, bus, song, step, step * song.stepSec);
     return { sec, data: (await ctx.startRendering()).getChannelData(0) };
@@ -102,11 +102,11 @@ const result = await page.evaluate(async () => {
   let boss1PreBusLoud95 = null;
   for (const [id, track] of Object.entries(TRACKS)) {
     const { sec, data } = await render(id, track);
-    if (id === 'boss1') boss1PreBusLoud95 = loud95([data], RATE) / MUSIC_VOLUME;
+    if (id === 'boss1') boss1PreBusLoud95 = loud95([data], RATE) / (MUSIC_VOLUME * TRACK_LEVEL[id]);
     const channels = {};
     for (const channel of track.channels) channels[channel.name] = stats((await render(id, { ...track, channels: [channel] })).data);
     const bars = track.channels[0].bars.length;
-    tracks[id] = { title: track.title, bpm: track.bpm, bars, sec: +sec.toFixed(2), ...stats(data), channels, wav: wav(data), preview: wav(data, PREVIEW_PEAK / stats(data).peak) };
+    tracks[id] = { title: track.title, level: TRACK_LEVEL[id], bpm: track.bpm, bars, sec: +sec.toFixed(2), ...stats(data), channels, wav: wav(data), preview: wav(data, PREVIEW_PEAK / stats(data).peak) };
   }
   return { musicVolume: MUSIC_VOLUME, sfx, tracks, boss1PreBusLoud95, BOSS1_PRE_BUS_LOUD95 };
 });
@@ -127,7 +127,7 @@ for (const [id, t] of Object.entries(result.tracks)) {
   writeFileSync(join(outDir, `${id}-preview.wav`), Buffer.from(preview, 'base64'));
   const silent = Object.entries(t.channels).filter(([, c]) => c.rms < 1e-4).map(([name]) => name);
   if (silent.length) failures.push(`${id}: silent channel(s) ${silent.join(', ')}`);
-  if (t.loud95 >= quietestSfxLoud) failures.push(`${id}: loud95 ${t.loud95} is not under the quietest sfx, ${quietestSfx} at ${quietestSfxLoud}`);
+  if (t.level === 1 && t.loud95 >= quietestSfxLoud) failures.push(`${id}: loud95 ${t.loud95} is not under the quietest sfx, ${quietestSfx} at ${quietestSfxLoud}`);
   if (t.peak + loudestSfxPeak >= 1) failures.push(`${id}: peak ${t.peak} plus the ${loudestSfx} sfx ${loudestSfxPeak} can clip`);
   report.tracks[id] = { ...rest, loudVsSfx: +(t.loud95 / medianSfxLoud).toFixed(2), wav: join(outDir, `${id}.wav`) };
   console.log(
