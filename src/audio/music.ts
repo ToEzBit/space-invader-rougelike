@@ -2,7 +2,7 @@ import { onAudio } from './context';
 import { compile, playStep, type Song } from './synth';
 import type { TrackId } from './tracks';
 
-export const MUSIC_VOLUME = 0.065;
+export const MUSIC_VOLUME = 0.038;
 const FADE_SEC = 0.8;
 const MUTE_SEC = 0.08;
 const LOOKAHEAD_SEC = 0.2;

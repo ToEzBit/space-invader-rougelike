@@ -113,6 +113,7 @@ const failures = [...errors.map((e) => `console error: ${e}`)];
 const [loudestSfx, { peak: loudestSfxPeak }] = Object.entries(result.sfx).sort(([, a], [, b]) => b.peak - a.peak)[0];
 const sfxLoud = Object.values(result.sfx).map((s) => s.loudMax).sort((a, b) => a - b);
 const medianSfxLoud = sfxLoud[Math.floor(sfxLoud.length / 2)];
+const [quietestSfx, { loudMax: quietestSfxLoud }] = Object.entries(result.sfx).sort(([, a], [, b]) => a.loudMax - b.loudMax)[0];
 const report = { musicVolume: result.musicVolume, sfx: result.sfx, medianSfxLoud, tracks: {} };
 for (const [id, t] of Object.entries(result.tracks)) {
   const { wav, preview, ...rest } = t;
@@ -120,6 +121,7 @@ for (const [id, t] of Object.entries(result.tracks)) {
   writeFileSync(join(outDir, `${id}-preview.wav`), Buffer.from(preview, 'base64'));
   const silent = Object.entries(t.channels).filter(([, c]) => c.rms < 1e-4).map(([name]) => name);
   if (silent.length) failures.push(`${id}: silent channel(s) ${silent.join(', ')}`);
+  if (t.loud95 >= quietestSfxLoud) failures.push(`${id}: loud95 ${t.loud95} is not under the quietest sfx, ${quietestSfx} at ${quietestSfxLoud}`);
   if (t.peak + loudestSfxPeak >= 1) failures.push(`${id}: peak ${t.peak} plus the ${loudestSfx} sfx ${loudestSfxPeak} can clip`);
   report.tracks[id] = { ...rest, loudVsSfx: +(t.loud95 / medianSfxLoud).toFixed(2), wav: join(outDir, `${id}.wav`) };
   console.log(
