@@ -160,7 +160,7 @@ export class World {
   }
 
   silenceTransAm(): void {
-    this.look.hush();
+    this.look.endStage();
   }
 
   // Item buffs first, then the TRANS-AM phase.

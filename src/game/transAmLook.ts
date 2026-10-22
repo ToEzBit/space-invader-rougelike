@@ -11,8 +11,7 @@ const SHIP_TINT = { active: 0xff8ab4, depleted: 0x6c6c80, overdrive: 0xffb0e0 } 
 const GHOST = { everyMs: 40, ms: 260, alpha: 0.5 } as const;
 const VIGNETTE = { bands: 10, bandPx: 5, alpha: 0.3 } as const;
 
-// How the ship and screen look and sound through TRANS-AM, plus the ship's overdrive flicker, so one place owns the
-// ship tint. None of this touches game state.
+// The ship's overdrive flicker lives here too, so one place owns the ship tint. None of this touches game state.
 export class TransAmLook {
   private readonly halo: Phaser.GameObjects.Image;
   private readonly vignette: Phaser.GameObjects.Graphics;
@@ -37,12 +36,12 @@ export class TransAmLook {
       this.vignette.strokeRect(inset, inset, VIEW.w - inset * 2, VIEW.h - inset * 2);
     }
     this.ring = scene.add.graphics().setDepth(DEPTH.fx);
-    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.hush());
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.endStage());
   }
 
   enter(kind: TransAm['kind']): void {
     if (kind === 'active') sfx('transAm');
-    else this.sound.end();
+    else this.sound.endActive();
     if (kind === 'depleted') sfx('powerDown');
   }
 
@@ -80,9 +79,8 @@ export class TransAmLook {
     g.lineStyle(3, COLORS.white, 0.5 + 0.5 * fade).strokeCircle(player.x, player.y, shockRadius);
   }
 
-  // The stage is over. Its last frames keep the look but play no more TRANS-AM sound.
-  hush(): void {
-    this.sound.hush();
+  endStage(): void {
+    this.sound.endStage();
   }
 
   private ghost(): void {

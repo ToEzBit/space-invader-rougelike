@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// Usage: trans-am-sound.mjs <run-id> [--out <dir>]
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,7 +13,7 @@ if (!runId) {
   process.exit(2);
 }
 const port = readFileSync(join(ROOT, '.verify', runId, 'instance', 'port'), 'utf8').trim();
-const outDir = join(ROOT, '.verify', runId, 'evidence', 'trans-am-sound');
+const outDir = join(ROOT, '.verify', runId, 'evidence', 'trans-am-sound-render');
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
 
@@ -38,12 +37,13 @@ const result = await page.evaluate(async () => {
   const RATE = 44100;
   const FRAME_SEC = 1 / 60;
   const PREVIEW_PEAK = 0.9;
+  const LOUDNESS_WINDOW_SEC = 0.05;
   const PRESS_SEC = 0.5;
   const TAIL_SEC = 1.5;
   const HF_HZ = 2000;
 
   const windows = (data) => {
-    const win = Math.round(RATE * 0.05);
+    const win = Math.round(RATE * LOUDNESS_WINDOW_SEC);
     const out = [];
     for (let i = 0; i + win <= data.length; i += win) {
       let w = 0;
@@ -63,7 +63,7 @@ const result = await page.evaluate(async () => {
     const at = (q) => +(w[Math.min(w.length - 1, Math.floor(q * w.length))] ?? 0).toFixed(4);
     return { peak: +peak.toFixed(4), rms: +Math.sqrt(sum / data.length).toFixed(4), loud95: at(0.95), loudMax: at(1) };
   };
-  // A sound shorter than a 50 ms loudness window is compared by its RMS over its own length.
+  // A sound shorter than a loudness window is compared by its RMS over its own length.
   const ownRms = (data) => {
     let [start, end] = [0, data.length];
     while (end > 0 && Math.abs(data[end - 1]) < 1e-5) end--;
@@ -106,9 +106,8 @@ const result = await page.evaluate(async () => {
 
   const line = await decodeLine(new OfflineAudioContext(1, 1, RATE), VOICE_URLS[0]);
   if (typeof line === 'string') throw new Error(`voice line ${VOICE_URLS[0]}: ${line}`);
-  const shoutAfterPressSec = Math.max(SILENT_CUT_IN_MS, CUT_IN.dimMs + line.shoutAtMs) / 1000;
-  // The release fires on the first frame after the cut-in.
-  const releaseSec = PRESS_SEC + shoutAfterPressSec + FRAME_SEC;
+  const cutInSec = Math.max(SILENT_CUT_IN_MS, CUT_IN.dimMs + line.shoutAtMs) / 1000;
+  const releaseSec = PRESS_SEC + cutInSec + FRAME_SEC;
   const seqSec = releaseSec + TRANS_AM.activeMs / 1000 + TAIL_SEC;
 
   const STEMS = ['release', 'hum', 'shot', 'tick', 'music', 'voice', 'sfx', 'openMusic'];
@@ -139,7 +138,7 @@ const result = await page.evaluate(async () => {
   for (let step = 0; step * song.stepSec < seqSec; step++) for (const bus of [muffled, open]) playStep(ctx, bus, song, step, step * song.stepSec);
 
   blip(ctx, stemOut.sfx, 'transAm', PRESS_SEC);
-  const lineAtSec = PRESS_SEC + shoutAfterPressSec - line.shoutAtMs / 1000;
+  const lineAtSec = PRESS_SEC + cutInSec - line.shoutAtMs / 1000;
   const lastSlice = line.slices.at(-1);
   const lineSec = lastSlice.lineAtSec + lastSlice.toSec - lastSlice.fromSec;
   playLine(ctx, stemOut.voice, line, lineAtSec);
@@ -157,18 +156,18 @@ const result = await page.evaluate(async () => {
       lowpass.frequency.exponentialRampToValueAtTime(cutoff, now + sec);
     },
   };
-  // The frame loop of World.update: the release before the tick, the gun, then the look.
   const sound = new TransAmSound(() => rig);
   const fireIntervalMs = deriveStats({}).fireIntervalMs * TRANS_AM.active.fireIntervalScale;
   let t = activate(charging(TRANS_AM.gaugeMax));
   let cooldownMs = 0;
   let volleys = 0;
   sound.release(volleys);
+  // Mirrors World.update: the release before the first tick, then the gun, then the look.
   for (;;) {
     t = tick(t, FRAME_SEC * 1000);
     if (t.kind !== 'active') {
       blip(ctx, stemOut.sfx, 'powerDown', now);
-      sound.end();
+      sound.endActive();
       break;
     }
     cooldownMs = Math.max(cooldownMs - FRAME_SEC * 1000, -FRAME_SEC * 1000);
@@ -183,7 +182,6 @@ const result = await page.evaluate(async () => {
   const rendered = await ctx.startRendering();
   const stem = Object.fromEntries(STEMS.map((name, i) => [name, rendered.getChannelData(i)]));
 
-  // One layer rendered alone, the other buses cut off, through the same owner calls the game makes.
   const layerOnly = async (layer, drive) => {
     const c = new OfflineAudioContext(1, RATE, RATE);
     const b = layerBuses(c, c.destination);
@@ -252,7 +250,7 @@ const result = await page.evaluate(async () => {
   files['boss1-open.wav'] = wav(active(stem.openMusic));
   files['boss1-muffled.wav'] = wav(active(stem.music));
   return {
-    timeline: { pressSec: PRESS_SEC, releaseSec: +releaseSec.toFixed(3), depletedSec: +endSec.toFixed(3), seqSec: +seqSec.toFixed(3), voice: VOICE_URLS[0], shoutAfterPressSec, fireIntervalMs, volleys },
+    timeline: { pressSec: PRESS_SEC, releaseSec: +releaseSec.toFixed(3), depletedSec: +endSec.toFixed(3), seqSec: +seqSec.toFixed(3), voice: VOICE_URLS[0], cutInSec, fireIntervalMs, volleys },
     tickStartsAfterReleaseMs: tickStarts.map((s) => Math.round((s - releaseSec) * 1000)),
     sfx,
     voice: stats(slice(stem.voice, lineAtSec, lineAtSec + lineSec)),

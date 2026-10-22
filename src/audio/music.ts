@@ -60,7 +60,6 @@ export function openLowpass(ctx: BaseAudioContext): BiquadFilterNode {
   return f;
 }
 
-// null opens the filter all the way, where it passes the music untouched.
 export function lowpassMusic(hz: number | null, sec: number): void {
   if (!lowpass) return;
   const f = lowpass.frequency;

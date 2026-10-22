@@ -4,7 +4,6 @@ import { humAt, tickHz, ticksCrossed, TRANS_AM_SOUND } from './transAmLayers';
 
 const FRAME_MS = 1000 / 60;
 
-// Every tick a full active time plays, frame by frame, with the msLeft it fired at.
 function ticksOver(frameMs: number): { index: number; msLeft: number }[] {
   const fired: { index: number; msLeft: number }[] = [];
   let t: TransAm = { kind: 'active', msLeft: TRANS_AM.activeMs };

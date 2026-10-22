@@ -4,8 +4,6 @@ export type Layer = 'release' | 'hum' | 'shot' | 'tick';
 
 type Span = { readonly from: number; readonly to: number };
 
-// Every TRANS-AM sound past the press. Each layer plays into its own bus at `level`, beside the sfx and not through
-// the music bus, so M leaves it alone. The release and the hum start on the release frame, after the cut-in.
 export const TRANS_AM_SOUND = {
   level: { release: 0.09, hum: 0.0145, shot: 0.02, tick: 0.09 } satisfies Record<Layer, number>,
   release: {
@@ -17,7 +15,6 @@ export const TRANS_AM_SOUND = {
     fadeInMs: 450,
     fadeOutSec: 0.25,
     hz: { from: 55, to: 82.41 },
-    // A sub saw for weight and a detuned one an octave up, which small speakers can still play.
     saws: [
       { ratio: 1, cents: 0 },
       { ratio: 2, cents: 14 },
@@ -26,13 +23,11 @@ export const TRANS_AM_SOUND = {
     q: 6,
     tremoloHz: { from: 9, to: 16 },
     tremoloDepth: 0.4,
-    // How fast the oscillators chase each frame's target, so the 60 fps steps blur into a glide.
-    glideSec: 0.03,
+    frameSmoothSec: 0.03,
   },
   shot: { hz: { from: 2600, to: 1200 }, sec: 0.03 },
-  // Ticks count down the active time, closer together and higher as it runs out.
   tick: { atMsLeft: [1500, 1100, 750, 450, 200], hz: { from: 1320, to: 2640 }, sec: 0.06 },
-  // The music bus lowpass while TRANS-AM is active, so the music sounds slowed with the enemy bullets.
+  // Muffled so the music feels slowed along with the enemy bullets (TRANS_AM.enemyTimeScale).
   muffle: { cutoffHz: 650, downSec: 0.3, upSec: 0.8 },
 } as const;
 
@@ -40,21 +35,19 @@ export type HumPoint = { gain: number; hz: number; cutoffHz: number; tremoloHz: 
 
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 const lerp = ({ from, to }: Span, p: number) => from + (to - from) * p;
-// Pitch and cutoff rise on a log scale, so each second climbs the same musical interval.
-const glide = ({ from, to }: Span, p: number) => from * (to / from) ** p;
+const logLerp = ({ from, to }: Span, p: number) => from * (to / from) ** p;
 
 export function humAt(elapsedMs: number): HumPoint {
   const { hum } = TRANS_AM_SOUND;
   const p = clamp01(elapsedMs / TRANS_AM.activeMs);
-  return { gain: clamp01(elapsedMs / hum.fadeInMs), hz: glide(hum.hz, p), cutoffHz: glide(hum.cutoffHz, p), tremoloHz: lerp(hum.tremoloHz, p) };
+  return { gain: clamp01(elapsedMs / hum.fadeInMs), hz: logLerp(hum.hz, p), cutoffHz: logLerp(hum.cutoffHz, p), tremoloHz: lerp(hum.tremoloHz, p) };
 }
 
-// Indexes of the ticks due when the active time drops from prevMsLeft to msLeft.
 export function ticksCrossed(prevMsLeft: number, msLeft: number): number[] {
   return TRANS_AM_SOUND.tick.atMsLeft.flatMap((at, i) => (prevMsLeft > at && msLeft <= at ? [i] : []));
 }
 
 export function tickHz(index: number): number {
   const { atMsLeft, hz } = TRANS_AM_SOUND.tick;
-  return glide(hz, index / (atMsLeft.length - 1));
+  return logLerp(hz, index / (atMsLeft.length - 1));
 }
