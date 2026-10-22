@@ -5,6 +5,7 @@ export type Song = {
   id: ScoreId;
   stepSec: number;
   steps: number;
+  loop: boolean;
   channels: { channel: Channel; byStep: readonly (NoteEvent | undefined)[] }[];
 };
 
@@ -17,6 +18,7 @@ export function compile(id: ScoreId, track: Track = TRACKS[id]): Song {
     id,
     stepSec: 60 / track.bpm / track.stepsPerBeat,
     steps,
+    loop: track.loop,
     channels: track.channels.map((channel) => {
       const byStep: (NoteEvent | undefined)[] = new Array(steps);
       for (const e of parseBars(channel.bars, stepsPerBar)) byStep[e.step] = e;

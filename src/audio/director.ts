@@ -1,12 +1,20 @@
+import type { RunPhase } from '../core/run';
 import type { BossId, FormIndex } from '../core/stages';
 import type { BossFight } from '../game/boss';
-import type { FileId, ScoreId } from './tracks';
+import type { FileId, JingleId, ScoreId } from './tracks';
 
 export type Cue = ScoreId | { file: FileId; fallback: ScoreId };
 export type BossView = Pick<BossFight, 'id' | 'form' | 'stanceKind'>;
+// phase is where the run is heading: 'playing' while the stage is fought, then the phase its ending leads to.
+export type StageMoment = { stage: number; boss: BossView | null; phase: RunPhase['kind'] };
 export type ReadyFile = { status: 'ready'; url: string; buffer: AudioBuffer; gain: number };
 export type FileLoad = { status: 'idle' | 'loading' } | ReadyFile | { status: 'failed'; tried: readonly string[] };
 export type Source = { kind: 'score'; id: ScoreId } | { kind: 'file'; id: FileId; file: ReadyFile } | { kind: 'silence' } | { kind: 'holdWhileLoading' };
+
+// One track per act of the journey to the Void Empress. Boss stages fight to their boss instead.
+export const WAVE_MUSIC: Readonly<Partial<Record<number, ScoreId>>> = { 1: 'act1', 2: 'act1', 3: 'act2', 4: 'act2', 6: 'act3', 7: 'act3', 8: 'act4', 9: 'act4' };
+
+const ENDING_JINGLE: Record<RunPhase['kind'], JingleId | null> = { playing: null, shop: 'clear', victory: 'victory', defeat: 'defeat' };
 
 const BOSS_MUSIC: Record<BossId, Record<FormIndex, Cue>> = {
   crimsonSeraph: ['boss1', 'boss2'],
@@ -16,8 +24,12 @@ const BOSS_MUSIC: Record<BossId, Record<FormIndex, Cue>> = {
   ],
 };
 
-export function cueFor(boss: BossView | null): Cue | null {
-  if (!boss) return 'normal';
+// An ending stage asks for its jingle, which ducks whatever was playing. On a boss stage the ending comes in the
+// frame she dies, so the jingle replaces the silence her death asks for.
+export function cueFor({ stage, boss, phase }: StageMoment): Cue | null {
+  const jingle = ENDING_JINGLE[phase];
+  if (jingle) return jingle;
+  if (!boss) return WAVE_MUSIC[stage] ?? 'normal';
   if (boss.stanceKind === 'dead') return null;
   return BOSS_MUSIC[boss.id][secondFormStarted(boss) ? 1 : 0];
 }

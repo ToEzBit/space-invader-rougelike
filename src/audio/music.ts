@@ -2,20 +2,38 @@ import { onAudio } from './context';
 import { sourceFor, type Cue, type FileLoad, type ReadyFile, type Source } from './director';
 import { gainToMatch } from './loudness';
 import { compile, playStep, type Song } from './synth';
-import { FILE_TRACKS, type FileId, type ScoreId, type TrackId } from './tracks';
+import { FILE_TRACKS, TRACKS, type FileId, type JingleId, type ScoreId, type TrackId } from './tracks';
 
 export const MUSIC_VOLUME = 0.038;
 // Boss fights play louder than the rest of the game, on top of the bus volume.
 const BOSS_LEVEL = 2;
-export const TRACK_LEVEL: Record<TrackId, number> = { normal: 1, act1: 1, act2: 1, act3: 1, act4: 1, shop: 1, boss1: BOSS_LEVEL, boss2: BOSS_LEVEL, empress: BOSS_LEVEL };
+export const TRACK_LEVEL: Record<TrackId, number> = {
+  normal: 1,
+  act1: 1,
+  act2: 1,
+  act3: 1,
+  act4: 1,
+  shop: 1,
+  clear: 1,
+  victory: 1,
+  defeat: 1,
+  boss1: BOSS_LEVEL,
+  boss2: BOSS_LEVEL,
+  empress: BOSS_LEVEL,
+};
 const FADE_SEC = 0.8;
+// A jingle cuts in over a quick duck rather than the crossfade, so its first notes land on a clear bus.
+const DUCK_SEC = 0.12;
+// How long a jingle's last drum hits and releases sound past its final step.
+const RING_SEC = 0.2;
 const MUTE_SEC = 0.08;
 const LOOKAHEAD_SEC = 0.2;
 const TICK_MS = 25;
 const MUTED_KEY = 'space-invader.musicMuted';
 
 type Playing =
-  | { kind: 'score'; id: ScoreId; song: Song; gain: GainNode; t0: number; next: number; until: number }
+  // endsAt is when a jingle has rung out; a looping score never ends.
+  | { kind: 'score'; id: ScoreId; song: Song; gain: GainNode; t0: number; next: number; until: number; endsAt: number }
   | { kind: 'file'; id: FileId; url: string; source: AudioBufferSourceNode; gain: GainNode; until: number };
 
 const songs = new Map<ScoreId, Song>();
@@ -27,6 +45,7 @@ let bus: GainNode | null = null;
 let lowpass: BiquadFilterNode | null = null;
 let muted = loadMuted();
 let plays = 0;
+const jingles: Record<JingleId, number> = { clear: 0, victory: 0, defeat: 0 };
 
 onAudio((ctx) => {
   bus = ctx.createGain();
@@ -89,6 +108,9 @@ export function musicState(): Record<string, unknown> {
     cutoffHz: lowpass?.frequency.value ?? null,
     step: current?.kind === 'score' ? current.next : null,
     plays,
+    jingles: { ...jingles },
+    ringing: bus ? ([current, ...fading].find((p) => p && ringing(p, bus!.context.currentTime))?.id ?? null) : null,
+    fadingGain: fading.filter((p) => p.kind === 'file' || p.song.loop).reduce((sum, p) => sum + p.gain.gain.value, 0),
   };
 }
 
@@ -135,44 +157,64 @@ function scheduleAheadOfAudioClock(ctx: AudioContext): void {
   });
 }
 
+// A jingle is never cut short: it rings out, and whatever is wanted next starts once it has.
 function crossfade(ctx: AudioContext, now: number, target: Exclude<Source, { kind: 'holdWhileLoading' }>): void {
+  const jingle = target.kind === 'score' && !TRACKS[target.id].loop;
   if (current) {
-    const g = current.gain.gain;
-    g.cancelScheduledValues(now);
-    g.setValueAtTime(g.value, now);
-    g.linearRampToValueAtTime(0, now + FADE_SEC);
-    current.until = now + FADE_SEC;
-    if (current.kind === 'file') current.source.stop(current.until);
+    if (ringing(current, now)) current.until = current.endsAt;
+    else fadeOut(current, now, jingle ? DUCK_SEC : FADE_SEC);
     fading.push(current);
     current = null;
   }
+  if (jingle) {
+    for (const p of fading) if (!ringing(p, now)) fadeOut(p, now, DUCK_SEC);
+    lowpassMusic(null, DUCK_SEC);
+  }
   if (target.kind === 'silence' || !bus) return;
+  const at = Math.max(now, ...fading.filter((p) => ringing(p, now)).map((p) => p.endsAt));
   const gain = ctx.createGain();
+  gain.gain.value = 0;
   gain.connect(bus);
-  current = target.kind === 'file' ? startFile(ctx, now, target.id, target.file, gain) : startScore(now, target.id, gain);
+  current = target.kind === 'file' ? startFile(ctx, at, target.id, target.file, gain) : startScore(at, target.id, gain);
   plays++;
+  if (current.kind === 'score' && !current.song.loop) jingles[current.id as JingleId]++;
 }
 
-function startScore(now: number, id: ScoreId, gain: GainNode): Playing {
+function ringing(p: Playing, now: number): p is Extract<Playing, { kind: 'score' }> {
+  return p.kind === 'score' && p.endsAt !== Infinity && p.endsAt > now;
+}
+
+function fadeOut(p: Playing, now: number, sec: number): void {
+  const g = p.gain.gain;
+  g.cancelScheduledValues(now);
+  g.setValueAtTime(g.value, now);
+  g.linearRampToValueAtTime(0, now + sec);
+  p.until = Math.min(p.until, now + sec);
+  if (p.kind === 'file') p.source.stop(p.until);
+}
+
+function startScore(at: number, id: ScoreId, gain: GainNode): Playing {
   let song = songs.get(id);
   if (!song) songs.set(id, (song = compile(id)));
-  fadeIn(gain, now, TRACK_LEVEL[id]);
-  return { kind: 'score', id, song, gain, t0: now + 0.05, next: 0, until: Infinity };
+  const t0 = at + 0.05;
+  if (song.loop) fadeIn(gain, at, TRACK_LEVEL[id]);
+  else gain.gain.setValueAtTime(TRACK_LEVEL[id], at);
+  return { kind: 'score', id, song, gain, t0, next: 0, until: Infinity, endsAt: song.loop ? Infinity : t0 + song.steps * song.stepSec + RING_SEC };
 }
 
-function startFile(ctx: AudioContext, now: number, id: FileId, file: ReadyFile, gain: GainNode): Playing {
+function startFile(ctx: AudioContext, at: number, id: FileId, file: ReadyFile, gain: GainNode): Playing {
   const source = ctx.createBufferSource();
   source.buffer = file.buffer;
   source.loop = true;
   source.connect(gain);
-  source.start(now);
-  fadeIn(gain, now, file.gain * TRACK_LEVEL[id]);
+  source.start(at);
+  fadeIn(gain, at, file.gain * TRACK_LEVEL[id]);
   return { kind: 'file', id, url: file.url, source, gain, until: Infinity };
 }
 
-function fadeIn(gain: GainNode, now: number, level: number): void {
-  gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(level, now + FADE_SEC);
+function fadeIn(gain: GainNode, at: number, level: number): void {
+  gain.gain.setValueAtTime(0, at);
+  gain.gain.linearRampToValueAtTime(level, at + FADE_SEC);
 }
 
 async function load(ctx: AudioContext, id: FileId): Promise<void> {
@@ -208,6 +250,7 @@ async function decoded(ctx: AudioContext, url: string): Promise<AudioBuffer | st
 function schedule(ctx: AudioContext, p: Extract<Playing, { kind: 'score' }>, now: number): void {
   const { stepSec } = p.song;
   const horizon = Math.min(now + LOOKAHEAD_SEC, p.until);
+  const last = p.song.loop ? Infinity : p.song.steps;
   p.next = Math.max(p.next, Math.ceil((now - p.t0) / stepSec));
-  for (let at = p.t0 + p.next * stepSec; at < horizon; at = p.t0 + ++p.next * stepSec) playStep(ctx, p.gain, p.song, p.next, at);
+  for (let at = p.t0 + p.next * stepSec; at < horizon && p.next < last; at = p.t0 + ++p.next * stepSec) playStep(ctx, p.gain, p.song, p.next, at);
 }

@@ -30,7 +30,7 @@ type Life =
   | { kind: 'fighting' }
   | { kind: 'cutIn'; elapsedMs: number; totalMs: number; speech: Speech | null }
   | { kind: 'ending'; msLeft: number; next: RunState }
-  | { kind: 'leaving' };
+  | { kind: 'leaving'; next: RunState };
 
 export class StageScene extends Phaser.Scene {
   private run!: RunState;
@@ -184,7 +184,7 @@ export class StageScene extends Phaser.Scene {
       case 'ending':
         this.world.update(dtMs, { ...input, dash: false }, false);
         if ((life.msLeft -= dtMs) <= 0) {
-          this.setLife({ kind: 'leaving' });
+          this.setLife({ kind: 'leaving', next: life.next });
           goTo(this, life.next);
         }
         break;
@@ -192,7 +192,8 @@ export class StageScene extends Phaser.Scene {
         break;
     }
     if (input.transAm) this.pressTransAm();
-    want(cueFor(this.encounter.boss));
+    const heading = this.life.kind === 'ending' || this.life.kind === 'leaving' ? this.life.next.phase.kind : this.run.phase.kind;
+    want(cueFor({ stage: this.run.stage, boss: this.encounter.boss, phase: heading }));
     this.hud.update();
   }
 

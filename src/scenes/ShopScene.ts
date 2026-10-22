@@ -76,7 +76,7 @@ export class ShopScene extends Phaser.Scene {
 
   create(): void {
     fitCamera(this);
-    want('normal');
+    want('shop');
     this.leaving = false;
     this.backdrop = new Backdrop(this);
     label(this, VIEW.w / 2, 12, 'UPGRADE SHOP', { size: 26, bold: true, color: css(COLORS.yellow), align: 'center', stroke: '#5a22b0' });

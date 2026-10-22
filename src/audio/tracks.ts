@@ -1,6 +1,7 @@
 import { fillRhythm, octaveDown, octaveUp, TOKEN } from './score';
 
-export type ScoreId = 'normal' | 'act1' | 'act2' | 'act3' | 'act4' | 'shop' | 'boss1' | 'boss2';
+export type JingleId = 'clear' | 'victory' | 'defeat';
+export type ScoreId = 'normal' | 'act1' | 'act2' | 'act3' | 'act4' | 'shop' | 'boss1' | 'boss2' | JingleId;
 export type FileId = 'empress';
 export type TrackId = ScoreId | FileId;
 export type Voice = 'pulse50' | 'vibrato' | 'pulse25' | 'pulse12' | 'triangle' | 'kick' | 'snare' | 'hat';
@@ -643,7 +644,73 @@ const SHOP: Track = {
   ],
 };
 
-export const TRACKS: Record<ScoreId, Track> = { normal: NORMAL, act1: ACT1, act2: ACT2, act3: ACT3, act4: ACT4, shop: SHOP, boss1: BOSS1, boss2: BOSS2 };
+const J = {
+  F: chord('F2', 'F4', 'A4', 'C5'),
+  C: chord('C3', 'E4', 'G4', 'C5'),
+  Ab: chord('Ab2', 'Eb4', 'Ab4', 'C5'),
+  Bb: chord('Bb2', 'D4', 'F4', 'Bb4'),
+  Dm: chord('D3', 'D4', 'F4', 'A4'),
+  Am: chord('A2', 'E4', 'A4', 'C5'),
+};
+
+// In F major, so it resolves into the shop that follows.
+const CLEAR: Track = {
+  title: 'Stage Clear',
+  bpm: 160,
+  stepsPerBeat: 4,
+  beatsPerBar: 4,
+  key: { tonic: 'F', mode: 'major', borrowed: [] },
+  chords: [J.F],
+  loop: false,
+  channels: [
+    { name: 'lead', voice: 'pulse25', gain: 0.3, bars: ['C5 F5 A5 C6 - . Bb5 - C6 - - . F6 - - -'] },
+    { name: 'counter', voice: 'pulse12', gain: 0.2, bars: ['A4 C5 F5 A5 - . G5 - E5 - - . A5 - - -'] },
+    { name: 'stabs', voice: 'pulse50', gain: 0.06, bars: ['F4+A4+C5 - . . . . Bb4+D5+F5 - C5+E5+G5 - - . F4+A4+C5 - - -'] },
+    { name: 'bass', voice: 'triangle', gain: 0.36, bars: ['F2 . . . F3 . Bb2 - C3 - - . F2 - - -'] },
+    { name: 'kick', voice: 'kick', gain: 0.45, bars: ['X . . . . . x . x . . . X . . .'] },
+    { name: 'snare', voice: 'snare', gain: 0.36, bars: ['. . . . . . . . . . x x X . . .'] },
+    { name: 'hat', voice: 'hat', gain: 0.14, bars: ['x . x . x . x . x . x . X . . .'] },
+  ],
+};
+
+// In C major, the relative major of the A minor title theme that plays after it. Two-beat bars give the
+// closing Ab and Bb a bar each before the last C.
+const VICTORY: Track = {
+  title: 'Victory Fanfare',
+  bpm: 168,
+  stepsPerBeat: 4,
+  beatsPerBar: 2,
+  key: { tonic: 'C', mode: 'major', borrowed: [J.Ab, J.Bb] },
+  chords: [J.C, J.C, J.Ab, J.Bb, J.C],
+  loop: false,
+  channels: [
+    { name: 'lead', voice: 'pulse25', gain: 0.3, bars: ['G4 C5 E5 G5 - . E5 G5', 'C6 - - - - . G5 .', 'Eb5 . Ab5 . C6 - - .', 'F5 . Bb5 . D6 - - .', 'C6 - - - - - - -'] },
+    { name: 'counter', voice: 'pulse12', gain: 0.2, bars: ['E4 G4 C5 E5 - . C5 E5', 'G5 - - - - . E5 .', 'C5 . Eb5 . Ab5 - - .', 'D5 . F5 . Bb5 - - .', 'E5+G5 - - - - - - -'] },
+    { name: 'bass', voice: 'triangle', gain: 0.36, bars: ['C3 . C3 . C3 . G2 .', 'C3 . . . G2 . C3 .', 'Ab2 . Ab2 . Ab2 . Ab2 .', 'Bb2 . Bb2 . Bb2 . Bb2 .', 'C3 - - - - - - -'] },
+    { name: 'kick', voice: 'kick', gain: 0.45, bars: ['X . . . x . . .', ...times(3, 'x . . . x . . .'), 'X . . . . . . .'] },
+    { name: 'snare', voice: 'snare', gain: 0.36, bars: [...times(3, '. . . . x . . .'), 'x x x x X X X X', 'X . . . . . . .'] },
+    { name: 'hat', voice: 'hat', gain: 0.14, bars: [...times(4, 'x . x . x . x .'), 'X . . . . . . .'] },
+  ],
+};
+
+// In A minor, falling from D minor into the A minor title theme that plays after it.
+const DEFEAT: Track = {
+  title: 'Ship Down',
+  bpm: 120,
+  stepsPerBeat: 4,
+  beatsPerBar: 2,
+  key: { tonic: 'A', mode: 'minor', borrowed: [] },
+  chords: [J.Dm, J.Am],
+  loop: false,
+  channels: [
+    { name: 'lead', voice: 'vibrato', gain: 0.24, bars: ['F5 - - E5 D5 - - .', 'C5 - B4 - A4 - - -'] },
+    { name: 'counter', voice: 'pulse12', gain: 0.18, bars: ['A4 - - G4 F4 - - .', 'E4 - D4 - C4+E4 - - -'] },
+    { name: 'bass', voice: 'triangle', gain: 0.36, bars: ['D3 - - - - - - -', 'A2 - - - - - - -'] },
+    { name: 'kick', voice: 'kick', gain: 0.4, bars: ['x . . . . . . .', 'x . . . . . . .'] },
+  ],
+};
+
+export const TRACKS: Record<ScoreId, Track> = { normal: NORMAL, act1: ACT1, act2: ACT2, act3: ACT3, act4: ACT4, shop: SHOP, boss1: BOSS1, boss2: BOSS2, clear: CLEAR, victory: VICTORY, defeat: DEFEAT };
 
 const MUSIC_DIR = `${import.meta.env.BASE_URL}music/`;
 
