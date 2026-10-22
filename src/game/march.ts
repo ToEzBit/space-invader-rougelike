@@ -21,7 +21,8 @@ export function frontRank<T extends { col: number; row: number }>(members: reado
 
 const OFFSCREEN_PX = 24;
 
-// A diving enemy rejoins its slot from above the top edge once it has flown off the screen.
+// A diving enemy rejoins its slot from above the top edge once it has flown off the screen. Any edge counts: one
+// below the ship dives upward at it, and the sideways homing can carry it out past either side.
 export function diveOver(at: Point): boolean {
-  return at.y > VIEW.h + OFFSCREEN_PX;
+  return at.y > VIEW.h + OFFSCREEN_PX || at.y < -OFFSCREEN_PX || at.x < -OFFSCREEN_PX || at.x > VIEW.w + OFFSCREEN_PX;
 }

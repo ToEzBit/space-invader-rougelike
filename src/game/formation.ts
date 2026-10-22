@@ -128,7 +128,7 @@ export class Formation implements Encounter {
         s.y += mode.vy * dt;
         s.setRotation(Math.atan2(-mode.vx, mode.vy) * 0.6);
         if (diveOver(s)) {
-          s.y = -24;
+          s.setPosition(Math.min(VIEW.w, Math.max(0, s.x)), -24);
           m.mode = { kind: 'returning' };
         }
         return;
