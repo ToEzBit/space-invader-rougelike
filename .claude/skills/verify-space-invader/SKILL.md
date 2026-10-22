@@ -83,7 +83,7 @@ Renders a full TRANS-AM offline, from the press through `powerDown`, over `boss1
 .claude/skills/verify-space-invader/scripts/sfx.mjs <run-id>
 ```
 
-Renders every sound effect offline, each boss cast at each boss's pitch, the laser beam at its base and longest duration and 3 s of the gun at its fastest fire rate, to `.verify/<run-id>/evidence/sfx-render/` with peak-normalized previews. It prints each one's length, peak and loudness against `pop` and the boss music. It fails when a sound is silent, could clip over the boss music, outlasts its recipe or beam, or when the gun shot is not under `pop`. It is not part of `all`. See `features/sfx.md`.
+Renders every sound effect offline, each boss cast at each boss's pitch, the laser beam at its base and longest duration and 3 s of the gun at its fastest fire rate, to `.verify/<run-id>/evidence/sfx-render/` with peak-normalized previews. It prints each one's length, peak and loudness against `pop` and the boss music. It fails when a sound is silent, could clip over the boss music, outlasts its recipe or beam, when the gun shot is not under `pop`, or when a boss cast does not clear the boss music by 1.5 times. It is not part of `all`. See `features/sfx.md`.
 
 ## Music render
 

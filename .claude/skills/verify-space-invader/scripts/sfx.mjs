@@ -164,6 +164,8 @@ const { renders, tracks } = result;
 const failures = errors.map((e) => `console error: ${e}`);
 const [loudTrack, { peak: trackPeak }] = Object.entries(tracks).sort(([, a], [, b]) => b.peak - a.peak)[0];
 const pop = renders.pop;
+const bossLoud = Math.max(...Object.values(tracks).map((t) => t.loud95));
+const OVER_BOSS_MUSIC = 1.5;
 const report = { tracks, loudestBossTrack: loudTrack, renders: {} };
 console.log(`${'name'.padEnd(26)} ${'sec'.padStart(6)} ${'peak'.padStart(7)} ${'ownRms'.padStart(7)} ${'loud95'.padStart(7)} ${'loudMax'.padStart(7)}  vs pop loudMax  +${loudTrack} peak`);
 for (const [name, r] of Object.entries(renders)) {
@@ -179,6 +181,7 @@ for (const [name, r] of Object.entries(renders)) {
   if (r.peak < 1e-3) failures.push(`${name} renders silent (peak ${r.peak})`);
   if (headroom >= 1) failures.push(`${name}: peak ${r.peak} plus ${loudTrack}'s ${trackPeak} can clip`);
   if (r.kind === 'sound' && r.sec * 1000 > r.recipeMs + 20) failures.push(`${name} sounds for ${r.sec}s, past its recipe's ${r.recipeMs} ms`);
+  if (/^cast/.test(name) && r.loudMax < OVER_BOSS_MUSIC * bossLoud) failures.push(`${name}: loudMax ${r.loudMax} is not ${OVER_BOSS_MUSIC} times the boss music's loud95 ${bossLoud}, and it only plays over that music`);
   if (r.kind === 'beam' && Math.abs(r.sec * 1000 - r.durationMs) > 120) failures.push(`${name} sounds for ${r.sec}s, not with its ${r.durationMs} ms beam`);
 }
 const shot = renders.shot;

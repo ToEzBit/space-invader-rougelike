@@ -81,14 +81,14 @@ export const SOUNDS: Record<Sound, Recipe> = {
     minGapMs: 200,
   },
   castLight: {
-    layers: [noise('bandpass', 420, 2000, 2.2, 300, 0.42, { attackMs: 140 }), tone('triangle', 330, 156, 260, 0.05, { attackMs: 30 })],
+    layers: [noise('bandpass', 420, 2000, 2.2, 300, 0.9, { attackMs: 140 }), tone('triangle', 330, 156, 260, 0.1, { attackMs: 30 })],
     minGapMs: 150,
   },
   castHeavy: {
     layers: [
-      noise('bandpass', 260, 1700, 1.6, 520, 0.5, { attackMs: 200 }),
-      tone('sawtooth', 98, 49, 480, 0.04, { attackMs: 60 }),
-      tone('triangle', 196, 98, 440, 0.05, { attackMs: 40 }),
+      noise('bandpass', 260, 1700, 1.6, 520, 0.75, { attackMs: 200 }),
+      tone('sawtooth', 98, 49, 480, 0.06, { attackMs: 60 }),
+      tone('triangle', 196, 98, 440, 0.075, { attackMs: 40 }),
     ],
     minGapMs: 150,
   },

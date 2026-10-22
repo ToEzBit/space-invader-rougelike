@@ -52,6 +52,7 @@ It prints each one's length, peak, RMS over its own length, `loud95` (from `src/
 - A sound rings on more than 20 ms past its recipe.
 - A beam sounds for a length more than 120 ms off its beam.
 - `shot`'s `loudMax` or peak is not under `pop`'s.
+- A cast sound, at either boss's pitch, has a `loudMax` under 1.5 times the loudest boss score's `loud95`. Casts only ever play over boss music, and the voice line clears the same bar.
 
 ## Gotchas
 
