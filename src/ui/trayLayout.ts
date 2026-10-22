@@ -8,6 +8,8 @@ export const ITEM_TRAY_RIGHT = VIEW.w - TRAY.x;
 const BAND_SCALE_MAX = 1.4;
 // Room left above and below the rows inside the band.
 const BAND_SLACK = 12;
+// Two rows sit farther apart than two slots side by side, so a skill's hint below it clears the count badge above an item.
+const ROW_PITCH = TRAY.gap + 18;
 
 export type TrayPlacement = { scale: number; skills: Point[]; items: Point[] };
 
@@ -17,13 +19,13 @@ export function placeTray(skills: number, items: number, band: number | null): T
   const inWorld = row(skills, items, 1, TRAY.y, TRAY.y);
   if (band === null) return inWorld;
   const fit = (rows: number, perRow: number) =>
-    Math.min(BAND_SCALE_MAX, VIEW.w / (2 * TRAY.x + (perRow - 1) * TRAY.gap), (band - BAND_SLACK) / (rows * TRAY.gap));
+    Math.min(BAND_SCALE_MAX, VIEW.w / (2 * TRAY.x + (perRow - 1) * TRAY.gap), (band - BAND_SLACK) / (TRAY.gap + (rows - 1) * ROW_PITCH));
   const oneRow = fit(1, skills + items);
   const twoRows = fit(2, Math.max(skills, items));
   const scale = Math.max(oneRow, twoRows);
   if (scale < 1) return inWorld;
   const mid = VIEW.h + band / 2;
-  const lift = oneRow >= twoRows ? 0 : (scale * TRAY.gap) / 2;
+  const lift = oneRow >= twoRows ? 0 : (scale * ROW_PITCH) / 2;
   return row(skills, items, scale, mid - lift, mid + lift);
 }
 
