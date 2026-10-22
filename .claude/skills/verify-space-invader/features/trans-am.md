@@ -1,13 +1,13 @@
 # TRANS-AM
 
-The player's ultimate. A gauge from 0 to 100 fills while charging: +1.5 per enemy bullet grazed (one that passes inside the ship's core radius plus `grazePadPx` and leaves without touching the core, shown by a spark between bullet and ship), +2 per kill, and +3 per 1% of the boss's full HP removed. A landed hit costs 20. `Space` on a full gauge while fighting starts six seconds of TRANS-AM: a pink shockwave clears enemy bullets near the ship, a `TRANS-AM` callout shows, and the ship glows red-pink with afterimages and a red vignette. Enemy bullets, boss beams and the Black Hole's pull on bullets run at half speed and turn pale blue. The ship fires twice as fast, pierces one more foe and moves x1.25. Four depleted seconds follow, with a grey ship firing at 60% rate and moving x0.8, before the gauge charges again from 0. The gauge carries to the next stage, and a stage that ends while active or depleted carries 0. Every number lives in `TRANS_AM` in `src/core/transAm.ts`.
+The player's ultimate. A gauge from 0 to 100 fills while charging: +1.5 per enemy bullet grazed (one that passes inside the ship's core radius plus `grazePadPx` and leaves without touching the core, shown by a spark between bullet and ship), +2 per kill, and +3 per 1% of the boss's full HP removed. A landed hit costs 20. `Space` on a full gauge while fighting plays a one-second cut-in with the stage frozen (see [cut-in](./cut-in.md)), then six seconds of TRANS-AM: a pink shockwave clears enemy bullets near the ship and the ship glows red-pink with afterimages and a red vignette. Enemy bullets, boss beams and the Black Hole's pull on bullets run at half speed and turn pale blue. The ship fires twice as fast, pierces one more foe and moves x1.25. Four depleted seconds follow, with a grey ship firing at 60% rate and moving x0.8, before the gauge charges again from 0. The gauge carries to the next stage, and a stage that ends while active or depleted carries 0. Every number lives in `TRANS_AM` in `src/core/transAm.ts`.
 
 ## Sub-features
 
 - `refused` keeps the gauge charging when `Space` is pressed before it is full, shakes the slot red and floats `เกจยังไม่เต็ม`.
 - `gauge-income` adds grazes, kills and boss damage and takes `hitLoss` per landed hit, never for one the i-frames absorb.
-- `activate` turns `Space` on a full gauge into `active` with the active stats.
-- `release` clears enemy bullets within `clearRadiusPx` of the ship over the first `releaseMs`.
+- `activate` turns `Space` on a full gauge into `active` with the active stats. The cut-in holds the active time at `activeMs` until it ends.
+- `release` clears enemy bullets within `clearRadiusPx` of the ship over the first `releaseMs`, after the cut-in.
 - `bullet-time` halves enemy bullet speed while active.
 - `depleted` follows after `activeMs` with the depleted stats, then `charging` at 0 after `depletedMs`.
 - `carry` keeps the gauge through the real shop.

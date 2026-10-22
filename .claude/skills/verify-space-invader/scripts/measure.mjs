@@ -43,6 +43,8 @@ const CELLS = {
 const WEAVE_PX = 110;
 const WALLS = { left: 50, right: 430 };
 const MAX_GAME_MS = 400_000;
+// The TRANS-AM cut-in freezes the fight without ending it.
+const FIGHTING = ['fighting', 'cutIn'];
 
 const selected = names.includes('all') ? Object.keys(CELLS) : names;
 if (!runId || selected.length === 0 || selected.some((n) => !CELLS[n])) {
@@ -71,7 +73,7 @@ async function fight(page, cell) {
   let last = s;
   // The tally when the second form first shows, so each form's pressure can be read on its own.
   let split = null;
-  while (s.life === 'fighting' && s.clock.fightMs < MAX_GAME_MS) {
+  while (FIGHTING.includes(s.life) && s.clock.fightMs < MAX_GAME_MS) {
     if (!split && s.boss?.form === 1) split = { ms: s.clock.fightMs, hits: s.tally.hits, contacts: s.tally.contacts };
     const x = s.player.x;
     const bx = s.boss?.x ?? 240;
@@ -87,7 +89,7 @@ async function fight(page, cell) {
     if (ta) await ta.step(last, s);
   }
   await page.keyboard.up(key);
-  const end = s.life === 'fighting' ? s : last;
+  const end = FIGHTING.includes(s.life) ? s : last;
   const { clock, tally } = end;
   const min = clock.fightMs / 60000;
   const shotDealt = (tally.dealt.bullet ?? 0) + (tally.dealt.missile ?? 0);
@@ -101,7 +103,7 @@ async function fight(page, cell) {
     },
   };
   return {
-    killed: s.life !== 'fighting',
+    killed: !FIGHTING.includes(s.life),
     ttkS: +(clock.fightMs / 1000).toFixed(1),
     wallS: +((Date.now() - wallStart) / 1000).toFixed(1),
     bossMaxHp: end.boss?.maxHp,

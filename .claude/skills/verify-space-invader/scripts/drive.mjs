@@ -764,6 +764,123 @@ const JOURNEYS = {
     await h.game('resume');
   },
 
+  async 'cut-in'(h) {
+    const [TA, CUT] = await (async () => {
+      await h.openTitle();
+      return h.page.evaluate(async () => {
+        const [t, c] = await Promise.all([import('/src/core/transAm.ts'), import('/src/core/cutIn.ts')]);
+        return [t.TRANS_AM, { ...c.CUT_IN, total: c.CUT_IN_MS }];
+      });
+    })();
+    const bandAt = CUT.dimMs;
+    const slashAt = CUT.dimMs + CUT.bandMs;
+    // Polls every animation frame from inside the page, so a 100ms beat cannot slip between two reads. Armed before
+    // the key press it waits for.
+    const frameWhen = (pred, pause) =>
+      h.page.evaluate(
+        ([src, pause]) =>
+          new Promise((resolve, reject) => {
+            const test = new Function('s', `return (${src})`);
+            const until = performance.now() + 5000;
+            const tick = () => {
+              const s = window.__game.state();
+              if (test(s)) {
+                const shots = window.__game.shots();
+                if (pause) window.__game.pause();
+                return resolve({ s, shots });
+              }
+              if (performance.now() > until) return reject(new Error(`timed out waiting for ${src}`));
+              requestAnimationFrame(tick);
+            };
+            tick();
+          }),
+        [pred, pause],
+      );
+    const shotAt = async (name, pred) => {
+      const frame = await frameWhen(pred, true);
+      await h.shot(name);
+      h.log.steps.push({ action: `paused at ${pred}`, cutInMs: frame.s.cutInMs, life: frame.s.life, transAm: frame.s.transAm });
+      await h.game('resume');
+      return frame;
+    };
+    const nearShip = ({ s, shots }, r) => shots.filter((b) => Math.hypot(b.x - s.player.x, b.y - s.player.y) <= r);
+    const frozenAcross = (a, b) => ({
+      shots: JSON.stringify(a.shots) === JSON.stringify(b.shots),
+      foes: JSON.stringify(a.s.foeSpots) === JSON.stringify(b.s.foeSpots),
+      player: a.s.player.x === b.s.player.x && a.s.player.y === b.s.player.y,
+      transAm: JSON.stringify(a.s.transAm) === JSON.stringify(b.s.transAm),
+      fired: a.s.tally.fired === b.s.tally.fired,
+      fightMs: a.s.clock.fightMs === b.s.clock.fightMs,
+      buffs: JSON.stringify(a.s.buffs) === JSON.stringify(b.s.buffs),
+      boss: JSON.stringify(a.s.boss) === JSON.stringify(b.s.boss),
+    });
+
+    await h.startAt(4, {}, 0, { nitro: 1 });
+    await h.game('god', true);
+    await h.game('transAmGauge', TA.gaugeMax);
+    let pre;
+    for (const until = Date.now() + 15000; Date.now() < until; await sleep(120)) {
+      pre = await h.page.evaluate(() => ({ s: window.__game.state(), shots: window.__game.shots() }));
+      if (nearShip(pre, TA.clearRadiusPx).length >= 2) break;
+    }
+    await h.game('transAmGauge', TA.gaugeMax);
+    const dimFrame = frameWhen(`s.life === 'cutIn' && s.cutInMs >= ${CUT.dimMs * 0.5}`, true);
+    await h.page.keyboard.press('Space');
+    const dim = await dimFrame;
+    await h.shot('dim');
+    await h.game('resume');
+    h.log.steps.push({ action: 'press Space with a full gauge, paused mid dim', before: { transAm: pre.s.transAm, life: pre.s.life, fightMs: pre.s.clock.fightMs }, dim: { cutInMs: dim.s.cutInMs, transAm: dim.s.transAm } });
+    h.check('Space on a full gauge starts the cut-in', dim.s.life === 'cutIn' && dim.s.cutInMs < bandAt, { life: dim.s.life, cutInMs: dim.s.cutInMs });
+    h.check('the gauge is spent and the active time waits at its full length', dim.s.transAm.kind === 'active' && dim.s.transAm.msLeft === TA.activeMs, { transAm: dim.s.transAm });
+    const pressedFightMs = dim.s.clock.fightMs;
+
+    const band = await shotAt('band-crossfade', `s.cutInMs >= ${bandAt + CUT.bandMs * 0.55}`);
+    await h.page.keyboard.press('2');
+    await h.page.keyboard.press('Space');
+    const pressed = await frameWhen('true', false);
+    h.log.steps.push({ action: 'press 2 (Nitro) and Space during the cut-in', cutInMs: pressed.s.cutInMs, items: pressed.s.items, buffs: pressed.s.buffs });
+    h.check('an item pressed during the cut-in waits', pressed.s.life === 'cutIn' && pressed.s.items.nitro === 1 && pressed.s.buffs.length === 0, { life: pressed.s.life, items: pressed.s.items, buffs: pressed.s.buffs });
+    await shotAt('eyes-red', `s.cutInMs >= ${slashAt - 30}`);
+    const slash = await shotAt('slash', `s.cutInMs >= ${slashAt + CUT.slashMs * 0.2}`);
+    await shotAt('flash', `s.cutInMs >= ${slashAt + CUT.slashMs * 0.36}`);
+    const held = frozenAcross(dim, slash);
+    h.log.steps.push({ action: 'compared the dim frame with the slash frame', dimMs: dim.s.cutInMs, slashMs: slash.s.cutInMs, held, shots: dim.shots.length, foes: dim.s.foeSpots.length });
+    h.check('nothing in the stage moved through the cut-in', Object.values(held).every(Boolean) && dim.shots.length > 0 && dim.s.foeSpots.length > 0, { held, shots: dim.shots.length, foes: dim.s.foeSpots.length });
+    h.check('the active time did not drop during the cut-in', slash.s.transAm.kind === 'active' && slash.s.transAm.msLeft === TA.activeMs, { transAm: slash.s.transAm });
+    h.check('the bullets near the ship are still there under the cut-in', nearShip(dim, TA.clearRadiusPx).length >= 1 && nearShip(slash, TA.clearRadiusPx).length === nearShip(dim, TA.clearRadiusPx).length, { atDim: nearShip(dim, TA.clearRadiusPx).length, atSlash: nearShip(slash, TA.clearRadiusPx).length });
+    h.check('Space during the cut-in does not restart it', slash.s.cutInMs > band.s.cutInMs && slash.s.cutInMs < CUT.total, { band: band.s.cutInMs, slash: slash.s.cutInMs });
+
+    const after = await frameWhen(`s.life === 'fighting'`, false);
+    h.log.steps.push({ action: 'first frame after the cut-in', transAm: after.s.transAm, fightMs: after.s.clock.fightMs, items: after.s.items, buffs: after.s.buffs });
+    h.check('the stage resumes with the full active time', after.s.transAm.kind === 'active' && after.s.transAm.msLeft > TA.activeMs - 60, { transAm: after.s.transAm });
+    await shotAt('release', `s.transAm.kind === 'active' && s.transAm.msLeft <= ${TA.activeMs - 100}`);
+    const resumed = await h.waitFor('the release under way', (x) => x.transAm.kind === 'active' && x.transAm.msLeft < TA.activeMs - 120, 1000);
+    h.check('the Nitro pressed during the cut-in fires once after it', resumed.items.nitro === 0 && resumed.buffs.filter((b) => b.buff === 'nitro').length === 1, { items: resumed.items, buffs: resumed.buffs });
+    await h.waitFor('release over', (x) => x.transAm.kind === 'active' && x.transAm.msLeft < TA.activeMs - TA.releaseMs, 2000);
+    const cleared = await h.page.evaluate(() => ({ s: window.__game.state(), shots: window.__game.shots() }));
+    h.check('the release after the cut-in cleared the bullets near the ship', nearShip(cleared, TA.clearRadiusPx - 20).length === 0, { near: nearShip(cleared, TA.clearRadiusPx - 20).length });
+    await h.shot('after-release');
+    const depleted = await h.waitFor('depleted', (x) => x.transAm.kind === 'depleted', TA.activeMs + 1500);
+    h.check('the active time lasts the full activeMs of fighting time', Math.abs(depleted.clock.fightMs - pressedFightMs - TA.activeMs) < 250, { activeForMs: depleted.clock.fightMs - pressedFightMs });
+
+    await h.startAt(5);
+    await h.game('god', true);
+    await h.waitFor('the boss fighting', (x) => x.boss?.stance === 'fighting', 10000);
+    await sleep(2500);
+    await h.game('transAmGauge', TA.gaugeMax);
+    await h.page.keyboard.down('ArrowLeft');
+    const early = frameWhen(`s.life === 'cutIn' && s.cutInMs >= ${bandAt}`, false);
+    await h.page.keyboard.press('Space');
+    const a = await early;
+    const b = await frameWhen(`s.life === 'cutIn' && s.cutInMs >= ${slashAt + CUT.slashMs * 0.5}`, false);
+    const bossHeld = frozenAcross(a, b);
+    h.log.steps.push({ action: 'held ArrowLeft through a cut-in in the stage 5 boss fight', from: a.s.cutInMs, to: b.s.cutInMs, held: bossHeld, boss: a.s.boss, shots: a.shots.length });
+    h.check('boss, bullets and ship hold still through the cut-in, with ArrowLeft held', Object.values(bossHeld).every(Boolean) && a.shots.length > 0, { held: bossHeld, shots: a.shots.length, boss: [a.s.boss, b.s.boss] });
+    const moved = await h.waitFor('the ship moving left after the cut-in', (x) => x.life === 'fighting' && x.player.x < a.s.player.x - 20, 2000);
+    await h.page.keyboard.up('ArrowLeft');
+    h.check('the held key moves the ship once the stage resumes', moved.player.x < a.s.player.x, { from: a.s.player.x, to: moved.player.x });
+  },
+
   async bosses(h) {
     const b0 = await h.startAt(5);
     h.check('stage 5 is Crimson Seraph at full HP in her first form', b0.boss?.name === 'Crimson Seraph' && b0.boss.hpRatio === 1 && b0.boss.form === 0 && b0.boss.phase === 0, { boss: b0.boss });
@@ -1090,7 +1207,7 @@ const JOURNEYS = {
 };
 
 // Close-ups of small HUD art need the canvas's full backing resolution.
-const CONTEXT = { 'boss-forms': { deviceScaleFactor: 2 }, 'skill-hud': { deviceScaleFactor: 2 }, items: { deviceScaleFactor: 2 }, movement: { deviceScaleFactor: 2 }, 'enemy-hp': { deviceScaleFactor: 2 }, 'shop-tooltip': { deviceScaleFactor: 2 }, 'trans-am': { deviceScaleFactor: 2 } };
+const CONTEXT = { 'boss-forms': { deviceScaleFactor: 2 }, 'skill-hud': { deviceScaleFactor: 2 }, items: { deviceScaleFactor: 2 }, movement: { deviceScaleFactor: 2 }, 'enemy-hp': { deviceScaleFactor: 2 }, 'shop-tooltip': { deviceScaleFactor: 2 }, 'trans-am': { deviceScaleFactor: 2 }, 'cut-in': { deviceScaleFactor: 2 } };
 
 const selected = names.includes('all') ? Object.keys(JOURNEYS).filter((n) => n !== 'doctor') : names;
 const unknown = selected.filter((n) => !JOURNEYS[n]);
