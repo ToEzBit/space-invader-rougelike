@@ -9,6 +9,7 @@ import type { IconKey } from '../art/ui';
 import { MONEY_ANCHOR } from '../game/fx';
 import { barAlpha, hpBarColor, hpRatio, visibleBar } from '../game/hpBar';
 import { DEPTH } from '../game/layout';
+import { godMode } from '../godMode';
 import type { BossFight } from '../game/boss';
 import { sweepAngle, type SkillMeter } from '../game/skills';
 import type { World } from '../game/world';
@@ -20,6 +21,7 @@ import { label } from './text';
 export class Hud {
   private readonly hearts: Phaser.GameObjects.Image[] = [];
   private readonly money: Phaser.GameObjects.Text;
+  private readonly godBadge: Phaser.GameObjects.Text;
   private shownMoney = -1;
   private shownHp = '';
   private readonly bossBar: Phaser.GameObjects.Graphics;
@@ -39,6 +41,7 @@ export class Hud {
     label(scene, VIEW.w / 2, 7, `STAGE ${world.run.stage}/${STAGE_COUNT}`, { size: 14, bold: true, color: css(COLORS.yellow), align: 'center' }).setDepth(d);
     scene.add.image(MONEY_ANCHOR.x, MONEY_ANCHOR.y, 'coin0').setDepth(d);
     this.money = label(scene, MONEY_ANCHOR.x - 14, 7, '0', { size: 14, bold: true, align: 'right' }).setDepth(d);
+    this.godBadge = label(scene, 0, 10, 'อมตะ · G', { size: 12, bold: true, color: css(COLORS.gold), stroke: css(COLORS.ink) }).setDepth(d);
     this.bossBar = scene.add.graphics().setDepth(d);
     this.foeBars = scene.add.graphics().setDepth(DEPTH.hpBar);
     this.bossName = boss && label(scene, VIEW.w / 2, 40, boss.name.toUpperCase(), { size: 13, bold: true, color: css(COLORS.red), align: 'center', stroke: '#0d0b26' }).setDepth(d);
@@ -72,7 +75,9 @@ export class Hud {
       this.hearts.length = 0;
       for (let i = 0; i < stats.maxHp; i++)
         this.hearts.push(this.scene.add.image(16 + i * 18, 17, i < run.hp ? 'heart' : 'heartEmpty').setDepth(DEPTH.hud));
+      this.godBadge.setX(16 + stats.maxHp * 18);
     }
+    this.godBadge.setVisible(godMode());
     this.drawBossBar();
     this.drawFoeBars();
     for (const slot of this.skills.values()) slot.update(this.world);

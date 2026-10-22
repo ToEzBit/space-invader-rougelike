@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { toggleMute } from './audio/music';
+import { toggleGodMode } from './godMode';
 import { BootScene } from './scenes/BootScene';
 import { EndScene } from './scenes/EndScene';
 import { ShopScene } from './scenes/ShopScene';
@@ -33,6 +34,7 @@ game.events.once(Phaser.Core.Events.READY, () => {
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyF' && !e.repeat) game.scale.toggleFullscreen();
     if (e.code === 'KeyM' && !e.repeat) toggleMute();
+    if (e.code === 'KeyG' && !e.repeat) toggleGodMode();
   });
 });
 

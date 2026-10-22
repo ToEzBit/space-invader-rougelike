@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { deriveStats } from '../core/perks';
+import { godMode } from '../godMode';
 import { ITEMS, withBuffs, type BuffId, type ItemEffect, type ItemId } from '../core/items';
 import { carryTransAm, heal, takeHit, useItem, type RunState } from '../core/run';
 import type { ShipStats } from '../core/stats';
@@ -266,7 +267,7 @@ export class World {
     if (!force && p.shieldMs > 0) return p.breakShield();
     this.tally.hits++;
     this.setTransAm(loseOnHit(this.trans));
-    if (this.god) return p.onHit();
+    if (this.god || godMode()) return p.onHit();
     this.run = takeHit(this.run, 1);
     p.onHit();
     sfx('hurt');
