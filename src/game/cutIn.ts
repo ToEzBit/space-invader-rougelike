@@ -11,7 +11,7 @@ const BAND_Y = VIEW.h * 0.42;
 const STRIP = { w: 560, h: (560 * 200) / 768 } as const;
 const BAR_H = 18;
 const BAND_H = STRIP.h + BAR_H * 2;
-// The black bars cross the widest viewport, so the band's ends never show.
+// Long enough that, once centred, the black bars cross a wide desktop viewport.
 const BAR_LEN = 1800;
 const SLIDE_PX = 1500;
 const DIM_ALPHA = 0.72;
@@ -23,8 +23,7 @@ const noise = (i: number, n: number) => {
   return x - Math.floor(x);
 };
 
-// The TRANS-AM cut-in: a dim, then a tilted band of the pilot's eyes turning red under the title, cut by a light
-// slash. It draws the pose it is given each frame, so it runs while the stage's tweens and timers are paused.
+// Draws the pose it is given each frame, so it runs while the stage's tweens and timers are paused.
 export class CutIn {
   private readonly dim: Phaser.GameObjects.Rectangle;
   private readonly flash: Phaser.GameObjects.Rectangle;
@@ -80,12 +79,12 @@ export class CutIn {
       .setAlpha(pose.title)
       .setScale(1 + TITLE.slam * (1 - pose.title))
       .setX(TITLE.x + TITLE.fromX * (1 - pose.title));
-    this.drawLines(elapsedMs);
+    this.drawSpeedLines(elapsedMs);
     this.drawSlash(pose.slash);
   }
 
-  // Speed lines streaking along the band, mostly through the black bars so they do not muddy the eyes.
-  private drawLines(elapsedMs: number): void {
+  // Mostly through the black bars, so they do not muddy the eyes.
+  private drawSpeedLines(elapsedMs: number): void {
     const g = this.lines.clear();
     const wrap = VIEW.w + 200;
     for (let i = 0; i < LINES; i++) {
@@ -100,7 +99,6 @@ export class CutIn {
     }
   }
 
-  // A blade of light drawn from the lower left of the strip to its upper right.
   private drawSlash(slash: number | null): void {
     const g = this.slash.clear();
     if (slash === null) return;

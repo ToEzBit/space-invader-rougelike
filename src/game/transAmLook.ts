@@ -37,7 +37,6 @@ export class TransAmLook {
     this.ring = scene.add.graphics().setDepth(DEPTH.fx);
   }
 
-  // Activation plays the cut-in, which shows the title, so the release that follows it only flashes and shakes.
   enter(kind: TransAm['kind']): void {
     if (kind === 'active') sfx('transAm');
     if (kind === 'depleted') sfx('powerDown');

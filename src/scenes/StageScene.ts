@@ -21,7 +21,6 @@ const OUTRO_MS = 1900;
 const MAX_FRAME_MS = 50;
 
 // Only the exit from 'fighting' produces the next RunState, so a stage ends exactly once.
-// The TRANS-AM cut-in freezes the whole stage, then hands back to 'fighting'.
 type Life =
   | { kind: 'intro'; msLeft: number }
   | { kind: 'fighting' }
@@ -189,8 +188,7 @@ export class StageScene extends Phaser.Scene {
     this.setLife({ kind: 'cutIn', elapsedMs: 0 });
   }
 
-  // Boss patterns run on the scene clock and some effects on tweens, so the cut-in pauses both. The clock keeps its
-  // paused flag across a scene restart, so every life sets it.
+  // Phaser's Clock keeps paused across a scene restart (TweenManager resets its own), so every Life change sets both.
   private setLife(next: Life): void {
     this.life = next;
     const frozen = next.kind === 'cutIn';

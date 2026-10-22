@@ -39,7 +39,6 @@ const BEATS = [
   { beat: 'slash', ms: CUT_IN.slashMs },
 ] as const;
 
-// Null once the cut-in is over.
 export function cutInPose(elapsedMs: number): CutInPose | null {
   let start = 0;
   for (const { beat, ms } of BEATS) {
