@@ -1692,22 +1692,65 @@ const JOURNEYS = {
       await h.openTitle();
       return h.page.evaluate(async () => (await import('/src/audio/music.ts')).MUSIC_VOLUME);
     })();
+    // Every frame's music from now until pred holds, read in the page so no frame between two evaluate calls is missed.
+    const framesUntil = (pred, timeoutMs) =>
+      h.page.evaluate(
+        ([src, timeoutMs]) =>
+          new Promise((resolve, reject) => {
+            const test = new Function('s', `return (${src})`);
+            const t0 = performance.now();
+            const frames = [];
+            const tick = () => {
+              const s = window.__game.state();
+              const { track, playing, ringing, jingles, fadingGain, trackGain, busGain } = s.music;
+              frames.push({ ms: Math.round(performance.now() - t0), scenes: s.scenes, life: s.life ?? null, track, playing, ringing, jingles, fadingGain, trackGain, busGain });
+              if (test(s)) return resolve(frames);
+              if (performance.now() - t0 > timeoutMs) return reject(new Error(`timed out waiting for ${src}`));
+              requestAnimationFrame(tick);
+            };
+            tick();
+          }),
+        [pred, timeoutMs],
+      );
+    const DUCK_MS = 200;
+    // From the frame the stage ends: the jingle is asked for at once, starts once, and rings over a silent stage track.
+    const endsOnJingle = (name, frames, jingle, before) => {
+      const ending = frames.filter((f) => f.life === 'ending' || f.life === 'leaving');
+      const rung = frames.filter((f) => f.ringing === jingle);
+      const firstRung = rung[0]?.ms ?? Infinity;
+      const ducked = rung.filter((f) => f.ms >= firstRung + DUCK_MS);
+      h.log.steps.push({ action: `${name}: frames from the end of the stage`, first: frames[0], firstRung: rung[0], ducked: ducked[0], last: frames.at(-1) });
+      h.check(`${name}: the stage asks for the ${jingle} jingle from the frame it ends, through the camera fade`, ending.length > 0 && ending.every((f) => f.track === jingle), { tracks: [...new Set(ending.map((f) => f.track))] });
+      h.check(
+        `${name}: the ${jingle} jingle starts once and plays to its end`,
+        rung.length > 0 && frames.every((f) => f.jingles[jingle] <= before[jingle] + 1) && frames.at(-1).jingles[jingle] === before[jingle] + 1,
+        { before: before[jingle], after: frames.at(-1).jingles[jingle], rungMs: rung.length ? rung.at(-1).ms - firstRung : 0 },
+      );
+      h.check(`${name}: under the jingle the stage track has faded to silence`, ducked.length > 0 && ducked.every((f) => f.fadingGain < 1e-3), { ducked: ducked.length, loudest: Math.max(...ducked.map((f) => f.fadingGain)) });
+      return rung;
+    };
+    // The next scene's track waits for the jingle to ring out instead of fading in over it.
+    const waitsForJingle = (name, frames, jingle, next) => {
+      const overlap = frames.filter((f) => f.ringing === jingle && f.playing === next);
+      h.check(`${name}: ${next} stays silent until the ${jingle} jingle has rung out`, overlap.every((f) => f.trackGain < 1e-3), { overlapFrames: overlap.length, loudest: Math.max(0, ...overlap.map((f) => f.trackGain)) });
+    };
+
     const title = await h.state();
-    h.check('Title asks for the normal track before any key, with no audio context yet', title.music.track === 'normal' && title.music.ctx === null && title.music.playing === null, { music: title.music });
+    h.check('Title asks for Starlane Patrol before any key, with no audio context yet', title.music.track === 'normal' && title.music.ctx === null && title.music.playing === null, { music: title.music });
     await h.step('press Shift on Title (a gesture that starts nothing)', () => h.page.keyboard.press('Shift'));
     const first = await h.waitFor('normal track playing', (x) => x.music.ctx === 'running' && x.music.playing === 'normal' && x.music.step > 8, 4000);
-    h.check('the first gesture starts the normal track on a running context, unmuted', first.music.plays === 1 && !first.music.muted && Math.abs(first.music.busGain - VOLUME) < 1e-3, { music: first.music });
+    h.check('the first gesture starts Starlane Patrol on a running context, unmuted', first.music.plays === 1 && !first.music.muted && Math.abs(first.music.busGain - VOLUME) < 1e-3, { music: first.music });
     await h.shot('title');
     await h.shot('title-music-hint', { x: 0, y: 0, w: 240, h: 40 });
 
     await h.step('press Enter on Title', () => h.page.keyboard.press('Enter'));
-    const s1 = await h.waitFor('stage 1 fighting', (x) => x.scenes.includes('Stage') && x.life === 'fighting');
-    h.check('a wave stage keeps the same normal track playing, not restarted', s1.music.track === 'normal' && s1.music.playing === 'normal' && s1.music.plays === 1 && s1.music.step > first.music.step, { title: first.music, stage: s1.music });
+    const s1 = await h.waitFor('stage 1 fighting on act 1', (x) => x.scenes.includes('Stage') && x.life === 'fighting' && x.music.playing === 'act1', 4000);
+    h.check("stage 1 swaps the title's Starlane Patrol for the first act's track", s1.music.track === 'act1' && s1.music.playing === 'act1' && s1.music.plays === 2, { title: first.music, stage: s1.music });
 
     await h.game('transAmGauge', 100);
     const stepSec = await h.page.evaluate(async () => {
       const { TRACKS } = await import('/src/audio/tracks.ts');
-      return 60 / TRACKS.normal.bpm / TRACKS.normal.stepsPerBeat;
+      return 60 / TRACKS.act1.bpm / TRACKS.act1.stepsPerBeat;
     });
     const watch = h.page.evaluate(
       () =>
@@ -1730,9 +1773,38 @@ const JOURNEYS = {
     const frozenSec = (cutTo.cutInMs - cutFrom.cutInMs) / 1000;
     h.check(
       'the music keeps stepping on the audio clock through the TRANS-AM cut-in while the stage is frozen',
-      cutFrom.playing === 'normal' && frozenSec > 0.6 && cutTo.foe.x === cutFrom.foe.x && cutTo.foe.y === cutFrom.foe.y && cutTo.step - cutFrom.step >= Math.floor((frozenSec / stepSec) * 0.8),
+      cutFrom.playing === 'act1' && frozenSec > 0.6 && cutTo.foe.x === cutFrom.foe.x && cutTo.foe.y === cutFrom.foe.y && cutTo.step - cutFrom.step >= Math.floor((frozenSec / stepSec) * 0.8),
       { from: cutFrom, to: cutTo, stepSec },
     );
+
+    await h.waitFor('stage 1 fighting after the cut-in', (x) => x.life === 'fighting', 4000);
+    const beforeClear = (await h.state()).music.jingles;
+    await h.game('kill');
+    const cleared = await framesUntil("s.scenes.includes('Shop') && s.music.playing === 'shop'", 8000);
+    endsOnJingle('stage 1 clear', cleared, 'clear', beforeClear);
+    waitsForJingle('stage 1 clear', cleared, 'clear', 'shop');
+    const shopNow = await h.state();
+    h.check('the shop plays Hangar Lounge', shopNow.music.track === 'shop' && shopNow.music.playing === 'shop', { music: shopNow.music });
+    await h.step('press Enter in the shop', () => h.page.keyboard.press('Enter'));
+    const s2 = await h.waitFor('stage 2 on act 1', (x) => x.scenes.includes('Stage') && x.run?.stage === 2 && x.music.playing === 'act1', 4000);
+    h.check('stage 2, reached from the shop, plays the first act again', s2.music.track === 'act1', { music: s2.music });
+    for (const [stage, act] of [[3, 'act2'], [6, 'act3'], [8, 'act4']]) {
+      await h.startAt(stage);
+      const s = await h.waitFor(`stage ${stage} on ${act}`, (x) => x.music.playing === act, 4000);
+      h.check(`stage ${stage} plays ${act}`, s.music.track === act, { music: s.music });
+    }
+
+    const beforeDefeat = (await h.state()).music.jingles;
+    await h.step('hurt the ship until it goes down', async () => {
+      for (let i = 0; i < 30 && (await h.state()).life === 'fighting'; i++) {
+        await h.game('hurt');
+        await sleep(60);
+      }
+    });
+    const downed = await framesUntil("s.scenes.includes('End') && s.music.playing === 'normal' && s.music.ringing === null && s.music.trackGain > 0.05", 8000);
+    endsOnJingle('defeat', downed, 'defeat', beforeDefeat);
+    waitsForJingle('defeat', downed, 'defeat', 'normal');
+    h.check('the End screen after a defeat plays Starlane Patrol', downed.at(-1).track === 'normal', { last: downed.at(-1) });
 
     const fight = async (stage, name, [first, second], shot) => {
       const atHpRatio = await h.page.evaluate(async (stage) => {
@@ -1761,14 +1833,12 @@ const JOURNEYS = {
     const SERAPH = [{ track: 'boss1', playing: 'boss1' }, { track: 'boss2', playing: 'boss2' }];
 
     await fight(5, 'Crimson Seraph', SERAPH, true);
+    const beforeSeraph = (await h.state()).music.jingles;
     await h.game('kill');
-    const quiet = await h.waitFor('Seraph dead, music fading out', (x) => x.boss?.stance === 'dead', 4000);
-    h.check('a dead boss fades the music out for the clear', quiet.music.track === null, { music: quiet.music });
-    const silent = await h.waitFor('music silent', (x) => x.music.playing === null, 2000);
-    const shop = await h.waitFor('shop after the boss', (x) => x.scenes.includes('Shop'), 8000);
-    h.check('the shop after the boss brings the normal track back', shop.music.track === 'normal', { silent: silent.music, shop: shop.music });
-    const back = await h.waitFor('normal track playing in the shop', (x) => x.music.playing === 'normal', 2000);
-    h.log.steps.push({ action: 'shop after the Seraph', music: back.music });
+    const seraphDown = await framesUntil("s.scenes.includes('Shop') && s.music.playing === 'shop'", 8000);
+    endsOnJingle('Crimson Seraph down', seraphDown, 'clear', beforeSeraph);
+    h.check('the dead Seraph never asks for silence over her clear jingle', seraphDown.every((f) => f.track !== null), { tracks: [...new Set(seraphDown.map((f) => f.track))] });
+    h.check('the shop after the boss plays Hangar Lounge', seraphDown.at(-1).track === 'shop', { last: seraphDown.at(-1) });
     h.check('no song file is fetched before the Empress wants it', served.length === 0, { served: [...served] });
 
     const fellBack = await fight(10, 'Void Empress', [{ track: 'empress', playing: 'boss1' }, { track: 'empress', playing: 'boss2' }], true);
@@ -1777,10 +1847,16 @@ const JOURNEYS = {
       fellBack.entering.music.fellBack && fellBack.after.music.fellBack && fellBack.after.music.files.empress.status === 'failed' && warnings.length === 1 && warnings[0].includes('/music/void-empress.ogg') && warnings[0].includes('/music/void-empress.mp3') && served.join() === '/music/void-empress.ogg,/music/void-empress.mp3',
       { warnings: [...warnings], served: [...served], files: fellBack.after.music.files },
     );
+    const beforeVictory = (await h.state()).music.jingles;
+    await h.game('kill');
+    const won = await framesUntil("s.scenes.includes('End') && s.music.playing === 'normal' && s.music.ringing === null && s.music.trackGain > 0.05", 10000);
+    const fanfare = endsOnJingle('Void Empress down', won, 'victory', beforeVictory);
+    waitsForJingle('Void Empress down', won, 'victory', 'normal');
+    h.check('the fanfare outlasts the outro and still rings into the End screen', fanfare.some((f) => f.scenes.includes('End')), { lastRung: fanfare.at(-1) });
 
     await h.step('press M', () => h.page.keyboard.press('m'));
     const muted = await h.waitFor('music bus ramped to silence', (x) => x.music.busGain < 1e-4, 1000);
-    h.check('M mutes the music: the bus ramps to 0 and the track keeps its place', muted.music.muted && muted.music.playing === 'boss2', { music: muted.music });
+    h.check('M mutes the music: the bus ramps to 0 and the track keeps its place', muted.music.muted && muted.music.playing === 'normal', { music: muted.music });
     await h.page.reload();
     const reloaded = await h.waitFor('Title after reload', (x) => x.scenes.includes('Title'), 15000);
     await h.page.keyboard.press('Shift');
@@ -1825,9 +1901,9 @@ const JOURNEYS = {
           }),
         );
     });
-    const outputRms = async () => {
+    const outputRms = async (samples = 10) => {
       const frames = [];
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < samples; i++) {
         frames.push(await h.page.evaluate(() => window.__outputRms()));
         await sleep(150);
       }
@@ -1890,6 +1966,27 @@ const JOURNEYS = {
     const heardMuted = await outputRms();
     h.check('M mutes the song file like the synth tracks, which keeps playing', quietSong.music.muted && quietSong.music.playing === 'empress' && quietSong.music.url === url && heardMuted < 1e-4, { music: quietSong.music, heardMuted });
     await h.game('resume');
+
+    // A wave clear with the stage frozen as the jingle starts, so no sfx reaches the output while it is measured.
+    const clearHeard = async (label) => {
+      await h.startAt(1);
+      await h.game('kill');
+      await h.waitFor(`${label}: clear jingle ringing`, (x) => x.music.ringing === 'clear', 2000);
+      await h.game('pause');
+      await sleep(300);
+      const rms = await outputRms(5);
+      const s = await h.state();
+      await h.game('resume');
+      return { rms, music: s.music };
+    };
+    await h.step('press M to unmute', () => h.page.keyboard.press('m'));
+    await h.waitFor('music bus back up', (x) => Math.abs(x.music.busGain - VOLUME) < 1e-3, 1000);
+    const loudClear = await clearHeard('unmuted');
+    h.check('the clear jingle reaches the speakers through the music bus', loudClear.rms > 1e-3 && loudClear.music.ringing === 'clear', loudClear);
+    await h.step('press M to mute', () => h.page.keyboard.press('m'));
+    await h.waitFor('music bus ramped to silence', (x) => x.music.busGain < 1e-4, 1000);
+    const mutedClear = await clearHeard('muted');
+    h.check('M silences a jingle like any track', mutedClear.rms < 1e-4 && mutedClear.music.ringing === 'clear' && mutedClear.music.muted, mutedClear);
   },
   async mobile(h) {
     const outDir = join(ROOT, '.verify', runId, 'evidence', 'mobile');
@@ -2132,7 +2229,7 @@ if (unknown.length) {
   process.exit(2);
 }
 
-const browser = await chromium.launch({ channel: 'chrome', headless: !headed });
+const browser = await chromium.launch({ channel: 'chrome', headless: !headed, args: ['--disable-audio-output'] });
 let failed = 0;
 for (const name of selected) {
   const outDir = join(ROOT, '.verify', runId, 'evidence', name);
