@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BASE_STATS } from './stats';
-import { ITEMS, ITEM_IDS, ITEM_STACK_MAX, itemForKey, withBuffs, type ItemId, type OwnedItems } from './items';
+import { ITEMS, ITEM_IDS, ITEM_STACK_MAX, itemForCode, withBuffs, type ItemId, type OwnedItems } from './items';
 import { PERKS, PERK_IDS, deriveStats, describePerk, type OwnedPerks, type PerkId } from './perks';
 import { STAGES } from './stages';
 import { buyOffer, carryTransAm, clearStage, heal, leaveShop, newRun, offerCost, refreshCost, refreshShop, rollOffers, takeHit, useItem, type Offer, type RunState } from './run';
@@ -111,13 +111,17 @@ describe('shop rolls', () => {
 });
 
 describe('items', () => {
-  it('bind keys 1 to 5 in registry order, each with a Thai description', () => {
-    expect(ITEM_IDS.map((id) => ITEMS[id].key)).toEqual([1, 2, 3, 4, 5]);
-    for (const id of ITEM_IDS) {
-      expect(itemForKey(String(ITEMS[id].key))).toBe(id);
+  it('bind Z X C V B in registry order, with 1 to 5 as a fallback, each with a Thai description', () => {
+    expect(ITEM_IDS.map((id) => ITEMS[id].key)).toEqual(['Z', 'X', 'C', 'V', 'B']);
+    ITEM_IDS.forEach((id, i) => {
+      expect(itemForCode(`Key${ITEMS[id].key}`)).toBe(id);
+      expect(itemForCode(`Digit${i + 1}`)).toBe(id);
       expect(ITEMS[id].desc).toMatch(/[฀-๿]/);
-    }
-    expect(itemForKey('6')).toBeNull();
+    });
+  });
+
+  it('match physical key codes only', () => {
+    for (const code of ['z', 'Z', '1', 'Digit6', 'Numpad1', 'KeyA', 'ShiftLeft', 'Space']) expect(itemForCode(code)).toBeNull();
   });
 
   it('buff folds scale the stats they boost on top of perks', () => {

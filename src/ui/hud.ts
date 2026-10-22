@@ -151,7 +151,7 @@ export const SKILL_SLOTS: readonly SkillDef[] = [
 const ITEM_SLOTS = Object.fromEntries(
   ITEM_IDS.map((id): [ItemId, SlotDef] => [
     id,
-    { ...ITEM_LOOK[id], hint: String(ITEMS[id].key), meter: (w) => w.itemMeter(id), count: (w) => w.run.items[id] ?? 0 },
+    { ...ITEM_LOOK[id], hint: ITEMS[id].key, meter: (w) => w.itemMeter(id), count: (w) => w.run.items[id] ?? 0 },
   ]),
 ) as Record<ItemId, SlotDef>;
 

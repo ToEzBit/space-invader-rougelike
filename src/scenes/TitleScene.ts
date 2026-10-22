@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { ITEM_IDS, ITEMS } from '../core/items';
 import { newRun } from '../core/run';
 import { css, COLORS } from '../art/palette';
 import { setDebugHooks } from '../debug';
@@ -12,7 +13,7 @@ const CONTROLS: readonly [string, string][] = [
   ['← → ↑ ↓ / W A S D', 'เคลื่อนที่'],
   ['AUTO', 'ยิงอัตโนมัติ · เลเซอร์ยิงเองเมื่อปลดล็อก'],
   ['SHIFT', 'พุ่งชนทะลุฝูงศัตรู (เมื่อปลดล็อก)'],
-  ['1 2 3 4 5', 'ใช้ไอเทมที่ซื้อจากร้านค้า ระหว่างด่าน'],
+  [ITEM_IDS.map((id) => ITEMS[id].key).join(' '), 'ใช้ไอเทมที่ซื้อจากร้านค้า ระหว่างด่าน'],
   ['1 2 3 / R / ENTER', 'ซื้อ · รีเฟรช · ไปต่อ ในร้านค้า'],
   ['F', 'เต็มจอ / ออกจากเต็มจอ'],
 ];

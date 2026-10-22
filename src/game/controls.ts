@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { itemForKey, type ItemId } from '../core/items';
+import { itemForCode, type ItemId } from '../core/items';
 
 export type Controls = {
   left: boolean;
@@ -22,9 +22,9 @@ export class KeyboardControls {
   private dashQueued = false;
   private transAmQueued = false;
   private itemsQueued: ItemId[] = [];
-  // Phaser can hand the same KeyboardEvent to 'keydown' listeners twice in one frame; its own
-  // duplicate check only catches back-to-back repeats. Counting presses needs exactly one.
-  private lastEvent: KeyboardEvent | null = null;
+  // Phaser re-dispatches the frame's whole key queue on every DOM key event, so Shift+Z in one frame reaches
+  // 'keydown' listeners as Shift, Z, Shift, Z, ... Its own duplicate check only catches back-to-back repeats.
+  private readonly seen = new WeakSet<KeyboardEvent>();
 
   constructor(scene: Phaser.Scene) {
     const kb = scene.input.keyboard;
@@ -42,10 +42,10 @@ export class KeyboardControls {
       if (!e.repeat) this.dashQueued = true;
     });
     kb?.on('keydown', (e: KeyboardEvent) => {
-      if (e.repeat || e === this.lastEvent) return;
-      this.lastEvent = e;
+      if (e.repeat || this.seen.has(e)) return;
+      this.seen.add(e);
       if (e.code === 'Space') this.transAmQueued = true;
-      const item = itemForKey(e.key);
+      const item = itemForCode(e.code);
       if (item) this.itemsQueued.push(item);
     });
   }
