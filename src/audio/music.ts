@@ -2,7 +2,7 @@ import { onAudio } from './context';
 import { sourceFor, type Cue, type FileLoad, type ReadyFile, type Source } from './director';
 import { gainToMatch } from './loudness';
 import { compile, playStep, type Song } from './synth';
-import { FILE_TRACKS, TRACKS, type FileId, type JingleId, type ScoreId, type TrackId } from './tracks';
+import { FILE_TRACKS, type FileId, type JingleId, type ScoreId, type TrackId } from './tracks';
 
 export const MUSIC_VOLUME = 0.038;
 // Boss fights play louder than the rest of the game, on top of the bus volume.
@@ -159,7 +159,7 @@ function scheduleAheadOfAudioClock(ctx: AudioContext): void {
 
 // A jingle is never cut short: it rings out, and whatever is wanted next starts once it has.
 function crossfade(ctx: AudioContext, now: number, target: Exclude<Source, { kind: 'holdWhileLoading' }>): void {
-  const jingle = target.kind === 'score' && !TRACKS[target.id].loop;
+  const jingle = target.kind === 'score' && isJingle(target.id);
   if (current) {
     if (ringing(current, now)) current.until = current.endsAt;
     else fadeOut(current, now, jingle ? DUCK_SEC : FADE_SEC);
@@ -177,7 +177,11 @@ function crossfade(ctx: AudioContext, now: number, target: Exclude<Source, { kin
   gain.connect(bus);
   current = target.kind === 'file' ? startFile(ctx, at, target.id, target.file, gain) : startScore(at, target.id, gain);
   plays++;
-  if (current.kind === 'score' && !current.song.loop) jingles[current.id as JingleId]++;
+  if (target.kind === 'score' && isJingle(target.id)) jingles[target.id]++;
+}
+
+function isJingle(id: ScoreId): id is JingleId {
+  return id in jingles;
 }
 
 function ringing(p: Playing, now: number): p is Extract<Playing, { kind: 'score' }> {
