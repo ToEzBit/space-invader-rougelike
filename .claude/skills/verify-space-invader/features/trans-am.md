@@ -11,6 +11,7 @@ The player's ultimate. A gauge from 0 to 100 fills while charging: +1.5 per enem
 - `bullet-time` halves enemy bullet speed while active.
 - `depleted` follows after `activeMs` with the depleted stats, then `charging` at 0 after `depletedMs`.
 - `carry` keeps the gauge through the real shop.
+- `sound` is the release hit, drive hum, shot zips, ending ticks and muffled music while active, see [TRANS-AM sound](./trans-am-sound.md).
 - `hud-slot` is the always-shown first tray slot (`SPACE`): a filling arc and percent while charging, a pulsing ring when ready, a draining white arc while active, a seconds countdown while depleted.
 
 ## How to get to it (user POV)
