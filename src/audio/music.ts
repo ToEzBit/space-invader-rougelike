@@ -1,6 +1,8 @@
 import { onAudio } from './context';
+import { sourceFor, type Cue, type FileLoad, type ReadyFile, type Source } from './director';
+import { gainToMatch } from './loudness';
 import { compile, playStep, type Song } from './synth';
-import type { TrackId } from './tracks';
+import { FILE_TRACKS, type FileId, type ScoreId } from './tracks';
 
 export const MUSIC_VOLUME = 0.038;
 const FADE_SEC = 0.8;
@@ -9,10 +11,13 @@ const LOOKAHEAD_SEC = 0.2;
 const TICK_MS = 25;
 const MUTED_KEY = 'space-invader.musicMuted';
 
-type Playing = { song: Song; gain: GainNode; t0: number; next: number; until: number };
+type Playing =
+  | { kind: 'score'; id: ScoreId; song: Song; gain: GainNode; t0: number; next: number; until: number }
+  | { kind: 'file'; id: FileId; url: string; source: AudioBufferSourceNode; gain: GainNode; until: number };
 
-const songs = new Map<TrackId, Song>();
-let wanted: TrackId | null = null;
+const songs = new Map<ScoreId, Song>();
+const files: Record<FileId, FileLoad> = { empress: { status: 'idle' } };
+let wanted: Cue | null = null;
 let current: Playing | null = null;
 let fading: Playing[] = [];
 let bus: GainNode | null = null;
@@ -26,8 +31,8 @@ onAudio((ctx) => {
   setInterval(() => scheduleAheadOfAudioClock(ctx), TICK_MS);
 });
 
-export function want(id: TrackId | null): void {
-  wanted = id;
+export function want(cue: Cue | null): void {
+  wanted = cue;
 }
 
 export function toggleMute(): void {
@@ -49,13 +54,19 @@ export function isMuted(): boolean {
 }
 
 export function musicState(): Record<string, unknown> {
+  const file = fileOf(wanted);
   return {
-    track: wanted,
-    playing: current?.song.id ?? null,
+    track: file ?? wanted,
+    source: sourceLabel(sourceFor(wanted, fileLoad)),
+    fellBack: file !== null && files[file].status === 'failed',
+    playing: current?.id ?? null,
+    url: current?.kind === 'file' ? current.url : null,
+    trackGain: current?.gain.gain.value ?? null,
+    files: Object.fromEntries(Object.entries(files).map(([id, f]) => [id, f.status === 'ready' ? { status: f.status, url: f.url, gain: f.gain } : f])),
     muted,
     ctx: bus?.context.state ?? null,
     busGain: bus?.gain.value ?? null,
-    step: current?.next ?? null,
+    step: current?.kind === 'score' ? current.next : null,
     plays,
   };
 }
@@ -68,39 +79,112 @@ function loadMuted(): boolean {
   }
 }
 
+function fileOf(cue: Cue | null): FileId | null {
+  return cue !== null && typeof cue === 'object' ? cue.file : null;
+}
+
+function fileLoad(id: FileId): FileLoad {
+  return files[id];
+}
+
+function sourceLabel(source: Source): string | null {
+  switch (source.kind) {
+    case 'score':
+    case 'file':
+      return source.id;
+    case 'silence':
+      return null;
+    case 'holdWhileLoading':
+      return source.kind;
+  }
+}
+
 function scheduleAheadOfAudioClock(ctx: AudioContext): void {
   const now = ctx.currentTime;
-  if ((current?.song.id ?? null) !== wanted) crossfade(ctx, now);
-  for (const p of current ? [current, ...fading] : fading) schedule(ctx, p, now);
+  const file = fileOf(wanted);
+  if (file && files[file].status === 'idle') void load(ctx, file);
+  const target = sourceFor(wanted, fileLoad);
+  if (target.kind !== 'holdWhileLoading' && (target.kind === 'silence' ? null : target.id) !== (current?.id ?? null)) crossfade(ctx, now, target);
+  for (const p of current ? [current, ...fading] : fading) if (p.kind === 'score') schedule(ctx, p, now);
   fading = fading.filter((p) => {
     if (p.until > now) return true;
+    if (p.kind === 'file') p.source.disconnect();
     p.gain.disconnect();
     return false;
   });
 }
 
-function crossfade(ctx: AudioContext, now: number): void {
+function crossfade(ctx: AudioContext, now: number, target: Exclude<Source, { kind: 'holdWhileLoading' }>): void {
   if (current) {
     const g = current.gain.gain;
     g.cancelScheduledValues(now);
     g.setValueAtTime(g.value, now);
     g.linearRampToValueAtTime(0, now + FADE_SEC);
     current.until = now + FADE_SEC;
+    if (current.kind === 'file') current.source.stop(current.until);
     fading.push(current);
     current = null;
   }
-  if (!wanted || !bus) return;
-  let song = songs.get(wanted);
-  if (!song) songs.set(wanted, (song = compile(wanted)));
+  if (target.kind === 'silence' || !bus) return;
   const gain = ctx.createGain();
-  gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(1, now + FADE_SEC);
   gain.connect(bus);
-  current = { song, gain, t0: now + 0.05, next: 0, until: Infinity };
+  current = target.kind === 'file' ? startFile(ctx, now, target.id, target.file, gain) : startScore(now, target.id, gain);
   plays++;
 }
 
-function schedule(ctx: AudioContext, p: Playing, now: number): void {
+function startScore(now: number, id: ScoreId, gain: GainNode): Playing {
+  let song = songs.get(id);
+  if (!song) songs.set(id, (song = compile(id)));
+  fadeIn(gain, now, 1);
+  return { kind: 'score', id, song, gain, t0: now + 0.05, next: 0, until: Infinity };
+}
+
+function startFile(ctx: AudioContext, now: number, id: FileId, file: ReadyFile, gain: GainNode): Playing {
+  const source = ctx.createBufferSource();
+  source.buffer = file.buffer;
+  source.loop = true;
+  source.connect(gain);
+  source.start(now);
+  fadeIn(gain, now, file.gain);
+  return { kind: 'file', id, url: file.url, source, gain, until: Infinity };
+}
+
+function fadeIn(gain: GainNode, now: number, level: number): void {
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(level, now + FADE_SEC);
+}
+
+async function load(ctx: AudioContext, id: FileId): Promise<void> {
+  files[id] = { status: 'loading' };
+  const { title, urls } = FILE_TRACKS[id];
+  const tried: string[] = [];
+  for (const url of urls) {
+    const got = await decoded(ctx, url);
+    if (typeof got === 'string') {
+      tried.push(`${url} (${got})`);
+      continue;
+    }
+    const gain = gainToMatch(Array.from({ length: got.numberOfChannels }, (_, i) => got.getChannelData(i)), got.sampleRate);
+    if (gain !== null) {
+      files[id] = { status: 'ready', url, buffer: got, gain };
+      return;
+    }
+    tried.push(`${url} (silent)`);
+  }
+  files[id] = { status: 'failed', tried };
+  console.warn(`music: no playable audio at ${tried.join(' or ')}, so the ${title} fight plays the synth boss tracks instead`);
+}
+
+async function decoded(ctx: AudioContext, url: string): Promise<AudioBuffer | string> {
+  try {
+    const res = await fetch(url);
+    return res.ok ? await ctx.decodeAudioData(await res.arrayBuffer()) : `HTTP ${res.status}`;
+  } catch (e) {
+    return e instanceof Error ? e.name : String(e);
+  }
+}
+
+function schedule(ctx: AudioContext, p: Extract<Playing, { kind: 'score' }>, now: number): void {
   const { stepSec } = p.song;
   const horizon = Math.min(now + LOOKAHEAD_SEC, p.until);
   p.next = Math.max(p.next, Math.ceil((now - p.t0) / stepSec));

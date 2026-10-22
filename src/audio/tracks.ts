@@ -1,8 +1,11 @@
 import { fillRhythm, octaveUp } from './score';
 
-export type TrackId = 'normal' | 'boss1' | 'boss2';
+export type ScoreId = 'normal' | 'boss1' | 'boss2';
+export type FileId = 'empress';
+export type TrackId = ScoreId | FileId;
 export type Voice = 'pulse25' | 'pulse12' | 'triangle' | 'kick' | 'snare' | 'hat';
 export type Channel = { name: string; voice: Voice; gain: number; bars: readonly string[] };
+export type FileTrack = { title: string; urls: readonly string[] };
 export type Track = { title: string; bpm: number; stepsPerBeat: number; beatsPerBar: number; channels: readonly Channel[] };
 
 type Chord = { root: string; triad: readonly [string, string, string] };
@@ -158,4 +161,10 @@ const BOSS2: Track = {
   ],
 };
 
-export const TRACKS: Record<TrackId, Track> = { normal: NORMAL, boss1: BOSS1, boss2: BOSS2 };
+export const TRACKS: Record<ScoreId, Track> = { normal: NORMAL, boss1: BOSS1, boss2: BOSS2 };
+
+const MUSIC_DIR = `${import.meta.env.BASE_URL}music/`;
+
+export const FILE_TRACKS: Record<FileId, FileTrack> = {
+  empress: { title: 'Void Empress', urls: [`${MUSIC_DIR}void-empress.ogg`, `${MUSIC_DIR}void-empress.mp3`] },
+};

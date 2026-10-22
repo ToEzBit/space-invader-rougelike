@@ -1,14 +1,14 @@
 import { freqOf, parseBars, type NoteEvent } from './score';
-import { TRACKS, type Channel, type Track, type TrackId, type Voice } from './tracks';
+import { TRACKS, type Channel, type ScoreId, type Track, type Voice } from './tracks';
 
 export type Song = {
-  id: TrackId;
+  id: ScoreId;
   stepSec: number;
   steps: number;
   channels: { channel: Channel; byStep: readonly (NoteEvent | undefined)[] }[];
 };
 
-export function compile(id: TrackId, track: Track = TRACKS[id]): Song {
+export function compile(id: ScoreId, track: Track = TRACKS[id]): Song {
   const stepsPerBar = track.stepsPerBeat * track.beatsPerBar;
   const bars = new Set(track.channels.map((c) => c.bars.length));
   if (bars.size !== 1) throw new Error(`${id}: channels disagree on the loop length (${[...bars].join(', ')} bars)`);

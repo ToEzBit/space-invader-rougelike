@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { trackFor } from './director';
-import { BOSS1_LOUD95, gainToMatch } from './loudness';
+import { cueFor, sourceFor, type BossView, type FileLoad } from './director';
+import { BOSS1_PRE_BUS_LOUD95, gainToMatch } from './loudness';
 import { fillRhythm, freqOf, midiOf, octaveUp, parseBars } from './score';
-import { TRACKS, type Track, type TrackId } from './tracks';
+import { TRACKS, type ScoreId, type Track } from './tracks';
 
 const barsOf = (t: Track) => t.channels[0]!.bars.length;
 const stepsPerBar = (t: Track) => t.stepsPerBeat * t.beatsPerBar;
@@ -63,7 +63,7 @@ describe('bars', () => {
 });
 
 describe('tracks', () => {
-  const ids = Object.keys(TRACKS) as TrackId[];
+  const ids = Object.keys(TRACKS) as ScoreId[];
 
   it('have whole bars in every channel and one loop length per track', () => {
     for (const id of ids) {
@@ -105,22 +105,58 @@ describe('tracks', () => {
 });
 
 describe('the track for the moment', () => {
+  const FIRST_FORM = ['entering', 'fighting', 'casting'] as const;
+  const SECOND_FORM: Pick<BossView, 'form' | 'stanceKind'>[] = [
+    { form: 0, stanceKind: 'transforming' },
+    { form: 1, stanceKind: 'transforming' },
+    { form: 1, stanceKind: 'fighting' },
+    { form: 1, stanceKind: 'casting' },
+  ];
+  const LOADS: Record<FileLoad['status'], FileLoad> = {
+    idle: { status: 'idle' },
+    loading: { status: 'loading' },
+    ready: { status: 'ready', url: '/music/void-empress.ogg', buffer: {} as AudioBuffer, gain: 0.5 },
+    failed: { status: 'failed', tried: [] },
+  };
+  const playing = (boss: BossView | null, empress: FileLoad['status'] = 'ready') => {
+    const source = sourceFor(cueFor(boss), () => LOADS[empress]);
+    return source.kind === 'score' || source.kind === 'file' ? source.id : source.kind;
+  };
+
   it('is the normal track outside a boss fight', () => {
-    expect(trackFor(null)).toBe('normal');
+    expect(playing(null)).toBe('normal');
   });
 
-  it("is the first boss track from the boss's entrance until she starts to transform", () => {
-    for (const stanceKind of ['entering', 'fighting', 'casting'] as const) expect(trackFor({ form: 0, stanceKind })).toBe('boss1');
+  it("plays Crimson Verdict from the Seraph's entrance until she starts to transform", () => {
+    for (const stanceKind of FIRST_FORM) expect(playing({ id: 'crimsonSeraph', form: 0, stanceKind })).toBe('boss1');
   });
 
-  it('switches to the second boss track as the transformation starts, before the form flips', () => {
-    expect(trackFor({ form: 0, stanceKind: 'transforming' })).toBe('boss2');
-    expect(trackFor({ form: 1, stanceKind: 'transforming' })).toBe('boss2');
-    for (const stanceKind of ['fighting', 'casting'] as const) expect(trackFor({ form: 1, stanceKind })).toBe('boss2');
+  it('switches the Seraph to Crimson Verdict II as the transformation starts, before the form flips', () => {
+    for (const view of SECOND_FORM) expect(playing({ id: 'crimsonSeraph', ...view }), JSON.stringify(view)).toBe('boss2');
   });
 
-  it('falls silent once the boss is dead', () => {
-    expect(trackFor({ form: 1, stanceKind: 'dead' })).toBeNull();
+  it("plays the Empress's recording through both forms, transformation included", () => {
+    for (const stanceKind of FIRST_FORM) expect(playing({ id: 'voidEmpress', form: 0, stanceKind })).toBe('empress');
+    for (const view of SECOND_FORM) expect(playing({ id: 'voidEmpress', ...view }), JSON.stringify(view)).toBe('empress');
+  });
+
+  it('gives the Empress the Seraph tracks, form by form, when her recording cannot load', () => {
+    for (const stanceKind of FIRST_FORM) expect(playing({ id: 'voidEmpress', form: 0, stanceKind }, 'failed')).toBe('boss1');
+    for (const view of SECOND_FORM) expect(playing({ id: 'voidEmpress', ...view }, 'failed'), JSON.stringify(view)).toBe('boss2');
+  });
+
+  it('keeps whatever is playing while her recording is still loading', () => {
+    for (const status of ['idle', 'loading'] as const) expect(playing({ id: 'voidEmpress', form: 0, stanceKind: 'entering' }, status)).toBe('holdWhileLoading');
+  });
+
+  it('never waits on a recording for the Seraph or between fights', () => {
+    expect(playing({ id: 'crimsonSeraph', form: 0, stanceKind: 'entering' }, 'loading')).toBe('boss1');
+    expect(playing(null, 'loading')).toBe('normal');
+  });
+
+  it('falls silent once either boss is dead', () => {
+    expect(playing({ id: 'crimsonSeraph', form: 1, stanceKind: 'dead' })).toBe('silence');
+    expect(playing({ id: 'voidEmpress', form: 1, stanceKind: 'dead' }, 'failed')).toBe('silence');
   });
 });
 
@@ -128,7 +164,7 @@ describe('the gain that matches a recording to the boss track', () => {
   const sine = (amp: number, sec: number, rate: number, hz = 220) => Float32Array.from({ length: Math.round(sec * rate) }, (_, i) => amp * Math.sin((2 * Math.PI * hz * i) / rate));
 
   it("scales a steady tone's RMS to Crimson Verdict's loudness", () => {
-    expect(gainToMatch([sine(0.9, 2, 48000)], 48000)).toBeCloseTo(BOSS1_LOUD95 / (0.9 / Math.SQRT2), 3);
+    expect(gainToMatch([sine(0.9, 2, 48000)], 48000)).toBeCloseTo(BOSS1_PRE_BUS_LOUD95 / (0.9 / Math.SQRT2), 3);
     expect(gainToMatch([sine(0.1, 2, 48000)], 48000, 0.2)).toBeCloseTo(0.2 / (0.1 / Math.SQRT2), 3);
   });
 
@@ -146,7 +182,7 @@ describe('the gain that matches a recording to the boss track', () => {
     const rate = 44100;
     const song = sine(0.2, 10, rate);
     song.set(sine(1, 0.2, rate), rate);
-    expect(gainToMatch([song], rate)).toBeCloseTo(BOSS1_LOUD95 / (0.2 / Math.SQRT2), 3);
+    expect(gainToMatch([song], rate)).toBeCloseTo(BOSS1_PRE_BUS_LOUD95 / (0.2 / Math.SQRT2), 3);
   });
 
   it('gives no gain for a silent recording', () => {

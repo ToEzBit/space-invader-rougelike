@@ -11,3 +11,6 @@ art-src/*/sheets
 art-src/*/mockups
 art-src/*/ref-forms
 art-src/*/review
+
+public/music/*.ogg
+public/music/*.mp3

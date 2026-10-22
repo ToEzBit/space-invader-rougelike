@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
-import { BOSSES, ENEMIES, bossPhaseAt, healedHp, transformDue, type BossDef, type BossForm, type BossPattern, type BossStage, type BossTexture, type EnemyKind, type FormIndex } from '../core/stages';
+import { BOSSES, ENEMIES, bossPhaseAt, healedHp, transformDue, type BossDef, type BossForm, type BossId, type BossPattern, type BossStage, type BossTexture, type EnemyKind, type FormIndex } from '../core/stages';
 import { COLORS, css } from '../art/palette';
 import { banner } from '../ui/banner';
 import { VIEW } from '../view';
@@ -59,6 +59,7 @@ type Stance =
 
 export class BossFight implements Encounter {
   readonly boss = this;
+  readonly id: BossId;
   readonly def: BossDef;
   readonly foe: Foe;
   readonly breached = false;
@@ -81,6 +82,7 @@ export class BossFight implements Encounter {
     readonly world: World,
     stage: BossStage,
   ) {
+    this.id = stage.boss;
     this.def = BOSSES[stage.boss];
     const { texture } = this.def.forms[0];
     this.foe = world.addFoe(texture, VIEW.w / 2, -70, this.def.hp, 0, BOSS_RADIUS, 'big');

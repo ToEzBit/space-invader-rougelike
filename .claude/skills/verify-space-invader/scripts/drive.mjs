@@ -16,7 +16,7 @@ if (!runId || names.length === 0) {
   process.exit(2);
 }
 const port = readFileSync(join(ROOT, '.verify', runId, 'instance', 'port'), 'utf8').trim();
-const URL = `http://127.0.0.1:${port}/`;
+const APP_URL = `http://127.0.0.1:${port}/`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -86,7 +86,7 @@ function harness(page, outDir) {
   }
 
   async function openTitle() {
-    await page.goto(URL);
+    await page.goto(APP_URL);
     return waitFor('Title scene', (s) => s.scenes.includes('Title'), 15000);
   }
 
@@ -116,6 +116,54 @@ function harness(page, outDir) {
   }
 
   return { log, state, game, core, waitFor, check, step, shot, hold, startAt, openTitle, steer, track, page };
+}
+
+const TONE_RATE = 44100;
+const TONE_LOOP_SEC = 4;
+const TONE_HZ = 110;
+const TONE_SWELL_HZ = 2;
+if (!Number.isInteger(TONE_HZ * TONE_LOOP_SEC) || !Number.isInteger(TONE_SWELL_HZ * TONE_LOOP_SEC)) throw new Error('the test tone would click at its loop point');
+
+function loopingTone() {
+  return Float32Array.from({ length: TONE_RATE * TONE_LOOP_SEC }, (_, i) => {
+    const t = i / TONE_RATE;
+    const swell = 0.85 + 0.15 * Math.sin(2 * Math.PI * TONE_SWELL_HZ * t);
+    return (0.9 * swell * Math.tanh(3 * Math.sin(2 * Math.PI * TONE_HZ * t))) / Math.tanh(3);
+  });
+}
+
+function wavStereo16(data, rate) {
+  const wav = Buffer.alloc(44 + data.length * 4);
+  wav.write('RIFF', 0);
+  wav.writeUInt32LE(36 + data.length * 4, 4);
+  wav.write('WAVEfmt ', 8);
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(2, 22);
+  wav.writeUInt32LE(rate, 24);
+  wav.writeUInt32LE(rate * 4, 28);
+  wav.writeUInt16LE(4, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write('data', 36);
+  wav.writeUInt32LE(data.length * 4, 40);
+  data.forEach((v, i) => {
+    const sample = Math.round(v * 0x7fff);
+    wav.writeInt16LE(sample, 44 + i * 4);
+    wav.writeInt16LE(sample, 46 + i * 4);
+  });
+  return wav;
+}
+
+function loud95(data, rate) {
+  const win = Math.round(rate * 0.05);
+  const windows = [];
+  for (let i = 0; i + win <= data.length; i += win) {
+    let w = 0;
+    for (let j = i; j < i + win; j++) w += data[j] * data[j];
+    windows.push(Math.sqrt(w / win));
+  }
+  windows.sort((a, b) => a - b);
+  return windows[Math.floor(0.95 * windows.length)];
 }
 
 function summarize(s) {
@@ -1242,6 +1290,15 @@ const JOURNEYS = {
   },
 
   async music(h) {
+    const SONG = '**/music/void-empress.*';
+    const warnings = [];
+    h.page.on('console', (m) => m.type() === 'warning' && m.text().startsWith('music:') && warnings.push(m.text()));
+    const served = [];
+    const serveMissing = async (route) => {
+      served.push(new URL(route.request().url()).pathname);
+      await route.fulfill({ response: await route.fetch({ url: `${APP_URL}music/no-such-song.ogg` }) });
+    };
+    await h.page.route(SONG, serveMissing);
     const VOLUME = await (async () => {
       await h.openTitle();
       return h.page.evaluate(async () => (await import('/src/audio/music.ts')).MUSIC_VOLUME);
@@ -1288,37 +1345,49 @@ const JOURNEYS = {
       { from: cutFrom, to: cutTo, stepSec },
     );
 
-    for (const [stage, name] of [[5, 'Crimson Seraph'], [10, 'Void Empress']]) {
+    const fight = async (stage, name, [first, second], shot) => {
       const atHpRatio = await h.page.evaluate(async (stage) => {
         const stages = await import('/src/core/stages.ts');
         return stages.BOSSES[stage === 5 ? 'crimsonSeraph' : 'voidEmpress'].transform.atHpRatio;
       }, stage);
       await h.startAt(stage);
       await h.game('god', true);
-      const entering = await h.waitFor(`${name}: boss track`, (x) => x.music.playing === 'boss1', 3000);
-      h.check(`${name}: the boss stage starts on the first boss track`, entering.music.track === 'boss1' && entering.boss.form === 0, { music: entering.music, boss: entering.boss });
+      const entering = await h.waitFor(`${name}: ${first.playing}`, (x) => x.music.playing === first.playing, 3000);
+      h.check(`${name}: the boss stage starts on ${first.playing}`, entering.music.track === first.track && entering.boss.form === 0, { music: entering.music, boss: entering.boss });
       await h.waitFor(`${name} in place`, (x) => x.boss?.stance === 'fighting', 12000);
       await h.game('bossHp', atHpRatio - 0.05);
       const turning = await h.waitFor(`${name} transforming`, (x) => x.boss?.stance === 'transforming', 4000);
-      h.check(`${name}: the transformation switches to the second boss track at once`, turning.music.track === 'boss2', { music: turning.music, boss: { form: turning.boss.form, stance: turning.boss.stance } });
-      if (turning.boss.form === 0) h.log.steps.push({ action: `${name}: boss2 asked for while still in form 0`, music: turning.music });
-      const second = await h.waitFor(`${name} second form`, (x) => x.boss?.form === 1 && x.boss.stance === 'fighting' && x.music.playing === 'boss2', 10000);
-      h.check(`${name}: the second form fights to the second boss track`, second.music.track === 'boss2' && second.music.playing === 'boss2', { music: second.music });
-      await sleep(600);
-      await h.game('pause');
-      await h.shot(`${name.split(' ')[1].toLowerCase()}-second-form`);
-      await h.game('resume');
-      if (stage === 5) {
-        await h.game('kill');
-        const quiet = await h.waitFor('Seraph dead, music fading out', (x) => x.boss?.stance === 'dead', 4000);
-        h.check('a dead boss fades the music out for the clear', quiet.music.track === null, { music: quiet.music });
-        const silent = await h.waitFor('music silent', (x) => x.music.playing === null, 2000);
-        const shop = await h.waitFor('shop after the boss', (x) => x.scenes.includes('Shop'), 8000);
-        h.check('the shop after the boss brings the normal track back', shop.music.track === 'normal', { silent: silent.music, shop: shop.music });
-        const back = await h.waitFor('normal track playing in the shop', (x) => x.music.playing === 'normal', 2000);
-        h.log.steps.push({ action: 'shop after the Seraph', music: back.music });
+      h.check(`${name}: the transformation asks for ${second.playing} at once`, turning.music.track === second.track && turning.music.source === second.playing, { music: turning.music, boss: { form: turning.boss.form, stance: turning.boss.stance } });
+      if (turning.boss.form === 0) h.log.steps.push({ action: `${name}: ${second.playing} asked for while still in form 0`, music: turning.music });
+      const after = await h.waitFor(`${name} second form`, (x) => x.boss?.form === 1 && x.boss.stance === 'fighting' && x.music.playing === second.playing, 10000);
+      h.check(`${name}: the second form fights to ${second.playing}`, after.music.track === second.track && after.music.playing === second.playing, { music: after.music });
+      if (shot) {
+        await sleep(600);
+        await h.game('pause');
+        await h.shot(`${name.split(' ')[1].toLowerCase()}-second-form`);
+        await h.game('resume');
       }
-    }
+      return { entering, turning, after };
+    };
+    const SERAPH = [{ track: 'boss1', playing: 'boss1' }, { track: 'boss2', playing: 'boss2' }];
+
+    await fight(5, 'Crimson Seraph', SERAPH, true);
+    await h.game('kill');
+    const quiet = await h.waitFor('Seraph dead, music fading out', (x) => x.boss?.stance === 'dead', 4000);
+    h.check('a dead boss fades the music out for the clear', quiet.music.track === null, { music: quiet.music });
+    const silent = await h.waitFor('music silent', (x) => x.music.playing === null, 2000);
+    const shop = await h.waitFor('shop after the boss', (x) => x.scenes.includes('Shop'), 8000);
+    h.check('the shop after the boss brings the normal track back', shop.music.track === 'normal', { silent: silent.music, shop: shop.music });
+    const back = await h.waitFor('normal track playing in the shop', (x) => x.music.playing === 'normal', 2000);
+    h.log.steps.push({ action: 'shop after the Seraph', music: back.music });
+    h.check('no song file is fetched before the Empress wants it', served.length === 0, { served: [...served] });
+
+    const fellBack = await fight(10, 'Void Empress', [{ track: 'empress', playing: 'boss1' }, { track: 'empress', playing: 'boss2' }], true);
+    h.check(
+      'with no song file the Empress falls back to Crimson Verdict, then Crimson Verdict II, and says so once',
+      fellBack.entering.music.fellBack && fellBack.after.music.fellBack && fellBack.after.music.files.empress.status === 'failed' && warnings.length === 1 && warnings[0].includes('/music/void-empress.ogg') && warnings[0].includes('/music/void-empress.mp3') && served.join() === '/music/void-empress.ogg,/music/void-empress.mp3',
+      { warnings: [...warnings], served: [...served], files: fellBack.after.music.files },
+    );
 
     await h.step('press M', () => h.page.keyboard.press('m'));
     const muted = await h.waitFor('music bus ramped to silence', (x) => x.music.busGain < 1e-4, 1000);
@@ -1335,6 +1404,65 @@ const JOURNEYS = {
     await h.page.reload();
     const again = await h.waitFor('Title after second reload', (x) => x.scenes.includes('Title'), 15000);
     h.check('unmute survives a reload too', !again.music.muted, { music: again.music });
+
+    const tone = loopingTone();
+    const toneWav = wavStereo16(tone, TONE_RATE);
+    const toneLoud95 = loud95(tone, TONE_RATE);
+    await h.page.unroute(SONG);
+    served.length = 0;
+    warnings.length = 0;
+    await h.page.route(SONG, async (route) => {
+      if (!route.request().url().endsWith('.ogg')) return serveMissing(route);
+      served.push(new URL(route.request().url()).pathname);
+      await route.fulfill({ status: 200, contentType: 'audio/wav', body: toneWav });
+    });
+    await h.page.reload();
+    await h.waitFor('Title with the song file served', (x) => x.scenes.includes('Title'), 15000);
+    await h.page.keyboard.press('Shift');
+    await h.waitFor('normal track playing', (x) => x.music.playing === 'normal', 4000);
+
+    await fight(5, 'Crimson Seraph', SERAPH, false);
+    const own = await fight(10, 'Void Empress', [{ track: 'empress', playing: 'empress' }, { track: 'empress', playing: 'empress' }], false);
+    const url = '/music/void-empress.ogg';
+    h.check(
+      "with the song file the Empress plays it through her transformation on one source, never restarted",
+      [own.entering, own.turning, own.after].every((x) => x.music.playing === 'empress' && x.music.url === url && x.music.plays === own.entering.music.plays && !x.music.fellBack),
+      { entering: own.entering.music, turning: own.turning.music, after: own.after.music },
+    );
+    h.check('the song file is fetched once, .ogg first, with no warning', served.length === 1 && served[0] === url && warnings.length === 0, { served: [...served], warnings: [...warnings] });
+
+    const boss1Loud95 = await h.page.evaluate(async () => {
+      const { compile, playStep } = await import('/src/audio/synth.ts');
+      const { MUSIC_VOLUME } = await import('/src/audio/music.ts');
+      const RATE = 44100;
+      const song = compile('boss1');
+      const ctx = new OfflineAudioContext(1, Math.ceil(song.steps * song.stepSec * RATE), RATE);
+      const bus = ctx.createGain();
+      bus.gain.value = MUSIC_VOLUME;
+      bus.connect(ctx.destination);
+      for (let step = 0; step < song.steps; step++) playStep(ctx, bus, song, step, step * song.stepSec);
+      const data = (await ctx.startRendering()).getChannelData(0);
+      const win = Math.round(RATE * 0.05);
+      const windows = [];
+      for (let i = 0; i + win <= data.length; i += win) {
+        let w = 0;
+        for (let j = i; j < i + win; j++) w += data[j] * data[j];
+        windows.push(Math.sqrt(w / win));
+      }
+      windows.sort((a, b) => a - b);
+      return windows[Math.floor(0.95 * windows.length)];
+    });
+    const { trackGain, files } = own.after.music;
+    const songLoud95 = toneLoud95 * trackGain * VOLUME;
+    h.check(
+      "the song's gain turns it down to within 20% of Crimson Verdict's loudness on the bus",
+      trackGain < 0.6 && Math.abs(trackGain - files.empress.gain) < 1e-3 && Math.abs(songLoud95 / boss1Loud95 - 1) < 0.2,
+      { toneLoud95, trackGain, fileGain: files.empress.gain, songLoud95, boss1Loud95, ratio: songLoud95 / boss1Loud95 },
+    );
+
+    await h.step('press M during the Empress song', () => h.page.keyboard.press('m'));
+    const quietSong = await h.waitFor('song muted', (x) => x.music.busGain < 1e-4, 1000);
+    h.check('M mutes the song file like the synth tracks, which keeps playing', quietSong.music.muted && quietSong.music.playing === 'empress' && quietSong.music.url === url, { music: quietSong.music });
   },
 };
 
@@ -1365,7 +1493,7 @@ for (const name of selected) {
     error = e.message;
     await page.screenshot({ path: join(outDir, 'failure.png') }).catch(() => {});
   }
-  writeFileSync(join(outDir, 'log.json'), JSON.stringify({ journey: name, url: URL, ok: !error, error, ...h.log }, null, 2));
+  writeFileSync(join(outDir, 'log.json'), JSON.stringify({ journey: name, url: APP_URL, ok: !error, error, ...h.log }, null, 2));
   console.log(`${error ? 'FAIL' : 'PASS'} ${name}${error ? `: ${error}` : ''} -> ${outDir}`);
   if (error) failed++;
   await context.close();
