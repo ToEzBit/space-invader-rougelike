@@ -159,6 +159,10 @@ export class World {
     this.look.enter(next.kind);
   }
 
+  silenceTransAm(): void {
+    this.look.hush();
+  }
+
   // Item buffs first, then the TRANS-AM phase.
   private recomputeStats(): void {
     this.effectiveStats = withTransAm(withBuffs(this.baseStats, this.buffs.map((b) => b.buff)), this.trans);

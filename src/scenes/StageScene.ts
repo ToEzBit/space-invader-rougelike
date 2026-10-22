@@ -217,6 +217,7 @@ export class StageScene extends Phaser.Scene {
   private end(next: RunState): void {
     this.setLife({ kind: 'ending', msLeft: OUTRO_MS, next });
     this.world.enemyShots.clear();
+    this.world.silenceTransAm();
     if (next.phase.kind === 'defeat') {
       this.world.fx.explode(this.world.player.x, this.world.player.y, 'big');
       this.world.player.vanish();

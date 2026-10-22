@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
+import { TransAmSound } from '../audio/transAmSound';
 import { COLORS } from '../art/palette';
 import { TRANS_AM, type TransAm } from '../core/transAm';
 import { VIEW } from '../view';
@@ -10,12 +11,13 @@ const SHIP_TINT = { active: 0xff8ab4, depleted: 0x6c6c80, overdrive: 0xffb0e0 } 
 const GHOST = { everyMs: 40, ms: 260, alpha: 0.5 } as const;
 const VIGNETTE = { bands: 10, bandPx: 5, alpha: 0.3 } as const;
 
-// How the ship and screen look through TRANS-AM, plus the ship's overdrive flicker, so one place owns the ship tint.
-// None of this touches game state.
+// How the ship and screen look and sound through TRANS-AM, plus the ship's overdrive flicker, so one place owns the
+// ship tint. None of this touches game state.
 export class TransAmLook {
   private readonly halo: Phaser.GameObjects.Image;
   private readonly vignette: Phaser.GameObjects.Graphics;
   private readonly ring: Phaser.GameObjects.Graphics;
+  private readonly sound = new TransAmSound();
   private clockMs = 0;
   private ghostMs = 0;
 
@@ -35,15 +37,18 @@ export class TransAmLook {
       this.vignette.strokeRect(inset, inset, VIEW.w - inset * 2, VIEW.h - inset * 2);
     }
     this.ring = scene.add.graphics().setDepth(DEPTH.fx);
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.hush());
   }
 
   enter(kind: TransAm['kind']): void {
     if (kind === 'active') sfx('transAm');
+    else this.sound.end();
     if (kind === 'depleted') sfx('powerDown');
   }
 
   release(): void {
-    const { fx } = this.world;
+    const { fx, gun } = this.world;
+    this.sound.release(gun.volleys);
     fx.flash(160, 255, 90, 150);
     fx.shake(0.008, 260);
   }
@@ -51,7 +56,8 @@ export class TransAmLook {
   // shockRadius is the release ring's reach this frame, null outside the release.
   update(dtMs: number, t: TransAm, shockRadius: number | null, overdriven: boolean): void {
     this.clockMs += dtMs;
-    const { player } = this.world;
+    const { player, gun } = this.world;
+    this.sound.update(t, gun.volleys);
     const ship = player.sprite;
     const active = t.kind === 'active';
     const pulse = 0.5 + 0.5 * Math.sin(this.clockMs / 70);
@@ -72,6 +78,11 @@ export class TransAmLook {
     const fade = 1 - shockRadius / TRANS_AM.clearRadiusPx;
     g.lineStyle(10, COLORS.pink, 0.25 + 0.3 * fade).strokeCircle(player.x, player.y, shockRadius);
     g.lineStyle(3, COLORS.white, 0.5 + 0.5 * fade).strokeCircle(player.x, player.y, shockRadius);
+  }
+
+  // The stage is over. Its last frames keep the look but play no more TRANS-AM sound.
+  hush(): void {
+    this.sound.hush();
   }
 
   private ghost(): void {

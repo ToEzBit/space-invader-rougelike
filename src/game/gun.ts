@@ -22,6 +22,10 @@ export class Gun {
     );
   }
 
+  get volleys(): number {
+    return this.shots;
+  }
+
   get overdriven(): boolean {
     return this.world.stats.overdriveMultiplier < 1 && this.world.player.msSinceHit >= OVERDRIVE_CALM_MS;
   }
