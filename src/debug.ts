@@ -6,6 +6,7 @@ import { musicState } from './audio/music';
 import { transAmSoundState } from './audio/transAmSound';
 import { voiceState } from './audio/voice';
 import { newRun, type RunState } from './core/run';
+import { INPUT_MODE } from './input';
 import { sceneFor } from './scenes/flow';
 
 // Dev-only handles that let verification jump straight to any stage, shop, or ending.
@@ -70,7 +71,7 @@ export function installDebug(game: Phaser.Game): void {
       for (const key of active()) game.scene.stop(key);
       game.scene.start(sceneFor(run), { run });
     },
-    state: () => ({ scenes: active(), run: hooks?.hooks.run() ?? null, view: view(), music: musicState(), voice: voiceState(), transAmSound: transAmSoundState(), ...hooks?.hooks.info?.() }),
+    state: () => ({ scenes: active(), input: INPUT_MODE, run: hooks?.hooks.run() ?? null, view: view(), music: musicState(), voice: voiceState(), transAmSound: transAmSoundState(), ...hooks?.hooks.info?.() }),
     kill: () => hooks?.hooks.kill?.(),
     hurt: () => hooks?.hooks.hurt?.(),
     hit: () => hooks?.hooks.hit?.(),

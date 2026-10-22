@@ -6,6 +6,7 @@ import { STAGE_COUNT } from '../core/stages';
 import { COLORS, css } from '../art/palette';
 import type { ImageKey } from '../art/ui';
 import { setDebugHooks } from '../debug';
+import { WORDS } from '../input';
 import { Backdrop } from '../ui/backdrop';
 import { frame } from '../ui/frame';
 import { label } from '../ui/text';
@@ -72,7 +73,7 @@ export class EndScene extends Phaser.Scene {
     const panelH = Math.max(PANEL.minH, Math.ceil(perks.y + perks.height) + 6 - PANEL.y);
     frame(this, 'panel', PANEL.x, PANEL.y, PANEL.w, panelH).setOrigin(0).setDepth(-1);
 
-    const prompt = label(this, cx, 572, 'ENTER หรือคลิก · เล่นอีกครั้ง', { size: 18, bold: true, color: '#ffffff', align: 'center', stroke: '#d81b8c' });
+    const prompt = label(this, cx, 572, WORDS.restart, { size: 18, bold: true, color: '#ffffff', align: 'center', stroke: '#d81b8c' });
     this.tweens.add({ targets: prompt, alpha: 0.35, duration: 600, yoyo: true, repeat: -1 });
     this.input.keyboard?.once('keydown-ENTER', () => this.restart());
     this.input.once('pointerdown', () => this.restart());

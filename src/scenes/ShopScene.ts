@@ -7,6 +7,7 @@ import { buyOffer, leaveShop, offerCost, refreshCost, refreshShop, type RunState
 import { COLORS, css } from '../art/palette';
 import type { FrameKey } from '../art/ui';
 import { setDebugHooks } from '../debug';
+import { WORDS } from '../input';
 import { Backdrop } from '../ui/backdrop';
 import { BRANCH_LOOK } from '../ui/branch';
 import { frame } from '../ui/frame';
@@ -118,7 +119,7 @@ export class ShopScene extends Phaser.Scene {
     this.layer.add(box);
     const left = -CARD.w / 2;
     const top = -CARD.h / 2;
-    const key = label(this, left + CARD.w - 14, top + 8, `[${card.slot + 1}]`, { size: 12, bold: true, color: '#8a96c8', align: 'right' });
+    const key = label(this, left + CARD.w - 14, top + 8, WORDS.cardKey(card.slot), { size: 12, bold: true, color: '#8a96c8', align: 'right' });
 
     if (card.kind === 'soldOut') {
       const g = this.add.graphics();
@@ -188,7 +189,7 @@ export class ShopScene extends Phaser.Scene {
     const tx = left + 76;
     const name = label(this, tx, top + 6, item.name, { size: 17, bold: true, color: css(COLORS.gold) });
     const stack = label(this, tx + name.width + 10, top + 10, `ถืออยู่ ${held}/${ITEM_STACK_MAX}`, { size: 12, bold: true, color: held ? '#ffffff' : css(COLORS.green) });
-    const use = label(this, tx, top + 30, `ไอเทมกดใช้ · ปุ่ม ${item.key} ระหว่างด่าน`, { size: 11, color: '#c9a86a' });
+    const use = label(this, tx, top + 30, WORDS.itemUse(item), { size: 11, color: '#c9a86a' });
     const desc = label(this, tx, top + 50, item.desc, { size: 13, color: '#ffffff', wrap: CARD.w - 76 - 96 });
     box.add([frame(this, 'itemCard', 0, 0, CARD.w, CARD.h), g, icon, name, stack, use, desc]);
   }
@@ -196,8 +197,8 @@ export class ShopScene extends Phaser.Scene {
   private drawButtons(): void {
     const cost = refreshCost(this.run);
     const canRefresh = this.run.money >= cost;
-    this.button(VIEW.w / 2 - 110, `R · รีเฟรช  ${cost}`, canRefresh ? BUTTON.refresh : BUTTON.disabled, () => this.refresh());
-    this.button(VIEW.w / 2 + 110, 'ENTER · ไปต่อ ▶', BUTTON.go, () => this.leave());
+    this.button(VIEW.w / 2 - 110, WORDS.refresh(cost), canRefresh ? BUTTON.refresh : BUTTON.disabled, () => this.refresh());
+    this.button(VIEW.w / 2 + 110, WORDS.go, BUTTON.go, () => this.leave());
   }
 
   private button(x: number, text: string, look: ButtonLook, onClick: () => void): void {

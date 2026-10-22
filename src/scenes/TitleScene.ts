@@ -1,23 +1,15 @@
 import Phaser from 'phaser';
 import { isMuted, toggleMute, want } from '../audio/music';
-import { ITEM_IDS, ITEMS } from '../core/items';
 import { newRun } from '../core/run';
 import { css, COLORS } from '../art/palette';
 import { setDebugHooks } from '../debug';
+import { WORDS } from '../input';
 import { Backdrop } from '../ui/backdrop';
 import { frame } from '../ui/frame';
 import { label } from '../ui/text';
 import { fitCamera, VIEW } from '../view';
 import { goTo } from './flow';
 
-const CONTROLS: readonly [string, string][] = [
-  ['← → ↑ ↓ / W A S D', 'เคลื่อนที่'],
-  ['AUTO', 'ยิงอัตโนมัติ · เลเซอร์ยิงเองเมื่อปลดล็อก'],
-  ['SHIFT', 'พุ่งชนทะลุฝูงศัตรู (เมื่อปลดล็อก)'],
-  [ITEM_IDS.map((id) => ITEMS[id].key).join(' '), 'ใช้ไอเทมที่ซื้อจากร้านค้า ระหว่างด่าน'],
-  ['1 2 3 / R / ENTER', 'ซื้อ · รีเฟรช · ไปต่อ ในร้านค้า'],
-  ['F', 'เต็มจอ / ออกจากเต็มจอ'],
-];
 const ROW_H = 20;
 
 export class TitleScene extends Phaser.Scene {
@@ -45,17 +37,17 @@ export class TitleScene extends Phaser.Scene {
     this.tweens.add({ targets: logo, y: 104, duration: 1600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     label(this, cx, 196, 'ปกป้องกาแล็กซีจากกองทัพสาวต่างดาว · อัปเกรดแบบโร้กไลก์', { size: 13, color: '#e3c6ff', align: 'center', stroke: ink });
 
-    frame(this, 'panel', 40, 410, VIEW.w - 80, 44 + CONTROLS.length * ROW_H).setOrigin(0);
+    frame(this, 'panel', 40, 410, VIEW.w - 80, 44 + WORDS.controls.length * ROW_H).setOrigin(0);
     label(this, cx, 418, 'CONTROLS · การควบคุม', { size: 13, bold: true, color: css(COLORS.yellow), align: 'center' });
-    CONTROLS.forEach(([key, what], i) => {
+    WORDS.controls.forEach(([key, what], i) => {
       label(this, 60, 444 + i * ROW_H, key, { size: 13, bold: true, color: css(COLORS.cyan) });
       label(this, 196, 444 + i * ROW_H, what, { size: 13, color: '#ffffff' });
     });
 
-    const prompt = label(this, cx, 590, 'PRESS ENTER หรือคลิกเพื่อเริ่ม', { size: 18, bold: true, color: '#ffffff', align: 'center', stroke: '#d81b8c' });
+    const prompt = label(this, cx, 590, WORDS.start, { size: 18, bold: true, color: '#ffffff', align: 'center', stroke: '#d81b8c' });
     this.tweens.add({ targets: prompt, alpha: 0.35, duration: 600, yoyo: true, repeat: -1 });
 
-    const fullscreen = label(this, VIEW.w - 12, 10, 'F · เต็มจอ', { size: 12, bold: true, color: '#c9d4ff', align: 'right', stroke: ink });
+    const fullscreen = label(this, VIEW.w - 12, 10, WORDS.fullscreen, { size: 12, bold: true, color: '#c9d4ff', align: 'right', stroke: ink });
     fullscreen.setInteractive({ useHandCursor: true }).on(
       'pointerdown',
       (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
@@ -82,7 +74,7 @@ export class TitleScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     this.backdrop.update(Math.min(delta, 50) / 1000);
-    this.musicHint.setText(`M · เพลง ${isMuted() ? 'ปิด' : 'เปิด'}`);
+    this.musicHint.setText(WORDS.music(isMuted()));
   }
 
   private begin(): void {

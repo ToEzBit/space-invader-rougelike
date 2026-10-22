@@ -10,6 +10,7 @@ import { MONEY_ANCHOR } from '../game/fx';
 import { barAlpha, hpBarColor, hpRatio, visibleBar } from '../game/hpBar';
 import { DEPTH } from '../game/layout';
 import { godMode } from '../godMode';
+import { WORDS, type SkillId } from '../input';
 import type { BossFight } from '../game/boss';
 import { sweepAngle, type SkillMeter } from '../game/skills';
 import type { World } from '../game/world';
@@ -143,20 +144,20 @@ type SlotDef = {
   pulseReady?: boolean;
 };
 
-type SkillDef = SlotDef & { id: 'transAm' | 'laser' | 'orbital' | 'dash'; hint: 'AUTO' | 'SHIFT' | 'SPACE' };
+type SkillDef = SlotDef & { id: SkillId };
 
 // TRANS-AM always shows, so it leads the tray and never moves.
 export const SKILL_SLOTS: readonly SkillDef[] = [
-  { id: 'transAm', icon: 'player', color: COLORS.red, tint: 0xff8ab4, hint: 'SPACE', meter: (w) => w.transAmMeter(), pulseReady: true },
-  { id: 'dash', icon: 'iconRam', color: COLORS.pink, hint: 'SHIFT', meter: (w) => w.dash.meter() },
-  { id: 'laser', icon: 'iconLaser', color: COLORS.cyan, hint: 'AUTO', meter: (w) => w.laser.meter() },
-  { id: 'orbital', icon: 'iconOrbital', color: COLORS.yellow, hint: 'AUTO', meter: (w) => w.laser.orbitalMeter() },
+  { id: 'transAm', icon: 'player', color: COLORS.red, tint: 0xff8ab4, hint: WORDS.skillHint.transAm, meter: (w) => w.transAmMeter(), pulseReady: true },
+  { id: 'dash', icon: 'iconRam', color: COLORS.pink, hint: WORDS.skillHint.dash, meter: (w) => w.dash.meter() },
+  { id: 'laser', icon: 'iconLaser', color: COLORS.cyan, hint: WORDS.skillHint.laser, meter: (w) => w.laser.meter() },
+  { id: 'orbital', icon: 'iconOrbital', color: COLORS.yellow, hint: WORDS.skillHint.orbital, meter: (w) => w.laser.orbitalMeter() },
 ];
 
 const ITEM_SLOTS = Object.fromEntries(
   ITEM_IDS.map((id): [ItemId, SlotDef] => [
     id,
-    { ...ITEM_LOOK[id], hint: ITEMS[id].key, meter: (w) => w.itemMeter(id), count: (w) => w.run.items[id] ?? 0 },
+    { ...ITEM_LOOK[id], hint: WORDS.itemHint(ITEMS[id]), meter: (w) => w.itemMeter(id), count: (w) => w.run.items[id] ?? 0 },
   ]),
 ) as Record<ItemId, SlotDef>;
 
