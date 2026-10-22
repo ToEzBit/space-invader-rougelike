@@ -1,11 +1,11 @@
 # TRANS-AM cut-in
 
-`Space` on a full gauge spends it, turns TRANS-AM `active` with `msLeft` at `activeMs`, and plays a one-second cut-in in the style of Persona 3 Reload before the active time starts. The stage is frozen the whole time: foes, enemy bullets, boss drift and pattern timers, the ship, player shots, buffs, item timers and the active countdown all hold, and `clock.fightMs` does not advance. The timeline is `CUT_IN` in `src/core/cutIn.ts` and the view is `src/game/cutIn.ts`.
+`Space` on a full gauge spends it, turns TRANS-AM `active` with `msLeft` at `activeMs`, and plays a cut-in in the style of Persona 3 Reload before the active time starts. It lasts one second when silent, or as long as the pilot's voice line takes to reach its shout (see [voice](./voice.md)). The stage is frozen the whole time: foes, enemy bullets, boss drift and pattern timers, the ship, player shots, buffs, item timers and the active countdown all hold, and `clock.fightMs` does not advance. The timeline is `CUT_IN` in `src/core/cutIn.ts` and the view is `src/game/cutIn.ts`.
 
 ## Sub-features
 
 - `dim` darkens the whole viewport, letterbox included, over `dimMs`.
-- `band` slides a band tilted -8 degrees in from the left, with black bars and red edges around the pilot's eye strip, red speed lines, and a slanted white-and-red `TRANS-AM` title. The eyes crossfade from blue to red over `bandMs`. Only the irises change.
+- `band` slides a band tilted -8 degrees in from the left, with black bars and red edges around the pilot's eye strip, red speed lines, and a slanted white-and-red `TRANS-AM` title. The eyes crossfade from blue to red over `bandMs`. Only the irises change. A voiced cut-in holds the band longer: the slide and title keep their timing and the eyes crossfade over the longer hold, red 120 ms before the slash.
 - `slash` cuts a white blade of light across the band, flashes the screen white and slides the band out over `slashMs`.
 - `freeze` holds the stage. Boss patterns run on the scene clock, so the cut-in pauses it and the tween manager too.
 - `input` keeps dash and item presses made during the cut-in queued, so each fires once on the first frame after. A `Space` press during it does nothing, not even a refusal afterwards. Held movement keys move the ship again once it ends.
@@ -23,7 +23,7 @@ Preconditions:
 - `state().life` is `cutIn` during the cut-in and `cutInMs` is how far into it the stage is. `foeSpots` lists every live foe's position. `__game.shots()` lists enemy bullets with stable ids.
 - Expected times come from `CUT_IN` and `CUT_IN_MS` in `/src/core/cutIn.ts` and `TRANS_AM` in `/src/core/transAm.ts`.
 
-Run `drive.mjs <run-id> cut-in`. It runs at device scale 2. Each screenshot pauses on the first animation frame past a `cutInMs` threshold, polled inside the page so a 100ms beat cannot slip between reads.
+Run `drive.mjs <run-id> cut-in`. It runs at device scale 2. It serves the voice files as 404, so every cut-in in it is the silent one-second one on frame time and its pauses hold it. Each screenshot pauses on the first animation frame past a `cutInMs` threshold, polled inside the page so a 100ms beat cannot slip between reads.
 
 - **Start.** Stage 4 in god mode with a Nitro and a full gauge waits for enemy bullets near the ship, then presses `Space`. Mid dim, `life` is `cutIn` and TRANS-AM is `active` with `msLeft` exactly `activeMs`.
 - **Input.** `x` and `Space` pressed mid band leave Nitro held and no buff running while the cut-in plays, and the cut-in keeps going instead of restarting.

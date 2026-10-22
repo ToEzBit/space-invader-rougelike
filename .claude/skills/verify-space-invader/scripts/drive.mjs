@@ -23,8 +23,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function harness(page, outDir) {
   const log = { steps: [], checks: [], consoleErrors: [] };
   let shotNo = 0;
-  page.on('console', (m) => m.type() === 'error' && log.consoleErrors.push(m.text()));
+  // Chrome logs its own console error for each 404, so a file a journey serves as missing on purpose is let off.
+  const missing = new Set();
+  page.on('console', (m) => m.type() === 'error' && !missing.has(m.location().url) && log.consoleErrors.push(m.text()));
   page.on('pageerror', (e) => log.consoleErrors.push(`pageerror: ${e.message}`));
+  const serve404 = (glob) =>
+    page.route(glob, (route) => {
+      missing.add(route.request().url());
+      return route.fulfill({ status: 404 });
+    });
 
   const state = () => page.evaluate(() => window.__game?.state() ?? null);
   const game = (fn, ...args) => page.evaluate(([fn, args]) => window.__game[fn](...args), [fn, args]);
@@ -136,9 +143,10 @@ function harness(page, outDir) {
       [pred, pause, timeoutMs],
     );
 
-  return { log, state, game, core, waitFor, frameWhen, check, step, shot, hold, startAt, openTitle, steer, track, page };
+  return { log, state, game, core, waitFor, frameWhen, check, step, shot, hold, startAt, openTitle, steer, track, serve404, page };
 }
 
+const VOICE_FILES = '**/transam-*.mp3';
 const TONE_RATE = 44100;
 const TONE_LOOP_SEC = 4;
 const TONE_HZ = 110;
@@ -780,7 +788,8 @@ const JOURNEYS = {
     h.check('Space with a full gauge activates TRANS-AM', activated.transAm.kind === 'active' && activated.transAm.msLeft > TA.activeMs - 300, { transAm: activated.transAm });
     h.check('active stats: fire interval x0.5, move speed x1.25, pierce +1, same damage', close(activated.stats.fireIntervalMs, base.fireIntervalMs * TA.active.fireIntervalScale) && close(activated.stats.moveSpeed, base.moveSpeed * TA.active.moveSpeedScale) && activated.stats.pierce === base.pierce + TA.active.pierce && close(activated.stats.bulletDamage, base.bulletDamage), { stats: activated.stats, base: { fireIntervalMs: base.fireIntervalMs, moveSpeed: base.moveSpeed, pierce: base.pierce, bulletDamage: base.bulletDamage } });
     const activatedAt = activated.clock.fightMs;
-    await h.waitFor('release over', (x) => x.transAm.kind === 'active' && x.transAm.msLeft < TA.activeMs - TA.releaseMs, 2000);
+    // The cut-in comes first, and a voiced one runs to almost 3 s.
+    await h.waitFor('release over', (x) => x.transAm.kind === 'active' && x.transAm.msLeft < TA.activeMs - TA.releaseMs, 4000);
     const cleared = await snap();
     h.check('the release cleared the bullets near the ship', nearBefore >= 2 && nearShip(cleared, TA.clearRadiusPx - 20) === 0, { nearBefore, nearAfter: nearShip(cleared, TA.clearRadiusPx - 20), radius: TA.clearRadiusPx });
 
@@ -870,6 +879,7 @@ const JOURNEYS = {
   },
 
   async 'cut-in'(h) {
+    await h.serve404(VOICE_FILES);
     const [TA, CUT] = await (async () => {
       await h.openTitle();
       return h.page.evaluate(async () => {
@@ -962,6 +972,173 @@ const JOURNEYS = {
     const moved = await h.waitFor('the ship moving left after the cut-in', (x) => x.life === 'fighting' && x.player.x < a.s.player.x - 20, 2000);
     await h.page.keyboard.up('ArrowLeft');
     h.check('the held key moves the ship once the stage resumes', moved.player.x < a.s.player.x, { from: a.s.player.x, to: moved.player.x });
+  },
+
+  async voice(h) {
+    const warnings = [];
+    h.page.on('console', (m) => m.type() === 'warning' && m.text().startsWith('voice:') && warnings.push(m.text()));
+    await h.page.addInitScript(() => {
+      const connect = AudioNode.prototype.connect;
+      const taps = new Map();
+      AudioNode.prototype.connect = function (dest, ...rest) {
+        if (dest instanceof AudioDestinationNode && dest.context instanceof AudioContext) {
+          if (!taps.has(dest.context)) taps.set(dest.context, Object.assign(dest.context.createAnalyser(), { fftSize: 512 }));
+          connect.call(this, taps.get(dest.context));
+        }
+        return connect.call(this, dest, ...rest);
+      };
+      const frame = new Float32Array(512);
+      // Phaser opens an AudioContext of its own at boot, so the journey names the game's.
+      window.__tap = () => {
+        const ctx = window.__gameAudio;
+        const tap = taps.get(ctx);
+        if (!tap) return { audioMs: null, rms: 0 };
+        tap.getFloatTimeDomainData(frame);
+        return { audioMs: ctx.currentTime * 1000, rms: Math.sqrt(frame.reduce((sum, v) => sum + v * v, 0) / frame.length) };
+      };
+    });
+    const [TA, CUT] = await (async () => {
+      await h.openTitle();
+      return h.page.evaluate(async () => {
+        const [t, c] = await Promise.all([import('/src/core/transAm.ts'), import('/src/core/cutIn.ts')]);
+        return [t.TRANS_AM, { ...c.CUT_IN, total: c.CUT_IN_MS }];
+      });
+    })();
+    const frozenAcross = (a, b) => ({
+      shots: JSON.stringify(a.shots) === JSON.stringify(b.shots),
+      foes: JSON.stringify(a.foeSpots) === JSON.stringify(b.foeSpots),
+      player: JSON.stringify(a.player) === JSON.stringify(b.player),
+      fired: a.fired === b.fired,
+      fightMs: a.fightMs === b.fightMs,
+    });
+    // Records every frame from the Space press until a while after the release, with the tapped output beside it.
+    const activate = async () => {
+      await h.game('transAmGauge', TA.gaugeMax);
+      const frames = h.page.evaluate(
+        ([activeMs]) =>
+          new Promise((resolve, reject) => {
+            const frames = [];
+            const until = performance.now() + 8000;
+            const tick = () => {
+              const s = window.__game.state();
+              const t = s.transAm;
+              const released = frames.findIndex((f) => f.released);
+              frames.push({
+                ...window.__tap(),
+                life: s.life,
+                cutInMs: s.cutInMs,
+                cutInTotalMs: s.cutInTotalMs,
+                released: t.kind === 'active' && t.msLeft < activeMs,
+                flashing: s.flashing,
+                shots: JSON.stringify(window.__game.shots()),
+                foeSpots: s.foeSpots,
+                player: s.player,
+                fired: s.tally.fired,
+                fightMs: s.clock.fightMs,
+                last: s.voice.last,
+                spoken: s.voice.spoken,
+              });
+              if (released >= 0 && frames.length - released > 40) return resolve(frames.slice(frames.findIndex((f) => f.life === 'cutIn')));
+              if (performance.now() > until) return reject(new Error('no release after Space'));
+              requestAnimationFrame(tick);
+            };
+            tick();
+          }),
+        [TA.activeMs],
+      );
+      await h.page.keyboard.press('Space');
+      return frames;
+    };
+    // The shout's onset is the first loud frame after the last quiet one before the release, on the audio clock.
+    const shoutOnset = (frames, releaseAt) => {
+      const quiet = frames.filter((f) => f.rms < 0.002 && f.audioMs < releaseAt + 100).at(-1);
+      const onset = quiet && frames.find((f) => f.audioMs > quiet.audioMs && f.rms >= 0.008);
+      const after = onset ? Math.max(...frames.filter((f) => f.audioMs >= onset.audioMs && f.audioMs < onset.audioMs + 400).map((f) => f.rms)) : 0;
+      return { quietAt: quiet?.audioMs, onsetAt: onset?.audioMs, loudest: after };
+    };
+
+    await h.page.keyboard.press('Shift');
+    const ready = await h.waitFor('both voice lines decoded', (x) => x.voice.lines.every((l) => l.status === 'ready'), 8000);
+    const lines = ready.voice.lines;
+    await h.page.evaluate(async () => (window.__gameAudio = (await import('/src/audio/context.ts')).audioContext()));
+    h.log.steps.push({ action: 'decoded the voice lines', lines: lines.map(({ url, segments, slices, shoutAtMs, gain }) => ({ url, segments, slices, shoutAtMs, gain })) });
+    h.check('each line ends on a shout after its lead-in', lines.every((l) => l.segments.length >= 2 && l.shoutAtMs > 0), { lines: lines.map((l) => ({ segments: l.segments.length, shoutAtMs: l.shoutAtMs })) });
+    if (!ready.music.muted) await h.page.keyboard.press('m');
+    await h.waitFor('music muted', (x) => x.music.muted && (x.music.busGain ?? 0) < 1e-4, 2000);
+    await h.startAt(4);
+    await h.game('god', true);
+    await sleep(500);
+
+    const said = [];
+    for (let use = 0; use < 4; use++) {
+      const frames = await activate();
+      const cut = frames.filter((f) => f.life === 'cutIn');
+      const [first, lastCut] = [cut[0], cut.at(-1)];
+      const release = frames.find((f) => f.released);
+      const line = release.last;
+      said.push(line);
+      const totalMs = first.cutInTotalMs;
+      const expected = Math.max(CUT.total, CUT.dimMs + lines[line].shoutAtMs);
+      const pressAt = first.audioMs - first.cutInMs;
+      const releaseAt = release.audioMs;
+      const onset = shoutOnset(frames, releaseAt);
+      const lastFrameMs = lastCut.cutInMs - cut.at(-2).cutInMs;
+      h.log.steps.push({
+        action: `activation ${use + 1}: Space with a full gauge`,
+        line,
+        url: lines[line].url,
+        totalMs,
+        expected,
+        lastCutInMs: lastCut.cutInMs,
+        releaseAfterPressMs: releaseAt - pressAt,
+        onset: { ...onset, fromReleaseMs: onset.onsetAt - releaseAt },
+        held: frozenAcross(first, lastCut),
+        frames: frames.map(({ shots, foeSpots, ...f }) => f),
+      });
+      h.check(`activation ${use + 1}: the cut-in lasts its line's lead plus shoutAtMs`, Math.abs(totalMs - expected) < 1e-6 && totalMs > CUT.total, { totalMs, expected, line });
+      h.check(`activation ${use + 1}: the stage stays frozen to the end of the cut-in`, Object.values(frozenAcross(first, lastCut)).every(Boolean) && lastCut.cutInMs < totalMs && totalMs - lastCut.cutInMs <= lastFrameMs + 1, { held: frozenAcross(first, lastCut), lastCutInMs: lastCut.cutInMs, lastFrameMs, totalMs });
+      const releaseIndex = frames.indexOf(release);
+      const endIndex = frames.findIndex((f, i) => i > frames.indexOf(lastCut) && f.life === 'fighting');
+      h.check(`activation ${use + 1}: the release fires on the frame after the cut-in ends`, releaseIndex === endIndex + 1 && release.flashing, { releaseIndex, endIndex, flashing: release.flashing });
+      h.check(`activation ${use + 1}: the shout starts within 50 ms of the release, heard on the output`, onset.onsetAt !== undefined && Math.abs(onset.onsetAt - releaseAt) <= 50 && releaseAt - onset.quietAt < 400 && onset.loudest > 0.02, { ...onset, releaseAt, fromReleaseMs: onset.onsetAt - releaseAt });
+      await sleep(400);
+    }
+    h.check('the lines alternate and both play', said.every((l, i) => i === 0 || l !== said[i - 1]) && new Set(said).size === 2, { said });
+
+    await h.game('transAmGauge', TA.gaugeMax);
+    const midBand = h.frameWhen(`s.life === 'cutIn' && s.cutInMs >= s.cutInTotalMs / 2`, true);
+    await h.page.keyboard.press('Space');
+    const mid = await midBand;
+    await h.shot('stretched-band');
+    h.log.steps.push({ action: 'paused mid band', cutInMs: mid.s.cutInMs, cutInTotalMs: mid.s.cutInTotalMs, line: mid.s.voice.last });
+    await h.game('resume');
+    const rel = await h.frameWhen(`s.transAm.kind === 'active' && s.transAm.msLeft < ${TA.activeMs}`, true);
+    await h.shot('release');
+    h.log.steps.push({ action: 'paused on the release frame', transAm: rel.s.transAm, flashing: rel.s.flashing });
+    await h.game('resume');
+    const ring = await h.frameWhen(`s.transAm.kind === 'active' && s.transAm.msLeft <= ${TA.activeMs - 100}`, true);
+    await h.shot('release-ring');
+    h.log.steps.push({ action: 'paused 100 ms into the release', transAm: ring.s.transAm });
+    await h.game('resume');
+
+    await h.serve404(VOICE_FILES);
+    await h.page.reload();
+    await h.waitFor('Title with the voice files missing', (x) => x.scenes.includes('Title'), 15000);
+    await h.page.keyboard.press('Shift');
+    const failed = await h.waitFor('both voice lines failed', (x) => x.voice.lines.every((l) => l.status === 'failed'), 8000);
+    await h.page.evaluate(async () => (window.__gameAudio = (await import('/src/audio/context.ts')).audioContext()));
+    await sleep(300);
+    h.check('missing voice files warn once, naming both', warnings.length === 1 && lines.every((l) => warnings[0].includes(l.url)), { warnings: [...warnings], lines: failed.voice.lines });
+    await h.startAt(4);
+    await h.game('god', true);
+    await sleep(500);
+    const frames = await activate();
+    const cut = frames.filter((f) => f.life === 'cutIn');
+    const tail = cut.filter((f) => f.cutInMs >= 600).map((f) => f.rms);
+    const release = frames.find((f) => f.released);
+    h.log.steps.push({ action: 'Space with the voice files missing', totalMs: cut[0].cutInTotalMs, tailRms: tail, spoken: release.spoken, frames: frames.map(({ shots, foeSpots, ...f }) => f) });
+    h.check('without a voice line the cut-in is the silent 1000 ms', cut[0].cutInTotalMs === CUT.total && release.spoken === 0 && release.last === null, { totalMs: cut[0].cutInTotalMs, spoken: release.spoken });
+    h.check('and nothing but the fading sweep is heard under it', tail.length > 0 && Math.max(...tail) < 0.001, { loudest: Math.max(...tail) });
   },
 
   async bosses(h) {
@@ -1584,7 +1761,7 @@ const JOURNEYS = {
 };
 
 // Close-ups of small HUD art need the canvas's full backing resolution.
-const CONTEXT = { 'boss-forms': { deviceScaleFactor: 2 }, 'skill-hud': { deviceScaleFactor: 2 }, items: { deviceScaleFactor: 2 }, movement: { deviceScaleFactor: 2 }, 'enemy-hp': { deviceScaleFactor: 2 }, 'shop-tooltip': { deviceScaleFactor: 2 }, 'trans-am': { deviceScaleFactor: 2 }, 'cut-in': { deviceScaleFactor: 2 } };
+const CONTEXT = { 'boss-forms': { deviceScaleFactor: 2 }, 'skill-hud': { deviceScaleFactor: 2 }, items: { deviceScaleFactor: 2 }, movement: { deviceScaleFactor: 2 }, 'enemy-hp': { deviceScaleFactor: 2 }, 'shop-tooltip': { deviceScaleFactor: 2 }, 'trans-am': { deviceScaleFactor: 2 }, 'cut-in': { deviceScaleFactor: 2 }, voice: { deviceScaleFactor: 2 } };
 
 const selected = names.includes('all') ? Object.keys(JOURNEYS).filter((n) => n !== 'doctor') : names;
 const unknown = selected.filter((n) => !JOURNEYS[n]);
