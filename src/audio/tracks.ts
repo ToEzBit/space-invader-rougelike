@@ -6,9 +6,21 @@ export type TrackId = ScoreId | FileId;
 export type Voice = 'pulse25' | 'pulse12' | 'triangle' | 'kick' | 'snare' | 'hat';
 export type Channel = { name: string; voice: Voice; gain: number; bars: readonly string[] };
 export type FileTrack = { title: string; urls: readonly string[] };
-export type Track = { title: string; bpm: number; stepsPerBeat: number; beatsPerBar: number; channels: readonly Channel[] };
-
-type Chord = { root: string; triad: readonly [string, string, string] };
+export type Chord = { root: string; triad: readonly [string, string, string] };
+export type Mode = 'major' | 'minor' | 'dorian' | 'phrygian' | 'mixolydian';
+// Borrowed chords may bring notes from outside the mode, but only in the bars they harmonize.
+export type Key = { tonic: string; mode: Mode; borrowed: readonly Chord[] };
+// chords holds the harmony one chord per bar. A track that does not loop is a jingle: it plays once and ends.
+export type Track = {
+  title: string;
+  bpm: number;
+  stepsPerBeat: number;
+  beatsPerBar: number;
+  key: Key;
+  chords: readonly Chord[];
+  loop: boolean;
+  channels: readonly Channel[];
+};
 
 const pump = (rhythm: string, chords: readonly Chord[]) => chords.map(({ root }) => fillRhythm(rhythm, { L: root, H: octaveUp(root) }));
 const stab = (rhythm: string, chords: readonly Chord[]) => chords.map(({ triad }) => fillRhythm(rhythm, { x: triad.join('+') }));
@@ -35,6 +47,9 @@ const NORMAL: Track = {
   bpm: 138,
   stepsPerBeat: 4,
   beatsPerBar: 4,
+  key: { tonic: 'A', mode: 'minor', borrowed: [N.E] },
+  chords: NORMAL_CHORDS,
+  loop: true,
   channels: [
     {
       name: 'lead',
@@ -82,6 +97,9 @@ const BOSS1: Track = {
   bpm: 150,
   stepsPerBeat: 4,
   beatsPerBar: 4,
+  key: { tonic: 'E', mode: 'minor', borrowed: [B.B] },
+  chords: BOSS1_CHORDS,
+  loop: true,
   channels: [
     {
       name: 'lead',
@@ -129,6 +147,9 @@ const BOSS2: Track = {
   bpm: 172,
   stepsPerBeat: 4,
   beatsPerBar: 4,
+  key: { tonic: 'F', mode: 'minor', borrowed: [F.C] },
+  chords: BOSS2_CHORDS,
+  loop: true,
   channels: [
     {
       name: 'lead',
