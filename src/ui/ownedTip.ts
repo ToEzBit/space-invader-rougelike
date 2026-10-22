@@ -1,6 +1,7 @@
 import { COLORS } from '../art/palette';
 import { ITEM_STACK_MAX, ITEMS, type ItemId, type OwnedItems } from '../core/items';
 import { BRANCH_LABEL, PERKS, describePerk, type OwnedPerks, type PerkId } from '../core/perks';
+import { WORDS } from '../input';
 import { BRANCH_LOOK } from './branch';
 
 export type OwnedRef = { kind: 'perk'; id: PerkId } | { kind: 'item'; id: ItemId };
@@ -31,7 +32,7 @@ export function ownedTip(owned: { perks: OwnedPerks; items: OwnedItems }, ref: O
         title: item.name,
         color: COLORS.gold,
         badge: `ถืออยู่ ${owned.items[ref.id] ?? 0}/${ITEM_STACK_MAX}`,
-        sub: `ไอเทมกดใช้ · ปุ่ม ${item.key} ระหว่างด่าน`,
+        sub: WORDS.itemUse(item),
         desc: item.desc,
       };
     }

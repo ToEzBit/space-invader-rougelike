@@ -3,7 +3,8 @@ import { ITEM_IDS, ITEMS, type ItemDef } from './core/items';
 export type InputMode = 'keys' | 'touch';
 
 // Decided once at boot: a device whose main pointer is a finger gets touch wording and the thumb-sized tray.
-export const INPUT_MODE: InputMode = matchMedia('(pointer: coarse)').matches ? 'touch' : 'keys';
+// Unit tests run without a window and read the keyboard wording.
+export const INPUT_MODE: InputMode = globalThis.matchMedia?.('(pointer: coarse)').matches ? 'touch' : 'keys';
 
 export type SkillId = 'transAm' | 'dash' | 'laser' | 'orbital';
 

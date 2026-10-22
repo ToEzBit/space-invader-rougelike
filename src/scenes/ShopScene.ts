@@ -61,6 +61,8 @@ export class ShopScene extends Phaser.Scene {
   private layer!: Phaser.GameObjects.Container;
   private cards: Phaser.GameObjects.Container[] = [];
   private chips: { ref: OwnedRef; rect: Rect }[] = [];
+  // Dev-only: where each card and button takes a tap, in world units.
+  private targets: { id: string; rect: Rect }[] = [];
   private tooltip!: Tooltip<OwnedRef>;
   private leaving = false;
 
@@ -87,6 +89,10 @@ export class ShopScene extends Phaser.Scene {
     (['ONE', 'TWO', 'THREE'] as const).forEach((key, slot) => kb?.on(`keydown-${key}`, () => this.buy(slot)));
     kb?.on('keydown-R', () => this.refresh());
     kb?.on('keydown-ENTER', () => this.leave());
+    // A finger has no hover, so a tooltip a tap opened closes on a tap anywhere else; a tap on a chip stops here.
+    this.input.on(Phaser.Input.Events.POINTER_DOWN, (p: Phaser.Input.Pointer) => {
+      if (p.wasTouch) this.tooltip.hide();
+    });
     setDebugHooks(this, { run: () => this.run, info: () => this.debugInfo() });
   }
 
@@ -99,6 +105,7 @@ export class ShopScene extends Phaser.Scene {
     return {
       cards: this.run.phase.kind === 'shop' ? this.run.phase.shop.offers : [],
       chips: this.chips.map(({ ref, rect }) => ({ ...ref, ...rect })),
+      targets: this.targets.map(({ id, rect }) => ({ id, ...rect })),
       tooltip: shown ? { visible: true, ...shown.ref, hasNext: shown.tip.next !== undefined, ...shown.bounds, fadeIns: this.tooltip.fadeIns } : { visible: false, fadeIns: this.tooltip.fadeIns },
     };
   }
@@ -107,6 +114,7 @@ export class ShopScene extends Phaser.Scene {
     // Rebuilt chips never send pointerout, so a tooltip left up would go stale.
     this.tooltip.clear();
     this.chips = [];
+    this.targets = [];
     this.layer.removeAll(true);
     this.cards = cardsOf(this.run).map((card) => this.drawCard(card));
     this.drawButtons();
@@ -147,7 +155,8 @@ export class ShopScene extends Phaser.Scene {
     box.add(hit);
     hit.on('pointerover', () => this.tweens.add({ targets: box, scale: 1.03, duration: 90 }));
     hit.on('pointerout', () => this.tweens.add({ targets: box, scale: 1, duration: 90 }));
-    hit.on('pointerdown', () => this.buy(card.slot));
+    onTap(hit, () => this.buy(card.slot));
+    this.targets.push({ id: `card${card.slot}`, rect: { x: CARD.x, y, w: CARD.w, h: CARD.h } });
     return box;
   }
 
@@ -197,11 +206,11 @@ export class ShopScene extends Phaser.Scene {
   private drawButtons(): void {
     const cost = refreshCost(this.run);
     const canRefresh = this.run.money >= cost;
-    this.button(VIEW.w / 2 - 110, WORDS.refresh(cost), canRefresh ? BUTTON.refresh : BUTTON.disabled, () => this.refresh());
-    this.button(VIEW.w / 2 + 110, WORDS.go, BUTTON.go, () => this.leave());
+    this.button('refresh', VIEW.w / 2 - 110, WORDS.refresh(cost), canRefresh ? BUTTON.refresh : BUTTON.disabled, () => this.refresh());
+    this.button('go', VIEW.w / 2 + 110, WORDS.go, BUTTON.go, () => this.leave());
   }
 
-  private button(x: number, text: string, look: ButtonLook, onClick: () => void): void {
+  private button(id: string, x: number, text: string, look: ButtonLook, onClick: () => void): void {
     const box = this.add.container(x, BUTTON_Y);
     const bg = frame(this, look.idle, 0, 0, 200, 40);
     const t = label(this, 0, -12, text, { size: 15, bold: true, align: 'center' });
@@ -214,9 +223,10 @@ export class ShopScene extends Phaser.Scene {
       bg.setTexture(look.idle);
       this.tweens.add({ targets: box, scale: 1, duration: 80 });
     });
-    hit.on('pointerdown', onClick);
+    onTap(hit, onClick);
     box.add([bg, t, hit]);
     this.layer.add(box);
+    this.targets.push({ id, rect: { x: x - 100, y: BUTTON_Y - 20, w: 200, h: 40 } });
   }
 
   private drawStatus(): void {
@@ -265,8 +275,16 @@ export class ShopScene extends Phaser.Scene {
   private hoverChip(ref: OwnedRef, rect: Rect): void {
     // Padded so neighboring chips' zones touch and the pointer never crosses dead space between them.
     const hit = this.add.zone(rect.x + rect.w / 2, rect.y + rect.h / 2, rect.w + 4, rect.h + 2).setInteractive();
-    hit.on('pointerover', () => this.tooltip.show(ref, ownedTip(this.run, ref), rect));
-    hit.on('pointerout', () => this.tooltip.hide());
+    const show = () => this.tooltip.show(ref, ownedTip(this.run, ref), rect);
+    hit.on('pointerover', (p: Phaser.Input.Pointer) => !p.wasTouch && show());
+    hit.on('pointerout', (p: Phaser.Input.Pointer) => !p.wasTouch && this.tooltip.hide());
+    hit.on('pointerdown', (p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+      if (!p.wasTouch) return;
+      event.stopPropagation();
+      const open = this.tooltip.shown?.ref;
+      if (open?.kind === ref.kind && open.id === ref.id) this.tooltip.hide();
+      else show();
+    });
     this.layer.add(hit);
     this.chips.push({ ref, rect });
   }
@@ -320,4 +338,12 @@ export class ShopScene extends Phaser.Scene {
     this.leaving = true;
     goTo(this, leaveShop(this.run));
   }
+}
+
+// Fires on release over the zone only for a press that began on it, so a steering finger lifted as the shop opens buys nothing.
+function onTap(zone: Phaser.GameObjects.Zone, fn: () => void): void {
+  const pressed = new Set<number>();
+  zone.on('pointerdown', (p: Phaser.Input.Pointer) => pressed.add(p.id));
+  zone.on('pointerout', (p: Phaser.Input.Pointer) => pressed.delete(p.id));
+  zone.on('pointerup', (p: Phaser.Input.Pointer) => pressed.delete(p.id) && fn());
 }
