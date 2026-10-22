@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { OwnedItems } from './core/items';
+import type { BossPattern } from './core/stages';
 import { deriveStats, type OwnedPerks } from './core/perks';
 import { musicState } from './audio/music';
 import { newRun, type RunState } from './core/run';
@@ -13,6 +14,7 @@ export type DebugHooks = {
   hurt?: () => void;
   hit?: () => void;
   bossHp?: (ratio: number) => void;
+  bossPattern?: (pattern: BossPattern | null) => void;
   god?: (on: boolean) => void;
   transAmGauge?: (value: number) => void;
   shots?: () => { id: number; kind: string; x: number; y: number }[];
@@ -27,6 +29,8 @@ type DebugApi = {
   // One hit through the normal damage path, so i-frames and shields still apply.
   hit(): void;
   bossHp(ratio: number): void;
+  // The boss plays this pattern after a short gap, then holds her cycle until the next call; null just holds it.
+  bossPattern(pattern: BossPattern | null): void;
   // For measurement only: the ship keeps its i-frames and shields but never loses HP. Resets with each stage.
   god(on: boolean): void;
   // Sets the TRANS-AM gauge and puts it back to charging.
@@ -69,6 +73,7 @@ export function installDebug(game: Phaser.Game): void {
     hurt: () => hooks?.hooks.hurt?.(),
     hit: () => hooks?.hooks.hit?.(),
     bossHp: (ratio) => hooks?.hooks.bossHp?.(ratio),
+    bossPattern: (pattern) => hooks?.hooks.bossPattern?.(pattern),
     god: (on) => hooks?.hooks.god?.(on),
     transAmGauge: (value) => hooks?.hooks.transAmGauge?.(value),
     shots: () => hooks?.hooks.shots?.() ?? [],

@@ -1,12 +1,4 @@
 #!/usr/bin/env node
-// Usage: boss-shots.mjs <run-id> [--out <file>] [--against <file>] [--headed]
-// Replays both boss fights deterministically and records what gameplay can observe, so two builds can be diffed.
-// Math.random is seeded and the frame clock is virtual (exact 60 fps steps), so a build replays itself exactly.
-// Per segment (each form's phases, plus the transformation) it records every enemy bullet's first two positions,
-// the boss's logical x/y every frame, foe positions, and the tally (hits, contacts, damage dealt to the boss).
-// HP is pinned each frame so the phase under test never changes; the ship never moves.
-// Writes .verify/<run-id>/evidence/boss-shots/record.json unless --out is given. --against diffs with a saved record
-// and exits 1 on any difference.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -51,13 +43,13 @@ function virtualWorld() {
   };
 }
 
-// Runs inside the page: steps `frames` frames (or until `until` holds), pinning boss HP before each one.
-function runSegment({ frames, pin, until }) {
+function inPageSegment({ frames, pin, until }) {
   const g = window.__game;
   const seen = window.__seen ?? (window.__seen = new Map());
   const shots = [];
   const boss = [];
   const foes = [];
+  let posed = 0;
   const done = until && new Function('s', `return (${until})`);
   let f = 0;
   for (; f < frames; f++) {
@@ -77,10 +69,12 @@ function runSegment({ frames, pin, until }) {
     }
     boss.push([s.boss.x, s.boss.y, s.boss.stance, s.boss.form, s.boss.phase, s.boss.pattern ?? null]);
     foes.push(s.foeSpots.map((p) => [p.x, p.y]));
+    const pose = s.boss.motion?.pose;
+    if (pose && (pose.dx || pose.dy || pose.rot || pose.sx !== 1 || pose.sy !== 1)) posed++;
     if (done && done(s)) break;
   }
   const s = g.state();
-  return { frames: f, shots, boss, foes, tally: s.tally, hp: s.run.hp };
+  return { frames: f, shots, boss, foes, tally: s.tally, hp: s.run.hp, posed };
 }
 
 const browser = await chromium.launch({ channel: 'chrome', headless: !rest.includes('--headed') });
@@ -117,7 +111,7 @@ for (const [stage, id] of [[5, 'crimsonSeraph'], [10, 'voidEmpress']]) {
     window.__vt.step();
     window.__game.god(true);
   }, [stage]);
-  const seg = (args) => page.evaluate(runSegment, { pin: null, until: null, ...args });
+  const seg = (args) => page.evaluate(inPageSegment, { pin: null, until: null, ...args });
   const pinFor = (form, phase) => {
     const phases = def.forms[form].phases;
     const below = phases[phase + 1]?.hpRatio ?? (form === 0 ? def.transform.atHpRatio : 0.05);
@@ -141,7 +135,7 @@ mkdirSync(dirname(out), { recursive: true });
 writeFileSync(out, JSON.stringify(record));
 for (const [id, segments] of Object.entries(record))
   for (const [name, s] of Object.entries(segments))
-    console.log(`${id} ${name}: ${s.frames} frames, ${s.shots.length} bullets, hits ${s.tally.hits}, contacts ${s.tally.contacts}, bossDealt ${s.tally.bossDealt}`);
+    console.log(`${id} ${name}: ${s.frames} frames (${s.posed} posed), ${s.shots.length} bullets, hits ${s.tally.hits}, contacts ${s.tally.contacts}, bossDealt ${s.tally.bossDealt}`);
 console.log(`wrote ${out}`);
 
 if (against) {

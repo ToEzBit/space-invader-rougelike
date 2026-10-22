@@ -115,7 +115,28 @@ function harness(page, outDir) {
     return s;
   }
 
-  return { log, state, game, core, waitFor, check, step, shot, hold, startAt, openTitle, steer, track, page };
+  const frameWhen = (pred, pause, timeoutMs = 5000) =>
+    page.evaluate(
+      ([src, pause, timeoutMs]) =>
+        new Promise((resolve, reject) => {
+          const test = new Function('s', `return (${src})`);
+          const until = performance.now() + timeoutMs;
+          const tick = () => {
+            const s = window.__game.state();
+            if (test(s)) {
+              const shots = window.__game.shots();
+              if (pause) window.__game.pause();
+              return resolve({ s, shots });
+            }
+            if (performance.now() > until) return reject(new Error(`timed out waiting for ${src}`));
+            requestAnimationFrame(tick);
+          };
+          tick();
+        }),
+      [pred, pause, timeoutMs],
+    );
+
+  return { log, state, game, core, waitFor, frameWhen, check, step, shot, hold, startAt, openTitle, steer, track, page };
 }
 
 const TONE_RATE = 44100;
@@ -858,30 +879,8 @@ const JOURNEYS = {
     })();
     const bandAt = CUT.dimMs;
     const slashAt = CUT.dimMs + CUT.bandMs;
-    // Polls every animation frame from inside the page, so a 100ms beat cannot slip between two reads. Armed before
-    // the key press it waits for.
-    const frameWhen = (pred, pause) =>
-      h.page.evaluate(
-        ([src, pause]) =>
-          new Promise((resolve, reject) => {
-            const test = new Function('s', `return (${src})`);
-            const until = performance.now() + 5000;
-            const tick = () => {
-              const s = window.__game.state();
-              if (test(s)) {
-                const shots = window.__game.shots();
-                if (pause) window.__game.pause();
-                return resolve({ s, shots });
-              }
-              if (performance.now() > until) return reject(new Error(`timed out waiting for ${src}`));
-              requestAnimationFrame(tick);
-            };
-            tick();
-          }),
-        [pred, pause],
-      );
     const shotAt = async (name, pred) => {
-      const frame = await frameWhen(pred, true);
+      const frame = await h.frameWhen(pred, true);
       await h.shot(name);
       h.log.steps.push({ action: `paused at ${pred}`, cutInMs: frame.s.cutInMs, life: frame.s.life, transAm: frame.s.transAm });
       await h.game('resume');
@@ -908,7 +907,7 @@ const JOURNEYS = {
       if (nearShip(pre, TA.clearRadiusPx).length >= 2) break;
     }
     await h.game('transAmGauge', TA.gaugeMax);
-    const dimFrame = frameWhen(`s.life === 'cutIn' && s.cutInMs >= ${CUT.dimMs * 0.5}`, true);
+    const dimFrame = h.frameWhen(`s.life === 'cutIn' && s.cutInMs >= ${CUT.dimMs * 0.5}`, true);
     await h.page.keyboard.press('Space');
     const dim = await dimFrame;
     await h.shot('dim');
@@ -921,7 +920,7 @@ const JOURNEYS = {
     const band = await shotAt('band-crossfade', `s.cutInMs >= ${bandAt + CUT.bandMs * 0.55}`);
     await h.page.keyboard.press('x');
     await h.page.keyboard.press('Space');
-    const pressed = await frameWhen('true', false);
+    const pressed = await h.frameWhen('true', false);
     h.log.steps.push({ action: 'press x (Nitro) and Space during the cut-in', cutInMs: pressed.s.cutInMs, items: pressed.s.items, buffs: pressed.s.buffs });
     h.check('an item pressed during the cut-in waits', pressed.s.life === 'cutIn' && pressed.s.items.nitro === 1 && pressed.s.buffs.length === 0, { life: pressed.s.life, items: pressed.s.items, buffs: pressed.s.buffs });
     await shotAt('eyes-red', `s.cutInMs >= ${slashAt - 30}`);
@@ -934,7 +933,7 @@ const JOURNEYS = {
     h.check('the bullets near the ship are still there under the cut-in', nearShip(dim, TA.clearRadiusPx).length >= 1 && nearShip(slash, TA.clearRadiusPx).length === nearShip(dim, TA.clearRadiusPx).length, { atDim: nearShip(dim, TA.clearRadiusPx).length, atSlash: nearShip(slash, TA.clearRadiusPx).length });
     h.check('Space during the cut-in does not restart it', slash.s.cutInMs > band.s.cutInMs && slash.s.cutInMs < CUT.total, { band: band.s.cutInMs, slash: slash.s.cutInMs });
 
-    const after = await frameWhen(`s.life === 'fighting'`, false);
+    const after = await h.frameWhen(`s.life === 'fighting'`, false);
     h.log.steps.push({ action: 'first frame after the cut-in', transAm: after.s.transAm, fightMs: after.s.clock.fightMs, items: after.s.items, buffs: after.s.buffs });
     h.check('the stage resumes with the full active time', after.s.transAm.kind === 'active' && after.s.transAm.msLeft > TA.activeMs - 60, { transAm: after.s.transAm });
     await shotAt('release', `s.transAm.kind === 'active' && s.transAm.msLeft <= ${TA.activeMs - 100}`);
@@ -953,10 +952,10 @@ const JOURNEYS = {
     await sleep(2500);
     await h.game('transAmGauge', TA.gaugeMax);
     await h.page.keyboard.down('ArrowLeft');
-    const early = frameWhen(`s.life === 'cutIn' && s.cutInMs >= ${bandAt}`, false);
+    const early = h.frameWhen(`s.life === 'cutIn' && s.cutInMs >= ${bandAt}`, false);
     await h.page.keyboard.press('Space');
     const a = await early;
-    const b = await frameWhen(`s.life === 'cutIn' && s.cutInMs >= ${slashAt + CUT.slashMs * 0.5}`, false);
+    const b = await h.frameWhen(`s.life === 'cutIn' && s.cutInMs >= ${slashAt + CUT.slashMs * 0.5}`, false);
     const bossHeld = frozenAcross(a, b);
     h.log.steps.push({ action: 'held ArrowLeft through a cut-in in the stage 5 boss fight', from: a.s.cutInMs, to: b.s.cutInMs, held: bossHeld, boss: a.s.boss, shots: a.shots.length });
     h.check('boss, bullets and ship hold still through the cut-in, with ArrowLeft held', Object.values(bossHeld).every(Boolean) && a.shots.length > 0, { held: bossHeld, shots: a.shots.length, boss: [a.s.boss, b.s.boss] });
@@ -1093,6 +1092,86 @@ const JOURNEYS = {
       h.log.consoleErrors.push(...v.log.consoleErrors);
       await big.close();
     }
+  },
+
+  async 'boss-moves'(h) {
+    await h.openTitle();
+    const { motions, bosses, gaugeMax, rest, art } = await h.page.evaluate(async () => {
+      const [stages, motion, transAm, characters] = await Promise.all([
+        import('/src/core/stages.ts'),
+        import('/src/game/bossMotion.ts'),
+        import('/src/core/transAm.ts'),
+        import('/src/art/characters.ts'),
+      ]);
+      const motions = Object.fromEntries(Object.entries(motion.MOTIONS).map(([p, m]) => [p, { tier: m.tier, lead: motion.leadMs(p), tail: motion.tailMs(p) }]));
+      return { motions, bosses: JSON.parse(JSON.stringify(stages.BOSSES)), gaugeMax: transAm.TRANS_AM.gaugeMax, rest: motion.REST, art: Object.keys(characters.CHARACTER_ART) };
+    });
+    const isRest = (pose) => JSON.stringify(pose) === JSON.stringify(rest);
+    const beats = ({ tier, lead, tail }) =>
+      tier === 'ultimate'
+        ? [['charge', -Math.round(lead * 0.2)], ['release', 230], ['follow', Math.round(tail * 0.55)]]
+        : [['windup', -40], ['peak', 55], ['release', tier === 'light' ? 170 : Math.round(tail * 0.45)]];
+    const movesOf = (p) => `s.boss.motion.moves.find((m) => m.pattern === '${p}')`;
+    const seen = new Set();
+    for (const [stage, id] of [[5, 'crimsonSeraph'], [10, 'voidEmpress']]) {
+      const def = bosses[id];
+      await h.startAt(stage);
+      await h.game('god', true);
+      await h.waitFor(`${id} in place`, (s) => s.boss?.stance === 'fighting', 12000);
+      await h.game('bossPattern', null);
+      for (const form of [0, 1]) {
+        if (form === 1) {
+          await h.game('bossHp', def.transform.atHpRatio - 0.02);
+          await h.waitFor(`${id} second form`, (s) => s.boss.form === 1 && s.boss.stance === 'fighting', 10000);
+        }
+        const castArt = `${def.forms[form].texture}Cast`;
+        const wantArt = art.includes(castArt) ? castArt : null;
+        for (const p of [...new Set(def.forms[form].phases.flatMap((ph) => ph.patterns))]) {
+          const m = motions[p];
+          await h.game('bossHp', form === 0 ? 0.9 : 0.6);
+          await h.waitFor(`${id} holds still before ${p}`, (s) => s.boss.stance === 'fighting' && s.boss.motion.moves.length === 0, 8000);
+          await h.game('bossPattern', p);
+          for (const [beat, ms] of beats(m)) {
+            const { s } = await h.frameWhen(`(${movesOf(p)})?.ms >= ${ms} && !s.flashing && !s.boss.hitFlash`, true, 8000);
+            const mv = s.boss.motion.moves.find((x) => x.pattern === p);
+            await h.shot(`${id}-form${form}-${m.tier}-${p}-${beat}`);
+            h.check(`${def.forms[form].name}: ${p} (${m.tier}) ${beat} at ${Math.round(mv.ms)} ms is posed`, mv.tier === m.tier && !isRest(s.boss.motion.pose), { ms: mv.ms, pose: s.boss.motion.pose });
+            if (m.tier === 'ultimate' && beat === 'charge')
+              h.check(
+                `${def.forms[form].name}: ${p} charges in her casting pose (${wantArt ?? 'no casting art yet'})`,
+                s.boss.stance === 'casting' && s.boss.motion.pose.cast === 1 && s.boss.motion.art === wantArt,
+                { stance: s.boss.stance, cast: s.boss.motion.pose.cast, art: s.boss.motion.art, wantArt },
+              );
+            await h.game('resume');
+          }
+          const done = await h.waitFor(`${p} settles`, (s) => s.boss.motion.moves.length === 0, m.tail + 4000);
+          h.check(`${def.forms[form].name}: ${p} ends back at rest in her normal art`, isRest(done.boss.motion.pose) && done.boss.motion.art === null && done.boss.stance === 'fighting', {
+            pose: done.boss.motion.pose,
+            art: done.boss.motion.art,
+          });
+          seen.add(p);
+        }
+      }
+    }
+    h.check('every pattern was forced on the form that uses it', seen.size === Object.keys(motions).length, { seen: [...seen] });
+
+    await h.game('bossHp', 0.6);
+    await h.waitFor('Eclipse holds still', (s) => s.boss.stance === 'fighting' && s.boss.motion.moves.length === 0, 8000);
+    await h.game('bossPattern', 'eclipseNova');
+    await h.frameWhen(`(${movesOf('eclipseNova')})?.ms >= -450`, false, 8000);
+    await h.game('transAmGauge', gaugeMax);
+    await h.page.keyboard.press('Space');
+    const a = await h.frameWhen(`s.life === 'cutIn' && s.cutInMs >= 200`, false);
+    const b = await h.frameWhen(`s.life === 'cutIn' && s.cutInMs >= 600`, true);
+    await h.shot('cut-in-frozen-eclipseNova');
+    await h.game('resume');
+    h.check(
+      'the cut-in freezes her motion mid-charge: same moves and pose while the cut-in runs',
+      JSON.stringify(a.s.boss.motion) === JSON.stringify(b.s.boss.motion) && b.s.cutInMs > a.s.cutInMs && !isRest(b.s.boss.motion.pose) && a.s.boss.castMsLeft === b.s.boss.castMsLeft,
+      { a: { cutInMs: a.s.cutInMs, motion: a.s.boss.motion, castMsLeft: a.s.boss.castMsLeft }, b: { cutInMs: b.s.cutInMs, motion: b.s.boss.motion, castMsLeft: b.s.boss.castMsLeft } },
+    );
+    const resumed = await h.frameWhen(`s.life === 'fighting' && (${movesOf('eclipseNova')})?.ms > ${b.s.boss.motion.moves.find((x) => x.pattern === 'eclipseNova').ms + 50}`, false);
+    h.check('her motion carries on after the cut-in', resumed.s.life === 'fighting', { motion: resumed.s.boss.motion });
   },
 
   async 'enemy-hp'(h) {

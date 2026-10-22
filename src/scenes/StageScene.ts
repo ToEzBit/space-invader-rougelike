@@ -113,10 +113,13 @@ export class StageScene extends Phaser.Scene {
           minions: this.encounter.boss.minionCount,
           deflected: this.encounter.boss.deflected,
           ...this.encounter.boss.casting,
+          motion: this.encounter.boss.motion,
+          hitFlash: this.encounter.boss.foe.flashMs > 0,
           x: this.encounter.boss.foe.sprite.x,
           y: this.encounter.boss.foe.sprite.y,
           maxHp: this.encounter.boss.foe.maxHp,
         },
+        flashing: this.cameras.main.flashEffect.isRunning,
         god: this.world.god,
         tally: this.world.tally,
         clock: this.clock,
@@ -132,6 +135,7 @@ export class StageScene extends Phaser.Scene {
         const boss = this.encounter.boss;
         if (boss) boss.foe.hp = boss.foe.maxHp * ratio;
       },
+      bossPattern: (pattern) => this.encounter.boss?.devPlay(pattern),
       god: (on) => {
         this.world.god = on;
       },

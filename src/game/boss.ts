@@ -1,9 +1,12 @@
 import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { BOSSES, ENEMIES, bossPhaseAt, healedHp, transformDue, type BossDef, type BossForm, type BossId, type BossPattern, type BossStage, type BossTexture, type EnemyKind, type FormIndex } from '../core/stages';
+import type { CharacterKey } from '../art/characters';
 import { COLORS, css } from '../art/palette';
 import { banner } from '../ui/banner';
 import { VIEW } from '../view';
+import { BossBody, MUZZLE_DROP } from './bossBody';
+import { advance, leadMs, MOTIONS, type Dir, type Move, type Pose, type Tier } from './bossMotion';
 import type { BulletKind, BulletSpawn } from './bullets';
 import type { Encounter } from './encounter';
 import { enemyFire } from './formation';
@@ -21,7 +24,8 @@ const ENTER_SPEED = 70;
 export const MAX_MINIONS = 6;
 const MINION_HP_SCALE = 2;
 const BEAM = { width: 18, length: 900 } as const;
-const CAST = { pulse: 0.07, convergeEveryMs: 35, releaseShake: 0.01 } as const;
+const CAST = { convergeEveryMs: 35, releaseShake: 0.01 } as const;
+const FORCED_GAP_MS = 100 + Math.max(...(Object.keys(PATTERNS) as BossPattern[]).filter((p) => !PATTERNS[p].cast).map(leadMs));
 // Callouts stay below the HUD's boss name and HP bar.
 const CALLOUT_MIN_Y = 98;
 
@@ -30,7 +34,7 @@ const TRANSFORM = { peak: 0.45, healFrom: 0.3, healTo: 0.9, shockMs: 900, shockR
 const IMMUNE_FLOAT_GAP_MS = 260;
 const HALO_SCALE = 1.08;
 
-type Look = { orb: BulletKind; beam: number; glow: number; subtitle: string };
+type Look = { orb: BulletKind; beam: number; glow: number; subtitle: string; castArt?: CharacterKey };
 
 const FORM_LOOK: Record<BossTexture, Look> = {
   crimsonSeraph: { orb: 'orb', beam: COLORS.red, glow: COLORS.pink, subtitle: '' },
@@ -75,9 +79,12 @@ export class BossFight implements Encounter {
   private beams: Beam[] = [];
   private well: Well | null = null;
   private minions: Minion[] = [];
+  private released: Move[] = [];
+  private devHold: { next: BossPattern | null } | null = null;
   private timers: Phaser.Time.TimerEvent[] = [];
   private readonly gfx: Phaser.GameObjects.Graphics;
   private readonly halo: Phaser.GameObjects.Image;
+  private readonly body: BossBody;
 
   constructor(
     readonly world: World,
@@ -98,6 +105,7 @@ export class BossFight implements Encounter {
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(DEPTH.foe - 1);
     this.gfx = world.scene.add.graphics().setDepth(DEPTH.beam);
+    this.body = new BossBody(world.scene, this.foe.sprite, this.halo, HALO_SCALE);
   }
 
   get current(): BossForm {
@@ -122,6 +130,11 @@ export class BossFight implements Encounter {
     return s.kind === 'casting' ? { pattern: s.pattern, castMsLeft: s.msLeft, callout: s.callout.text } : null;
   }
 
+  get motion(): { moves: { pattern: BossPattern; tier: Tier; ms: number }[]; pose: Pose; art: string | null } {
+    const moves = this.inMotion().filter((m) => m.ms > -leadMs(m.pattern));
+    return { moves: moves.map(({ pattern, ms }) => ({ pattern, tier: MOTIONS[pattern].tier, ms })), pose: this.body.pose, art: this.body.art };
+  }
+
   get minionCount(): number {
     return this.minions.length;
   }
@@ -134,10 +147,13 @@ export class BossFight implements Encounter {
     return this.foe.dead;
   }
 
-  // Unscaled sizes here and in drift, so how she is drawn never moves where she fires from.
   get muzzle(): Point {
     const s = this.foe.sprite;
-    return { x: s.x, y: s.y + s.height * 0.28 };
+    return { x: s.x, y: s.y + this.unscaledSize.h * MUZZLE_DROP };
+  }
+
+  private get unscaledSize(): { w: number; h: number } {
+    return { w: this.foe.sprite.width, h: this.foe.sprite.height };
   }
 
   update(dtMs: number): void {
@@ -145,6 +161,7 @@ export class BossFight implements Encounter {
     this.minions = this.minions.filter((m) => !m.foe.dead);
     this.timers = this.timers.filter((t) => t.getOverallProgress() < 1);
     if (this.foe.dead) return this.die();
+    this.released = advance(this.released, dtMs, this.world.enemyTimeScale);
     const s = this.foe.sprite;
     const stance = this.stance;
     switch (stance.kind) {
@@ -174,8 +191,7 @@ export class BossFight implements Encounter {
       case 'dead':
         break;
     }
-    if (this.stance.kind !== 'transforming' && this.stance.kind !== 'casting')
-      this.halo.setPosition(s.x, s.y).setAlpha(0.18 + Math.sin(this.driftMs / 200) * 0.08 + this.phase * 0.08);
+    if (this.stance.kind !== 'transforming') this.body.show(this.inMotion(), this.look, 0.18 + Math.sin(this.driftMs / 200) * 0.08 + this.phase * 0.08);
     this.updateBeams(dtMs);
     this.updateWell(dtMs);
     for (const m of this.minions) this.updateMinion(m, dtMs);
@@ -226,10 +242,15 @@ export class BossFight implements Encounter {
     this.well = { at, msLeft: ms, fullMs: ms, spin: 0 };
   }
 
+  devPlay(pattern: BossPattern | null): void {
+    this.devHold = { next: pattern };
+    if (this.stance.kind === 'fighting') this.stance.gapMs = FORCED_GAP_MS;
+  }
+
   private drift(dtMs: number): void {
     this.driftMs += dtMs;
     const s = this.foe.sprite;
-    const reach = Math.min(110 + this.phase * 15, VIEW.w / 2 - (s.width * HALO_SCALE) / 2 - 6);
+    const reach = Math.min(110 + this.phase * 15, VIEW.w / 2 - (this.unscaledSize.w * HALO_SCALE) / 2 - 6);
     s.x = VIEW.w / 2 + Math.sin(this.driftMs / 1500) * reach;
     s.y = HOME_Y + Math.sin(this.driftMs / 700) * 10;
   }
@@ -358,17 +379,20 @@ export class BossFight implements Encounter {
     this.beams = [];
     this.well = null;
     if (this.stance.kind === 'casting') this.stance.callout.destroy();
-    this.foe.sprite.setScale(1);
+    this.released = [];
+    this.body.rest(this.look.glow);
   }
 
   // Runs the next pattern of the cycle, or starts charging it when it is a special.
   private nextPattern(stance: Extract<Stance, { kind: 'fighting' }>): void {
-    const phase = this.current.phases[this.phase]!;
-    const pattern = phase.patterns[this.patternIndex % phase.patterns.length]!;
-    this.patternIndex++;
-    stance.gapMs = phase.patternGapMs;
+    const pattern = this.upcoming();
+    if (!pattern) return;
+    if (this.devHold) this.devHold.next = null;
+    else this.patternIndex++;
+    const overshootMs = -stance.gapMs;
+    stance.gapMs = this.current.phases[this.phase]!.patternGapMs;
     const { cast } = PATTERNS[pattern];
-    if (!cast) return PATTERNS[pattern].run(this);
+    if (!cast) return this.release(pattern, undefined, overshootMs);
     const s = this.foe.sprite;
     const callout = label(this.world.scene, s.x, Math.max(CALLOUT_MIN_Y, s.y - s.displayHeight / 2 - 16), cast.callout, {
       size: 18,
@@ -383,24 +407,54 @@ export class BossFight implements Encounter {
     sfx('phase');
   }
 
-  // The charge: the boss holds still and pulses in its form's glow while light gathers into it and the telegraph
-  // shows where the attack lands. Then it releases with a flash.
+  private upcoming(): BossPattern | null {
+    if (this.devHold) return this.devHold.next;
+    const { patterns } = this.current.phases[this.phase]!;
+    return patterns[this.patternIndex % patterns.length]!;
+  }
+
+  private release(pattern: BossPattern, aim: unknown, overshootMs: number): void {
+    const beams = this.beams.length;
+    PATTERNS[pattern].run(this, aim);
+    this.released.push({ pattern, ms: overshootMs, dir: this.facing(pattern, this.beams[beams]) });
+  }
+
+  private inMotion(): Move[] {
+    const next = this.windUp();
+    return next ? [...this.released, next] : this.released;
+  }
+
+  private windUp(): Move | null {
+    const s = this.stance;
+    if (s.kind === 'casting') return { pattern: s.pattern, ms: -s.msLeft, dir: this.facing(s.pattern) };
+    if (s.kind !== 'fighting') return null;
+    const pattern = this.upcoming();
+    if (!pattern) return null;
+    const msToRelease = s.gapMs + (PATTERNS[pattern].cast?.chargeMs ?? 0);
+    return { pattern, ms: -msToRelease, dir: this.facing(pattern) };
+  }
+
+  private facing(pattern: BossPattern, beam?: BeamSpec): Dir {
+    switch (MOTIONS[pattern].facing) {
+      case 'ship':
+        return this.world.player.x < this.foe.sprite.x ? -1 : 1;
+      case 'beam':
+        return beam && beam.toDeg < beam.fromDeg ? -1 : 1;
+      case 'none':
+        return 1;
+    }
+  }
+
   private castStep(stance: Extract<Stance, { kind: 'casting' }>, dtMs: number): void {
     const cast = PATTERNS[stance.pattern].cast!;
     stance.msLeft -= dtMs;
     const p = Math.min(1, 1 - stance.msLeft / cast.chargeMs);
-    const s = this.foe.sprite;
-    const beat = 0.5 - 0.5 * Math.cos(p * Math.PI * (4 + 4 * p));
-    s.setScale(1 + CAST.pulse * beat);
-    this.halo.setPosition(s.x, s.y).setScale(1.1 + 0.12 * beat).setAlpha(0.45 + 0.45 * beat);
     cast.telegraph(this, stance.aim, this.gfx, p);
     if ((stance.convergeMs -= dtMs) <= 0) {
       stance.convergeMs = CAST.convergeEveryMs;
       this.converge();
     }
     if (stance.msLeft > 0) return;
-    s.setScale(1);
-    this.halo.setScale(HALO_SCALE);
     const { callout } = stance;
     this.world.scene.tweens.add({ targets: callout, y: callout.y - 18, alpha: 0, duration: 360, onComplete: () => callout.destroy() });
     const glow = Phaser.Display.Color.IntegerToRGB(this.look.glow);
@@ -408,15 +462,15 @@ export class BossFight implements Encounter {
     this.world.fx.shake(CAST.releaseShake, 220);
     sfx('boom');
     this.stance = { kind: 'fighting', gapMs: this.current.phases[this.phase]!.patternGapMs };
-    PATTERNS[stance.pattern].run(this, stance.aim);
+    this.release(stance.pattern, stance.aim, -stance.msLeft);
   }
 
   // One mote of light flies in from a ring around the boss.
   private converge(): void {
     const { scene } = this.world;
-    const s = this.foe.sprite;
+    const s = this.body.drawnCenter;
     const a = Math.random() * Math.PI * 2;
-    const r = s.displayWidth * (0.6 + Math.random() * 0.35);
+    const r = this.foe.sprite.width * (0.6 + Math.random() * 0.35);
     const mote = scene.add
       .image(s.x + Math.cos(a) * r, s.y + Math.sin(a) * r, 'spark')
       .setTint(Math.random() < 0.5 ? this.look.glow : COLORS.white)
