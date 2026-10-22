@@ -20,6 +20,8 @@ const game = new Phaser.Game({
   parent: 'game',
   backgroundColor: '#07061a',
   pixelArt: true,
+  // A steering thumb plus taps on the tray with other fingers.
+  input: { activePointers: 3 },
   scale: { mode: Phaser.Scale.NONE, ...devicePixels(), fullscreenTarget: 'game' },
   scene: [BootScene, TitleScene, StageScene, ShopScene, EndScene],
 });

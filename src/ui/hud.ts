@@ -8,6 +8,7 @@ import type { CharacterKey } from '../art/characters';
 import type { IconKey } from '../art/ui';
 import { MONEY_ANCHOR } from '../game/fx';
 import { barAlpha, hpBarColor, hpRatio, visibleBar } from '../game/hpBar';
+import type { TrayButton, TrayHit } from '../game/controls';
 import { DEPTH } from '../game/layout';
 import { godMode } from '../godMode';
 import { WORDS, type SkillId } from '../input';
@@ -51,6 +52,12 @@ export class Hud {
     // Items can only be spent during a stage, so the slots held at the start stay put (dimmed at x0) until it ends.
     const held = ITEM_IDS.filter((id) => world.run.items[id]);
     this.items = new Map(held.map((id, i) => [id, new SkillSlot(scene, ITEM_TRAY_RIGHT - (held.length - 1 - i) * TRAY.gap, TRAY.y, ITEM_SLOTS[id])]));
+  }
+
+  // Where a tap presses each slot that does something when pressed.
+  trayButtons(): TrayHit[] {
+    const r = TRAY.gap / 2;
+    return [...this.skills.values(), ...this.items.values()].flatMap((slot) => (slot.button ? [{ button: slot.button, x: slot.x, y: slot.y, r }] : []));
   }
 
   refuseItem(id: ItemId): void {
@@ -133,9 +140,11 @@ function bossTicks({ def, form }: BossFight): number[] {
 }
 
 // `count` adds an xN badge and dims the icon at zero, for consumables. `tint` colors the icon whenever it is not
-// dimmed. `pulseReady` keeps a ready slot glowing, for the one skill worth watching for.
+// dimmed. `pulseReady` keeps a ready slot glowing, for the one skill worth watching for. `button` is what a tap on
+// the slot presses, null for a skill that fires by itself.
 type SlotDef = {
   icon: IconKey | CharacterKey;
+  button: TrayButton | null;
   color: number;
   hint: string;
   meter: (w: World) => SkillMeter | null;
@@ -148,16 +157,16 @@ type SkillDef = SlotDef & { id: SkillId };
 
 // TRANS-AM always shows, so it leads the tray and never moves.
 export const SKILL_SLOTS: readonly SkillDef[] = [
-  { id: 'transAm', icon: 'player', color: COLORS.red, tint: 0xff8ab4, hint: WORDS.skillHint.transAm, meter: (w) => w.transAmMeter(), pulseReady: true },
-  { id: 'dash', icon: 'iconRam', color: COLORS.pink, hint: WORDS.skillHint.dash, meter: (w) => w.dash.meter() },
-  { id: 'laser', icon: 'iconLaser', color: COLORS.cyan, hint: WORDS.skillHint.laser, meter: (w) => w.laser.meter() },
-  { id: 'orbital', icon: 'iconOrbital', color: COLORS.yellow, hint: WORDS.skillHint.orbital, meter: (w) => w.laser.orbitalMeter() },
+  { id: 'transAm', button: 'transAm', icon: 'player', color: COLORS.red, tint: 0xff8ab4, hint: WORDS.skillHint.transAm, meter: (w) => w.transAmMeter(), pulseReady: true },
+  { id: 'dash', button: 'dash', icon: 'iconRam', color: COLORS.pink, hint: WORDS.skillHint.dash, meter: (w) => w.dash.meter() },
+  { id: 'laser', button: null, icon: 'iconLaser', color: COLORS.cyan, hint: WORDS.skillHint.laser, meter: (w) => w.laser.meter() },
+  { id: 'orbital', button: null, icon: 'iconOrbital', color: COLORS.yellow, hint: WORDS.skillHint.orbital, meter: (w) => w.laser.orbitalMeter() },
 ];
 
 const ITEM_SLOTS = Object.fromEntries(
   ITEM_IDS.map((id): [ItemId, SlotDef] => [
     id,
-    { ...ITEM_LOOK[id], hint: WORDS.itemHint(ITEMS[id]), meter: (w) => w.itemMeter(id), count: (w) => w.run.items[id] ?? 0 },
+    { ...ITEM_LOOK[id], button: id, hint: WORDS.itemHint(ITEMS[id]), meter: (w) => w.itemMeter(id), count: (w) => w.run.items[id] ?? 0 },
   ]),
 ) as Record<ItemId, SlotDef>;
 
@@ -180,8 +189,8 @@ class SkillSlot {
 
   constructor(
     private readonly scene: Phaser.Scene,
-    private readonly x: number,
-    private readonly y: number,
+    readonly x: number,
+    readonly y: number,
     private readonly def: SlotDef,
   ) {
     const { r } = TRAY;
@@ -197,6 +206,10 @@ class SkillSlot {
     const hint = label(scene, 0, r - 4, def.hint, { size: 8, bold: true, color: css(def.color), align: 'center', stroke: css(COLORS.ink) });
     this.badge = def.count ? label(scene, r + 4, -r - 4, '', { size: 11, bold: true, align: 'right', stroke: css(COLORS.ink) }) : null;
     this.root = scene.add.container(x, y, [base, this.icon, this.overlay, this.countdown, hint, ...(this.badge ? [this.badge] : [])]).setDepth(DEPTH.skillTray);
+  }
+
+  get button(): TrayButton | null {
+    return this.def.button;
   }
 
   refuse(): void {

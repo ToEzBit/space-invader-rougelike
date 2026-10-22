@@ -57,7 +57,7 @@ export class Player {
     this.sprite.setPosition(to.x, to.y);
   }
 
-  private zone(): Box {
+  zone(): Box {
     const half = this.sprite.displayWidth / 2;
     return { left: PLAYFIELD.left + half, right: PLAYFIELD.right - half, ...PLAYER_ZONE };
   }

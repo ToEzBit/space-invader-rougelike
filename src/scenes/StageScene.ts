@@ -7,7 +7,7 @@ import { stageDef, STAGE_COUNT } from '../core/stages';
 import { COLORS, css } from '../art/palette';
 import { CUT_IN, SILENT_CUT_IN_MS, cutInPose } from '../core/cutIn';
 import { setDebugHooks } from '../debug';
-import { KeyboardControls } from '../game/controls';
+import { StageControls } from '../game/controls';
 import { CutIn } from '../game/cutIn';
 import { createEncounter, type Encounter } from '../game/encounter';
 import { hpRatio, visibleBar } from '../game/hpBar';
@@ -37,7 +37,7 @@ export class StageScene extends Phaser.Scene {
   private encounter!: Encounter;
   private hud!: Hud;
   private backdrop!: Backdrop;
-  private controls!: KeyboardControls;
+  private controls!: StageControls;
   private cutIn!: CutIn;
   private life: Life = { kind: 'fighting' };
   // Dev-only: game time spent fighting, in capped frame deltas, and how many frames hit the cap.
@@ -58,7 +58,7 @@ export class StageScene extends Phaser.Scene {
     const def = stageDef(this.run.stage);
     this.encounter = createEncounter(this.world, def);
     this.hud = new Hud(this, this.world, this.encounter.boss);
-    this.controls = new KeyboardControls(this);
+    this.controls = new StageControls(this, this.world.player, () => this.hud.trayButtons());
     this.cutIn = new CutIn(this);
     this.setLife({ kind: 'intro', msLeft: INTRO_MS });
     this.clock = { fightMs: 0, frames: 0, capped: 0 };
@@ -125,6 +125,8 @@ export class StageScene extends Phaser.Scene {
         god: this.world.god,
         tally: this.world.tally,
         clock: this.clock,
+        tray: this.hud.trayButtons(),
+        ...this.controls.debug(),
         skills: SKILL_SLOTS.flatMap(({ id, meter }) => {
           const m = meter(this.world);
           return m ? [{ id, kind: m.kind, ...(m.kind === 'cooling' && { msLeft: m.msLeft }) }] : [];
