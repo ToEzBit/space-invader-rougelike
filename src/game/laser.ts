@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { LaserSound } from '../audio/laserSound';
 import { sfx } from '../audio/sfx';
 import { COLORS } from '../art/palette';
 import { VIEW } from '../view';
@@ -31,6 +32,7 @@ export class Laser {
   private orbital: OrbitalState;
   private readonly gfx: Phaser.GameObjects.Graphics;
   private flickerMs = 0;
+  private readonly sound = new LaserSound();
 
   constructor(private readonly world: World) {
     const { stats } = world;
@@ -38,6 +40,7 @@ export class Laser {
     this.orbital = stats.orbitalCooldownMs > 0 ? { kind: 'charging', msLeft: stats.orbitalCooldownMs / 2 } : { kind: 'locked' };
     this.gfx = world.scene.add.graphics().setDepth(DEPTH.beam).setBlendMode(Phaser.BlendModes.ADD);
     world.onKill.laser = () => this.refund(world.stats.laserKillRefundMs);
+    world.scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.sound.endStage());
   }
 
   get firing(): boolean {
@@ -93,16 +96,29 @@ export class Laser {
         if (!firing) break;
         this.state = { kind: 'firing', msLeft: stats.laserDurationMs, refundMs: 0 };
         sfx('laser');
+        this.sound.hold();
         break;
       case 'firing':
+        this.sound.hold();
         this.burn(dtMs);
-        if ((s.msLeft -= dtMs) <= 0) this.state = { kind: 'charging', msLeft: Math.max(0, stats.laserCooldownMs - s.refundMs) };
+        if ((s.msLeft -= dtMs) > 0) break;
+        this.state = { kind: 'charging', msLeft: Math.max(0, stats.laserCooldownMs - s.refundMs) };
+        this.sound.stop();
         break;
       case 'charging':
         if ((s.msLeft -= dtMs) <= 0) this.state = { kind: 'ready' };
         break;
     }
     this.updateOrbital(dtMs);
+  }
+
+  // The stage stops updating through the TRANS-AM cut-in; a beam still burning after it buzzes again without the zap.
+  hush(): void {
+    this.sound.stop();
+  }
+
+  endStage(): void {
+    this.sound.endStage();
   }
 
   private refund(ms: number): void {
@@ -172,6 +188,7 @@ export class Laser {
         if ((o.msLeft -= dtMs) > 0) return;
         for (const foe of foes) if (Math.abs(foe.sprite.x - o.x) <= ORBITAL_HALF_WIDTH + foe.radius) this.world.damage(foe, stats.orbitalDamage, 'orbital');
         this.strikeFx(o.x);
+        sfx('orbital');
         this.orbital = { kind: 'charging', msLeft: stats.orbitalCooldownMs };
         return;
       }

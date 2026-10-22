@@ -135,6 +135,7 @@ export class World {
     const next = activate(this.trans);
     if (!next) return false;
     this.setTransAm(next);
+    this.laser.hush();
     return true;
   }
 
@@ -159,8 +160,10 @@ export class World {
     this.look.enter(next.kind);
   }
 
+  // StageScene calls this as the stage ends, so the laser's buzz stops here too.
   silenceTransAm(): void {
     this.look.endStage();
+    this.laser.endStage();
   }
 
   // Item buffs first, then the TRANS-AM phase.
