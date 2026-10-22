@@ -70,7 +70,7 @@ export const SECTORS: readonly Sector[] = [
         [260, 620, 180, 'rgba(255,110,150,0.07)'],
       ],
     },
-    piece: { kind: 'gasGiant', radius: 50, bands: ['#946638', '#b8946a', '#74422c', '#a8784a', '#c0a682', '#663828'], storm: '#c8aa88' },
+    piece: { kind: 'gasGiant', radius: 50, bands: ['#7a5432', '#94785a', '#5e3826', '#8a6440', '#9c8a6c', '#522e22'], storm: '#a48c70' },
     at: { x: 440, y: 250 },
     debris: { kind: 'rock', tint: 0xc8a07a, count: 6 },
   },
