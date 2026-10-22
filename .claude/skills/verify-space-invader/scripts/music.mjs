@@ -27,6 +27,7 @@ const result = await page.evaluate(async () => {
   const { TRACKS } = await import('/src/audio/tracks.ts');
   const { MUSIC_VOLUME } = await import('/src/audio/music.ts');
   const { blip } = await import('/src/audio/sfx.ts');
+  const { BOSS1_LOUD95, loud95 } = await import('/src/audio/loudness.ts');
   const RATE = 44100;
   const LOUDNESS_WINDOW_SEC = 0.05;
   const PREVIEW_PEAK = 0.9;
@@ -98,14 +99,16 @@ const result = await page.evaluate(async () => {
   }
 
   const tracks = {};
+  let boss1PreBusLoud95 = null;
   for (const [id, track] of Object.entries(TRACKS)) {
     const { sec, data } = await render(id, track);
+    if (id === 'boss1') boss1PreBusLoud95 = loud95([data], RATE) / MUSIC_VOLUME;
     const channels = {};
     for (const channel of track.channels) channels[channel.name] = stats((await render(id, { ...track, channels: [channel] })).data);
     const bars = track.channels[0].bars.length;
     tracks[id] = { title: track.title, bpm: track.bpm, bars, sec: +sec.toFixed(2), ...stats(data), channels, wav: wav(data), preview: wav(data, PREVIEW_PEAK / stats(data).peak) };
   }
-  return { musicVolume: MUSIC_VOLUME, sfx, tracks };
+  return { musicVolume: MUSIC_VOLUME, sfx, tracks, boss1PreBusLoud95, BOSS1_LOUD95 };
 });
 await browser.close();
 
@@ -114,7 +117,10 @@ const [loudestSfx, { peak: loudestSfxPeak }] = Object.entries(result.sfx).sort((
 const sfxLoud = Object.values(result.sfx).map((s) => s.loudMax).sort((a, b) => a - b);
 const medianSfxLoud = sfxLoud[Math.floor(sfxLoud.length / 2)];
 const [quietestSfx, { loudMax: quietestSfxLoud }] = Object.entries(result.sfx).sort(([, a], [, b]) => a.loudMax - b.loudMax)[0];
-const report = { musicVolume: result.musicVolume, sfx: result.sfx, medianSfxLoud, tracks: {} };
+const report = { musicVolume: result.musicVolume, sfx: result.sfx, medianSfxLoud, boss1PreBusLoud95: result.boss1PreBusLoud95, tracks: {} };
+const REFERENCE_DRIFT = 0.02;
+if (Math.abs(result.boss1PreBusLoud95 / result.BOSS1_LOUD95 - 1) > REFERENCE_DRIFT)
+  failures.push(`boss1 renders at a pre-bus loud95 of ${result.boss1PreBusLoud95.toFixed(4)} but BOSS1_LOUD95 in src/audio/loudness.ts is ${result.BOSS1_LOUD95}, so file tracks would be matched to the wrong loudness`);
 for (const [id, t] of Object.entries(result.tracks)) {
   const { wav, preview, ...rest } = t;
   writeFileSync(join(outDir, `${id}.wav`), Buffer.from(wav, 'base64'));
@@ -128,6 +134,7 @@ for (const [id, t] of Object.entries(result.tracks)) {
     `${id.padEnd(7)} ${t.title.padEnd(20)} ${t.bpm} bpm  ${t.bars} bars  ${t.sec}s  peak ${t.peak}  rms ${t.rms}  loud95 ${t.loud95} (${report.tracks[id].loudVsSfx}x the median sfx)  channels ${Object.entries(t.channels).map(([n, c]) => `${n}:${c.peak}/${c.rms}`).join(' ')}`,
   );
 }
+console.log(`boss1 pre-bus loud95 ${result.boss1PreBusLoud95.toFixed(4)} (BOSS1_LOUD95 ${result.BOSS1_LOUD95}, the target file tracks are matched to)`);
 console.log(`sfx ${Object.entries(result.sfx).map(([n, s]) => `${n}: peak ${s.peak} loudMax ${s.loudMax} ${s.sec}s`).join(' | ')}`);
 writeFileSync(join(outDir, 'report.json'), JSON.stringify({ ...report, failures }, null, 2));
 for (const f of failures) console.log(`FAIL ${f}`);

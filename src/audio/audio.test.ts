@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { trackFor } from './director';
+import { BOSS1_LOUD95, gainToMatch } from './loudness';
 import { fillRhythm, freqOf, midiOf, octaveUp, parseBars } from './score';
 import { TRACKS, type Track, type TrackId } from './tracks';
 
@@ -120,5 +121,35 @@ describe('the track for the moment', () => {
 
   it('falls silent once the boss is dead', () => {
     expect(trackFor({ form: 1, stanceKind: 'dead' })).toBeNull();
+  });
+});
+
+describe('the gain that matches a recording to the boss track', () => {
+  const sine = (amp: number, sec: number, rate: number, hz = 220) => Float32Array.from({ length: Math.round(sec * rate) }, (_, i) => amp * Math.sin((2 * Math.PI * hz * i) / rate));
+
+  it("scales a steady tone's RMS to Crimson Verdict's loudness", () => {
+    expect(gainToMatch([sine(0.9, 2, 48000)], 48000)).toBeCloseTo(BOSS1_LOUD95 / (0.9 / Math.SQRT2), 3);
+    expect(gainToMatch([sine(0.1, 2, 48000)], 48000, 0.2)).toBeCloseTo(0.2 / (0.1 / Math.SQRT2), 3);
+  });
+
+  it('reads the same loudness at any sample rate', () => {
+    expect(gainToMatch([sine(0.5, 2, 44100)], 44100)).toBeCloseTo(gainToMatch([sine(0.5, 2, 48000)], 48000)!, 3);
+  });
+
+  it('hears identical stereo channels as the mono signal, and a silent side as half the power', () => {
+    const tone = sine(0.6, 2, 44100);
+    expect(gainToMatch([tone, tone], 44100)).toBeCloseTo(gainToMatch([tone], 44100)!, 6);
+    expect(gainToMatch([tone, new Float32Array(tone.length)], 44100)).toBeCloseTo(gainToMatch([tone], 44100)! * Math.SQRT2, 3);
+  });
+
+  it('follows the body of the song, not a brief peak', () => {
+    const rate = 44100;
+    const song = sine(0.2, 10, rate);
+    song.set(sine(1, 0.2, rate), rate);
+    expect(gainToMatch([song], rate)).toBeCloseTo(BOSS1_LOUD95 / (0.2 / Math.SQRT2), 3);
+  });
+
+  it('gives no gain for a silent recording', () => {
+    expect(gainToMatch([new Float32Array(44100)], 44100)).toBeNull();
   });
 });
