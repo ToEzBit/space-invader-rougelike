@@ -57,6 +57,16 @@ Fights a boss with `god(true)` and a ship that weaves left and right under it, o
 
 `--trans-am` presses `Space` whenever the gauge is full and the boss can be hurt, and adds a `transAm` block per run: `uses`, `grazesPerMin`, gauge `income` by source while charging (grazes, kills, boss, hits), the normal-fire boss damage rate (charging time outside the boss's entrance and transformation), and per use the boss HP% dealt while active and while depleted (plus a 1.2s tail, since shots take about a second to land) against the same time at the normal rate. `netPctOfFight` is the use's extra boss damage, net of the depleted window, as a share of the fight's total boss damage. `hurtableNetPctOfFight` leaves the boss's immune time out of the comparison, and `activeImmuneS` says how much of the active time that was. A use the boss's death cuts short is `done: false` and stays out of the per-use medians. The weaving ship takes far more hits than one that survives the fight, and each costs gauge, so `--hit-budget` refunds the gauge of every hit past `maxHp - 1`. The weave also grazes differently from a human, so graze rates are a rough proxy.
 
+## Boss bullet replay
+
+```bash
+.claude/skills/verify-space-invader/scripts/boss-shots.mjs <run-id> [--out <file>] [--against <file>]
+```
+
+Replays both boss fights with a seeded `Math.random` and a virtual clock that steps exact 60 fps frames, so a build reproduces itself bit for bit. Per segment (entrance, each phase of each form for one full pattern cycle, the transformation) it records every enemy bullet's first two positions, the boss's logical `x`/`y`, stance, form, phase and pattern every frame, every foe's position and the tally (hits, contacts, damage dealt to the boss). Boss HP is pinned each frame so the phase under test never changes, and the ship never moves. `--against` diffs with a saved record, prints `SAME` or `DIFF` per segment and exits 1 on any difference. Use it to prove a visual-only change leaves gameplay alone: record on the commit before, then `--against` that file on the commit after. It is not part of `all`.
+
+Anything that calls `Math.random` shifts every later random draw, so a change that adds camera shakes, particle sparks or random visuals shows up here as a gameplay diff even when no rule changed.
+
 ## Music render
 
 ```bash
