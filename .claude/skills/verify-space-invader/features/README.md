@@ -29,7 +29,7 @@ This directory is the maintained source for verifying what a player can do in th
 - [Ship movement](./movement.md) covers flying up and down inside the bottom zone, its clamp, normalized diagonals and dashing from a raised y.
 - [Perk shop](./shop.md) covers offers, refresh, buying, sold-out cards, continuing, and the owned-chip tooltips (journey `shop-tooltip`).
 - [Laser and dash perks](./perk-mechanics.md) covers the Prism Lance beam and the Afterburner Dash, locked and unlocked.
-- [Consumable items](./items.md) covers item offers in the shop, buying, keys 1-5, buffs, the item shield and the bottom-right item tray.
+- [Consumable items](./items.md) covers item offers in the shop, buying, keys Z X C V B (1-5 as a fallback), buffs, the item shield and the bottom-right item tray.
 - [TRANS-AM](./trans-am.md) covers the ultimate's gauge (grazes, kills, boss damage, hits), Space activation and refusal, the release shockwave, bullet time, the active and depleted stats, the carry across stages and its tray slot.
 - [TRANS-AM cut-in](./cut-in.md) covers the one-second cut-in Space plays before TRANS-AM, the stage freeze under it, input pressed during it, and the release and full active time after it.
 - [Skill cooldown tray](./skill-hud.md) covers the bottom-left skill icons, the clockwise cooldown sweep and countdown, dash charges and the laser cycle.

@@ -26,7 +26,7 @@ Preconditions:
 Run `drive.mjs <run-id> cut-in`. It runs at device scale 2. Each screenshot pauses on the first animation frame past a `cutInMs` threshold, polled inside the page so a 100ms beat cannot slip between reads.
 
 - **Start.** Stage 4 in god mode with a Nitro and a full gauge waits for enemy bullets near the ship, then presses `Space`. Mid dim, `life` is `cutIn` and TRANS-AM is `active` with `msLeft` exactly `activeMs`.
-- **Input.** `2` and `Space` pressed mid band leave Nitro held and no buff running while the cut-in plays, and the cut-in keeps going instead of restarting.
+- **Input.** `x` and `Space` pressed mid band leave Nitro held and no buff running while the cut-in plays, and the cut-in keeps going instead of restarting.
 - **Freeze.** From the dim frame to the slash frame every enemy bullet (ids and positions), every foe, the ship, `tally.fired`, `clock.fightMs`, the buffs and `transAm` are unchanged, and the bullets near the ship are still there.
 - **After.** The first fighting frame has `msLeft` above `activeMs - 60`. Nitro then fires once (held 0, one `nitro` buff). Once the release ends no bullet is within `clearRadiusPx - 20` of the ship. `depleted` comes `activeMs` of fighting time after the press, within 250ms.
 - **Boss.** In the stage 5 fight with `ArrowLeft` held, the boss, its bullets and the ship hold still from the band to mid slash. After the cut-in the held key moves the ship left.

@@ -487,16 +487,16 @@ const JOURNEYS = {
     const f0 = await h.startAt(4, perks, 0, { repairKit: 2, nitro: 2, powerCell: 1, overclock: 1, barrierCapsule: 1 });
     h.check('stage starts at full HP with base stats', f0.run.hp === base.maxHp && f0.buffs.length === 0 && near(f0.stats.moveSpeed, base.moveSpeed), { hp: f0.run.hp, stats: f0.stats });
 
-    const r1 = await h.step('press 1 at full HP', async () => {
-      await h.page.keyboard.press('1');
+    const r1 = await h.step('press z at full HP', async () => {
+      await h.page.keyboard.press('z');
       await sleep(60);
     });
     await pausedShots('repair-refused');
     h.check('repair kit is refused at full HP and not spent', r1.run.items.repairKit === 2 && r1.run.hp === base.maxHp, { items: r1.run.items, hp: r1.run.hp });
     await h.game('hurt');
     const hurt = await h.state();
-    const r2 = await h.step('press 1 after a hit', async () => {
-      await h.page.keyboard.press('1');
+    const r2 = await h.step('press z after a hit', async () => {
+      await h.page.keyboard.press('z');
       await sleep(150);
     });
     h.check('repair kit heals 1 HP and is spent', r2.run.hp === hurt.run.hp + 1 && r2.run.items.repairKit === 1, { before: hurt.run.hp, after: r2.run.hp, items: r2.run.items });
@@ -505,8 +505,8 @@ const JOURNEYS = {
     const plain = await h.step('hold ArrowLeft 400ms without Nitro', () => h.hold('ArrowLeft', 400));
     const plainDx = x0 - plain.player.x;
     await h.step('hold ArrowRight 400ms back to the middle', () => h.hold('ArrowRight', 400));
-    const n1 = await h.step('press 2', async () => {
-      await h.page.keyboard.press('2');
+    const n1 = await h.step('press x', async () => {
+      await h.page.keyboard.press('x');
       await sleep(150);
     });
     h.check('Nitro starts a buff and spends one', buff(n1, 'nitro')?.msLeft > 0 && n1.run.items.nitro === 1, { buffs: n1.buffs, items: n1.run.items });
@@ -520,9 +520,9 @@ const JOURNEYS = {
       ends: [plain.player.x, boosted.player.x],
     });
 
-    const p1 = await h.step('press 3 then 4', async () => {
-      await h.page.keyboard.press('3');
-      await h.page.keyboard.press('4');
+    const p1 = await h.step('press c then v', async () => {
+      await h.page.keyboard.press('c');
+      await h.page.keyboard.press('v');
       await sleep(150);
     });
     h.check('Power Cell and Overclock pressed back to back in one frame are both active alongside Nitro', p1.buffs.length === 3 && buff(p1, 'powerCell') && buff(p1, 'overclock'), { buffs: p1.buffs });
@@ -531,8 +531,8 @@ const JOURNEYS = {
     await pausedShots('three-buffs');
 
     const before = buff(await h.state(), 'nitro').msLeft;
-    const n2 = await h.step('press 2 again while Nitro runs', async () => {
-      await h.page.keyboard.press('2');
+    const n2 = await h.step('press x again while Nitro runs', async () => {
+      await h.page.keyboard.press('x');
       await sleep(100);
     });
     h.check('a second Nitro adds its time to the running buff', n2.buffs.filter((b) => b.buff === 'nitro').length === 1 && buff(n2, 'nitro').msLeft > before + 7000 && n2.run.items.nitro === 0, { before, after: buff(n2, 'nitro'), items: n2.run.items });
@@ -545,12 +545,12 @@ const JOURNEYS = {
     await pausedShots('buffs-expired');
 
     const s1 = await h.startAt(1, {}, 0, { barrierCapsule: 1 });
-    const none = await h.step('press 1 holding no Repair Kit', async () => {
-      await h.page.keyboard.press('1');
+    const none = await h.step('press z holding no Repair Kit', async () => {
+      await h.page.keyboard.press('z');
       await sleep(100);
     });
     h.check('an item never held is refused without changing the run', JSON.stringify(none.run.items) === JSON.stringify(s1.run.items) && none.run.hp === s1.run.hp, { items: none.run.items });
-    await h.step('press 5', () => h.page.keyboard.press('5'));
+    await h.step('press b', () => h.page.keyboard.press('b'));
     const sh = await h.waitFor('shield up', (x) => x.shieldMs > 0, 1000);
     h.check('Barrier Capsule raises a 10s shield and is spent', sh.shieldMs > 9000 && sh.run.items.barrierCapsule === 0, { shieldMs: sh.shieldMs, items: sh.run.items });
     await h.game('pause');
@@ -562,6 +562,42 @@ const JOURNEYS = {
     await sleep(700);
     const landed = await h.step('hit() again once the block i-frames pass', () => h.game('hit'));
     h.check('without the shield the same hit costs 1 HP', landed.run.hp === sh.run.hp - 1, { hp: [sh.run.hp, landed.run.hp] });
+
+    const k0 = await h.startAt(1, {}, 0, { nitro: 3, powerCell: 3, overclock: 3 });
+    await h.page.evaluate(() => {
+      window.__keysSeen = [];
+      window.addEventListener('keydown', (e) => window.__keysSeen.push({ key: e.key, code: e.code, shift: e.shiftKey }));
+    });
+    const shifted = await h.step('hold Shift and press KeyX', async () => {
+      await h.page.keyboard.down('Shift');
+      await h.page.keyboard.press('KeyX');
+      await h.page.keyboard.up('Shift');
+      await sleep(150);
+    });
+    const seen = await h.page.evaluate(() => window.__keysSeen);
+    h.check('Shift+X reports key "X" and uses Nitro exactly once', seen.some((e) => e.code === 'KeyX' && e.key === 'X' && e.shift) && shifted.run.items.nitro === k0.run.items.nitro - 1 && shifted.run.items.powerCell === k0.run.items.powerCell, { seen, before: k0.run.items, after: shifted.run.items });
+    const digit = await h.step('press Digit3, the number-row fallback for Power Cell', async () => {
+      await h.page.keyboard.press('Digit3');
+      await sleep(150);
+    });
+    h.check('Digit3 uses Power Cell exactly once', digit.run.items.powerCell === shifted.run.items.powerCell - 1 && digit.run.items.nitro === shifted.run.items.nitro, { before: shifted.run.items, after: digit.run.items });
+    const thai = await h.step('dispatch a Thai-layout keydown (key แ on code KeyC)', async () => {
+      await h.page.evaluate(() => {
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'แ', code: 'KeyC' }));
+        window.dispatchEvent(new KeyboardEvent('keyup', { key: 'แ', code: 'KeyC' }));
+      });
+      await sleep(150);
+    });
+    h.check('a Thai-layout C key uses Power Cell exactly once', thai.run.items.powerCell === digit.run.items.powerCell - 1 && thai.run.items.nitro === digit.run.items.nitro, { before: digit.run.items, after: thai.run.items });
+    const pair = await h.step('press c then v back to back', async () => {
+      await h.page.keyboard.press('c');
+      await h.page.keyboard.press('v');
+      await sleep(150);
+    });
+    h.check('two items pressed in one frame are each used exactly once', pair.run.items.powerCell === thai.run.items.powerCell - 1 && pair.run.items.overclock === thai.run.items.overclock - 1, { before: thai.run.items, after: pair.run.items });
+    await h.game('pause');
+    await h.shot('fallback-keys-closeup', TRAY);
+    await h.game('resume');
   },
 
   async 'trans-am'(h) {
@@ -835,10 +871,10 @@ const JOURNEYS = {
     const pressedFightMs = dim.s.clock.fightMs;
 
     const band = await shotAt('band-crossfade', `s.cutInMs >= ${bandAt + CUT.bandMs * 0.55}`);
-    await h.page.keyboard.press('2');
+    await h.page.keyboard.press('x');
     await h.page.keyboard.press('Space');
     const pressed = await frameWhen('true', false);
-    h.log.steps.push({ action: 'press 2 (Nitro) and Space during the cut-in', cutInMs: pressed.s.cutInMs, items: pressed.s.items, buffs: pressed.s.buffs });
+    h.log.steps.push({ action: 'press x (Nitro) and Space during the cut-in', cutInMs: pressed.s.cutInMs, items: pressed.s.items, buffs: pressed.s.buffs });
     h.check('an item pressed during the cut-in waits', pressed.s.life === 'cutIn' && pressed.s.items.nitro === 1 && pressed.s.buffs.length === 0, { life: pressed.s.life, items: pressed.s.items, buffs: pressed.s.buffs });
     await shotAt('eyes-red', `s.cutInMs >= ${slashAt - 30}`);
     const slash = await shotAt('slash', `s.cutInMs >= ${slashAt + CUT.slashMs * 0.2}`);
