@@ -29,12 +29,12 @@ node pipeline.mjs           # raw/ -> out/, manifest.json, sheets/
 Then copy the finals into the game.
 
 ```bash
-for k in player optionDrone drone gunner tank diver crimsonSeraph voidEmpress crimsonSeraphAscended voidEmpressEclipse; do
+for k in player optionDrone drone gunner tank diver crimsonSeraph voidEmpress crimsonSeraphAscended voidEmpressEclipse crimsonSeraphAscendedCast voidEmpressEclipseCast; do
   cp out/$k.png ../../src/assets/characters/
 done
 ```
 
-`gen-all.mjs` skips any character whose raw already exists. `prompts.json` also holds `voidEmpressEclipse-v2`, a redraw that has not been generated; `pipeline.mjs` keeps using `voidEmpressEclipse-v1` until that raw exists and its `CHARACTERS` row names it. The game reads only the texture key, so a replacement of the same size class needs no code change. Delete or rename a raw to regenerate it, and bump its `raw` name in `prompts.json` and `pipeline.mjs` to keep the old one.
+`gen-all.mjs` skips any character whose raw already exists. The two `*Cast-v1` raws are the second forms' casting poses, made outside `gen-all.mjs` as edits of `crimsonSeraphAscended-v2` and `voidEmpressEclipse-v2` with `gen.sh -i <that raw>` and the prompt saved beside each raw. The game reads only the texture key, so a replacement of the same size class needs no code change. Delete or rename a raw to regenerate it, and bump its `raw` name in `prompts.json` and `pipeline.mjs` to keep the old one.
 
 Review helpers write into `review/`, which is gitignored. `sweep.mjs <key> '<json overrides>'` renders one character under several `CHARACTERS` knob sets at 4x, `face.mjs '<json overrides>'` does the same for the Ascended Seraph's face at 8x, and `up.mjs` and `crop.mjs` upscale or crop any PNG with nearest-neighbour sampling.
 

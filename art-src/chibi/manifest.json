@@ -416,6 +416,86 @@
         "Boss radius stays hardcoded at 42; the halo copy is a tinted 1.08x of this texture.",
         "Scale 1 means finer pixels than bullets, icons and HUD, which stay baked at ART_SCALE 2."
       ]
+    },
+    {
+      "key": "crimsonSeraphAscendedCast",
+      "textureKeys": [
+        "crimsonSeraphAscendedCast"
+      ],
+      "file": "out/crimsonSeraphAscendedCast.png",
+      "displayFile": "out/crimsonSeraphAscendedCast@display.png",
+      "raw": "raw/crimsonSeraphAscendedCast-v1.png",
+      "artW": 130,
+      "artH": 128,
+      "displayScale": 1,
+      "suggestedDisplayW": 130,
+      "suggestedDisplayH": 128,
+      "currentFootprint": [
+        132,
+        128
+      ],
+      "colors": 28,
+      "hitRadius": {
+        "fixed": "Boss sets foe.radius = 42"
+      },
+      "keying": {
+        "background": [
+          5,
+          248,
+          4
+        ],
+        "fringePixels": 0,
+        "parts": 4,
+        "partsKept": 1,
+        "trimmed": [
+          1242,
+          1223
+        ]
+      },
+      "notes": [
+        "Boss radius stays hardcoded at 42; the halo copy is a tinted 1.08x of this texture.",
+        "Scale 1 means finer pixels than bullets, icons and HUD, which stay baked at ART_SCALE 2."
+      ]
+    },
+    {
+      "key": "voidEmpressEclipseCast",
+      "textureKeys": [
+        "voidEmpressEclipseCast"
+      ],
+      "file": "out/voidEmpressEclipseCast.png",
+      "displayFile": "out/voidEmpressEclipseCast@display.png",
+      "raw": "raw/voidEmpressEclipseCast-v1.png",
+      "artW": 129,
+      "artH": 128,
+      "displayScale": 1,
+      "suggestedDisplayW": 129,
+      "suggestedDisplayH": 128,
+      "currentFootprint": [
+        132,
+        128
+      ],
+      "colors": 27,
+      "hitRadius": {
+        "fixed": "Boss sets foe.radius = 42"
+      },
+      "keying": {
+        "background": [
+          4,
+          249,
+          4
+        ],
+        "fringePixels": 0,
+        "parts": 1,
+        "partsKept": 1,
+        "trimmed": [
+          1240,
+          1235
+        ]
+      },
+      "notes": [
+        "Boss radius stays hardcoded at 42; the halo copy is a tinted 1.08x of this texture.",
+        "Scale 1 means finer pixels than bullets, icons and HUD, which stay baked at ART_SCALE 2."
+      ]
     }
   ]
 }
