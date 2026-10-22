@@ -21,7 +21,7 @@ Preconditions:
 
 - `doctor.sh <run-id>` passes.
 - `state().life` is `cutIn` during the cut-in and `cutInMs` is how far into it the stage is. `foeSpots` lists every live foe's position. `__game.shots()` lists enemy bullets with stable ids.
-- Expected times come from `CUT_IN` and `CUT_IN_MS` in `/src/core/cutIn.ts` and `TRANS_AM` in `/src/core/transAm.ts`.
+- Expected times come from `CUT_IN` and `SILENT_CUT_IN_MS` in `/src/core/cutIn.ts` and `TRANS_AM` in `/src/core/transAm.ts`.
 
 Run `drive.mjs <run-id> cut-in`. It runs at device scale 2. It serves the voice files as 404, so every cut-in in it is the silent one-second one on frame time and its pauses hold it. Each screenshot pauses on the first animation frame past a `cutInMs` threshold, polled inside the page so a 100ms beat cannot slip between reads.
 

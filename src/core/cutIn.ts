@@ -1,9 +1,7 @@
 // The TRANS-AM cut-in's timeline. The stage is frozen while it plays, and the view draws whatever pose this gives
 // for the time elapsed, so the cut-in needs no tweens or timers of its own.
 export const CUT_IN = { dimMs: 100, bandMs: 600, slashMs: 300 } as const;
-// A silent cut-in's length, and the shortest a voiced one gets.
-export const CUT_IN_MS = CUT_IN.dimMs + CUT_IN.bandMs + CUT_IN.slashMs;
-// A longer cut-in holds the band longer: these stay put from the band's start, and the eyes take the rest.
+export const SILENT_CUT_IN_MS = CUT_IN.dimMs + CUT_IN.bandMs + CUT_IN.slashMs;
 const BAND = { slideMs: 150, title: { fromMs: 90, toMs: 210 }, red: { fromMs: 180, beforeSlashMs: 120 } } as const;
 
 // slide is the band's place along its own axis: -1 off one end, 0 centred, 1 off the other.
@@ -41,7 +39,7 @@ const POSES: Record<Beat, (ms: number, beatMs: number) => CutInPose> = {
   },
 };
 
-export function cutInPose(elapsedMs: number, totalMs: number = CUT_IN_MS): CutInPose | null {
+export function cutInPose(elapsedMs: number, totalMs: number = SILENT_CUT_IN_MS): CutInPose | null {
   const beats: [Beat, number][] = [
     ['dim', CUT_IN.dimMs],
     ['band', Math.max(CUT_IN.bandMs, totalMs - CUT_IN.dimMs - CUT_IN.slashMs)],

@@ -20,8 +20,8 @@ const LINE: [number, number][] = [
 const near = (got: readonly Segment[], want: readonly [number, number][]) => {
   expect(got).toHaveLength(want.length);
   got.forEach((s, i) => {
-    expect(Math.abs(s.from - want[i]![0])).toBeLessThanOrEqual(SPEECH.hopSec);
-    expect(Math.abs(s.to - want[i]![1])).toBeLessThanOrEqual(SPEECH.hopSec);
+    expect(Math.abs(s.fromSec - want[i]![0])).toBeLessThanOrEqual(SPEECH.hopSec);
+    expect(Math.abs(s.toSec - want[i]![1])).toBeLessThanOrEqual(SPEECH.hopSec);
   });
 };
 
@@ -48,23 +48,23 @@ describe('speech segments', () => {
 });
 
 describe('voice timeline', () => {
-  const segments: Segment[] = LINE.map(([from, to]) => ({ from, to }));
+  const segments: Segment[] = LINE.map(([fromSec, toSec]) => ({ fromSec, toSec }));
   const t = voiceTimeline(segments, 4.78)!;
 
   it('starts the line with its speech, not the silence before it', () => {
-    expect(t.slices[0]!.at).toBe(0);
-    expect(t.slices[0]!.from).toBeCloseTo(0.3 - SPEECH.padSec);
+    expect(t.slices[0]!.lineAtSec).toBe(0);
+    expect(t.slices[0]!.fromSec).toBeCloseTo(0.3 - SPEECH.padSec);
   });
 
   it('plays every segment whole, with a little room around it', () => {
     t.slices.forEach((s, i) => {
-      expect(s.from).toBeCloseTo(LINE[i]![0] - SPEECH.padSec);
-      expect(s.to).toBeCloseTo(LINE[i]![1] + SPEECH.padSec);
+      expect(s.fromSec).toBeCloseTo(LINE[i]![0] - SPEECH.padSec);
+      expect(s.toSec).toBeCloseTo(LINE[i]![1] + SPEECH.padSec);
     });
   });
 
   it('shortens every long pause to the pause cap', () => {
-    const speechStart = (i: number) => t.slices[i]!.at + (LINE[i]![0] - t.slices[i]!.from);
+    const speechStart = (i: number) => t.slices[i]!.lineAtSec + (LINE[i]![0] - t.slices[i]!.fromSec);
     for (let i = 1; i < LINE.length; i++) {
       const prevEnd = speechStart(i - 1) + LINE[i - 1]![1] - LINE[i - 1]![0];
       expect(speechStart(i) - prevEnd).toBeCloseTo(SPEECH.maxPauseSec);
@@ -73,14 +73,14 @@ describe('voice timeline', () => {
 
   it('puts the shout where the last segment starts once the pauses are shortened', () => {
     const spoken = 0.7 + 1.05 + 0.25;
-    expect(t.shoutAt).toBeCloseTo(SPEECH.padSec + spoken + 3 * SPEECH.maxPauseSec);
+    expect(t.shoutAtSec).toBeCloseTo(SPEECH.padSec + spoken + 3 * SPEECH.maxPauseSec);
   });
 
   it('never runs a padded slice past the ends of the file', () => {
-    const edge = voiceTimeline([{ from: 0.01, to: 0.5 }, { from: 1.2, to: 1.49 }], 1.5)!;
-    expect(edge.slices[0]!.from).toBe(0);
-    expect(edge.slices[1]!.to).toBe(1.5);
-    expect(edge.shoutAt).toBeCloseTo(0.01 + 0.49 + SPEECH.maxPauseSec);
+    const edge = voiceTimeline([{ fromSec: 0.01, toSec: 0.5 }, { fromSec: 1.2, toSec: 1.49 }], 1.5)!;
+    expect(edge.slices[0]!.fromSec).toBe(0);
+    expect(edge.slices[1]!.toSec).toBe(1.5);
+    expect(edge.shoutAtSec).toBeCloseTo(0.01 + 0.49 + SPEECH.maxPauseSec);
   });
 
   it('has nothing to play without speech', () => {
@@ -99,7 +99,7 @@ describe('voice gain', () => {
   });
 
   it('has no gain for silence', () => {
-    expect(voiceGain(new Float32Array(RATE), RATE, [{ from: 0, to: 1, at: 0 }])).toBeNull();
+    expect(voiceGain(new Float32Array(RATE), RATE, [{ fromSec: 0, toSec: 1, lineAtSec: 0 }])).toBeNull();
   });
 });
 

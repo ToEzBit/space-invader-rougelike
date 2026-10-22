@@ -5,7 +5,7 @@ import { speak, type Speech } from '../audio/voice';
 import { clearStage, failRun, type RunState } from '../core/run';
 import { stageDef, STAGE_COUNT } from '../core/stages';
 import { COLORS, css } from '../art/palette';
-import { CUT_IN, CUT_IN_MS, cutInPose } from '../core/cutIn';
+import { CUT_IN, SILENT_CUT_IN_MS, cutInPose } from '../core/cutIn';
 import { setDebugHooks } from '../debug';
 import { KeyboardControls } from '../game/controls';
 import { CutIn } from '../game/cutIn';
@@ -152,8 +152,7 @@ export class StageScene extends Phaser.Scene {
     if (life.kind === 'cutIn') {
       // Dash and item presses stay queued for the first frame after; a Space press would only be refused then.
       this.controls.dropTransAm();
-      // A voiced cut-in keeps to the audio clock its line plays on, so dropped frames cannot land the shout early.
-      life.elapsedMs = Math.max(life.elapsedMs + dtMs, life.speech?.elapsedMs() ?? 0);
+      life.elapsedMs = Math.max(life.elapsedMs + dtMs, life.speech?.audioMsSincePress() ?? 0);
       const pose = cutInPose(life.elapsedMs, life.totalMs);
       this.cutIn.draw(pose, life.elapsedMs);
       if (!pose) this.setLife({ kind: 'fighting' });
@@ -196,9 +195,8 @@ export class StageScene extends Phaser.Scene {
   // After the frame's own update, so the stage freezes on the frame Space was pressed in.
   private pressTransAm(): void {
     if (this.life.kind !== 'fighting' || !this.world.activateTransAm()) return this.hud.refuseTransAm();
-    // The pilot speaks as the band comes in, and the stage stays frozen until her shout.
-    const speech = speak(CUT_IN.dimMs, CUT_IN_MS);
-    this.setLife({ kind: 'cutIn', elapsedMs: 0, totalMs: speech?.shoutAtMs ?? CUT_IN_MS, speech });
+    const speech = speak(CUT_IN.dimMs, SILENT_CUT_IN_MS);
+    this.setLife({ kind: 'cutIn', elapsedMs: 0, totalMs: speech?.shoutAfterPressMs ?? SILENT_CUT_IN_MS, speech });
   }
 
   // Phaser's Clock keeps paused across a scene restart (TweenManager resets its own), so every Life change sets both.

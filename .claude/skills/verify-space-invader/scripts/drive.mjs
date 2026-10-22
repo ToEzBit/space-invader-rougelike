@@ -788,8 +788,8 @@ const JOURNEYS = {
     h.check('Space with a full gauge activates TRANS-AM', activated.transAm.kind === 'active' && activated.transAm.msLeft > TA.activeMs - 300, { transAm: activated.transAm });
     h.check('active stats: fire interval x0.5, move speed x1.25, pierce +1, same damage', close(activated.stats.fireIntervalMs, base.fireIntervalMs * TA.active.fireIntervalScale) && close(activated.stats.moveSpeed, base.moveSpeed * TA.active.moveSpeedScale) && activated.stats.pierce === base.pierce + TA.active.pierce && close(activated.stats.bulletDamage, base.bulletDamage), { stats: activated.stats, base: { fireIntervalMs: base.fireIntervalMs, moveSpeed: base.moveSpeed, pierce: base.pierce, bulletDamage: base.bulletDamage } });
     const activatedAt = activated.clock.fightMs;
-    // The cut-in comes first, and a voiced one runs to almost 3 s.
-    await h.waitFor('release over', (x) => x.transAm.kind === 'active' && x.transAm.msLeft < TA.activeMs - TA.releaseMs, 4000);
+    await h.waitFor('the cut-in over', (x) => x.life === 'fighting', 5000);
+    await h.waitFor('release over', (x) => x.transAm.kind === 'active' && x.transAm.msLeft < TA.activeMs - TA.releaseMs, 2000);
     const cleared = await snap();
     h.check('the release cleared the bullets near the ship', nearBefore >= 2 && nearShip(cleared, TA.clearRadiusPx - 20) === 0, { nearBefore, nearAfter: nearShip(cleared, TA.clearRadiusPx - 20), radius: TA.clearRadiusPx });
 
@@ -884,7 +884,7 @@ const JOURNEYS = {
       await h.openTitle();
       return h.page.evaluate(async () => {
         const [t, c] = await Promise.all([import('/src/core/transAm.ts'), import('/src/core/cutIn.ts')]);
-        return [t.TRANS_AM, { ...c.CUT_IN, total: c.CUT_IN_MS }];
+        return [t.TRANS_AM, { ...c.CUT_IN, total: c.SILENT_CUT_IN_MS }];
       });
     })();
     const bandAt = CUT.dimMs;
@@ -1001,7 +1001,7 @@ const JOURNEYS = {
       await h.openTitle();
       return h.page.evaluate(async () => {
         const [t, c] = await Promise.all([import('/src/core/transAm.ts'), import('/src/core/cutIn.ts')]);
-        return [t.TRANS_AM, { ...c.CUT_IN, total: c.CUT_IN_MS }];
+        return [t.TRANS_AM, { ...c.CUT_IN, total: c.SILENT_CUT_IN_MS }];
       });
     })();
     const frozenAcross = (a, b) => ({
@@ -1011,11 +1011,11 @@ const JOURNEYS = {
       fired: a.fired === b.fired,
       fightMs: a.fightMs === b.fightMs,
     });
-    // Records every frame from the Space press until a while after the release, with the tapped output beside it.
-    const activate = async () => {
+    const FRAMES_AFTER_RELEASE = 40;
+    const recordActivationFrames = async () => {
       await h.game('transAmGauge', TA.gaugeMax);
       const frames = h.page.evaluate(
-        ([activeMs]) =>
+        ([activeMs, framesAfterRelease]) =>
           new Promise((resolve, reject) => {
             const frames = [];
             const until = performance.now() + 8000;
@@ -1038,22 +1038,22 @@ const JOURNEYS = {
                 last: s.voice.last,
                 spoken: s.voice.spoken,
               });
-              if (released >= 0 && frames.length - released > 40) return resolve(frames.slice(frames.findIndex((f) => f.life === 'cutIn')));
+              if (released >= 0 && frames.length - released > framesAfterRelease) return resolve(frames.slice(frames.findIndex((f) => f.life === 'cutIn')));
               if (performance.now() > until) return reject(new Error('no release after Space'));
               requestAnimationFrame(tick);
             };
             tick();
           }),
-        [TA.activeMs],
+        [TA.activeMs, FRAMES_AFTER_RELEASE],
       );
       await h.page.keyboard.press('Space');
       return frames;
     };
-    // The shout's onset is the first loud frame after the last quiet one before the release, on the audio clock.
+    const ONSET = { quietRms: 0.002, loudRms: 0.008, quietBeforeReleaseMs: 100, loudForMs: 400 };
     const shoutOnset = (frames, releaseAt) => {
-      const quiet = frames.filter((f) => f.rms < 0.002 && f.audioMs < releaseAt + 100).at(-1);
-      const onset = quiet && frames.find((f) => f.audioMs > quiet.audioMs && f.rms >= 0.008);
-      const after = onset ? Math.max(...frames.filter((f) => f.audioMs >= onset.audioMs && f.audioMs < onset.audioMs + 400).map((f) => f.rms)) : 0;
+      const quiet = frames.filter((f) => f.rms < ONSET.quietRms && f.audioMs < releaseAt + ONSET.quietBeforeReleaseMs).at(-1);
+      const onset = quiet && frames.find((f) => f.audioMs > quiet.audioMs && f.rms >= ONSET.loudRms);
+      const after = onset ? Math.max(...frames.filter((f) => f.audioMs >= onset.audioMs && f.audioMs < onset.audioMs + ONSET.loudForMs).map((f) => f.rms)) : 0;
       return { quietAt: quiet?.audioMs, onsetAt: onset?.audioMs, loudest: after };
     };
 
@@ -1071,7 +1071,7 @@ const JOURNEYS = {
 
     const said = [];
     for (let use = 0; use < 4; use++) {
-      const frames = await activate();
+      const frames = await recordActivationFrames();
       const cut = frames.filter((f) => f.life === 'cutIn');
       const [first, lastCut] = [cut[0], cut.at(-1)];
       const release = frames.find((f) => f.released);
@@ -1132,7 +1132,7 @@ const JOURNEYS = {
     await h.startAt(4);
     await h.game('god', true);
     await sleep(500);
-    const frames = await activate();
+    const frames = await recordActivationFrames();
     const cut = frames.filter((f) => f.life === 'cutIn');
     const tail = cut.filter((f) => f.cutInMs >= 600).map((f) => f.rms);
     const release = frames.find((f) => f.released);

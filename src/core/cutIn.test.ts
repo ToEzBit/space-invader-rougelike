@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CUT_IN, CUT_IN_MS, cutInPose, type CutInPose } from './cutIn';
+import { CUT_IN, SILENT_CUT_IN_MS, cutInPose, type CutInPose } from './cutIn';
 
 const pose = (ms: number): CutInPose => {
   const p = cutInPose(ms);
@@ -12,11 +12,11 @@ const every = (from: number, to: number, stepMs = 10) => Array.from({ length: Ma
 
 describe('trans-am cut-in', () => {
   it('lasts about a second and is over at its end', () => {
-    expect(CUT_IN_MS).toBe(1000);
+    expect(SILENT_CUT_IN_MS).toBe(1000);
     expect(cutInPose(0)).not.toBeNull();
-    expect(cutInPose(CUT_IN_MS - 1)).not.toBeNull();
-    expect(cutInPose(CUT_IN_MS)).toBeNull();
-    expect(cutInPose(CUT_IN_MS + 500)).toBeNull();
+    expect(cutInPose(SILENT_CUT_IN_MS - 1)).not.toBeNull();
+    expect(cutInPose(SILENT_CUT_IN_MS)).toBeNull();
+    expect(cutInPose(SILENT_CUT_IN_MS + 500)).toBeNull();
   });
 
   it('dims the screen first, with the band still off screen', () => {
@@ -37,7 +37,7 @@ describe('trans-am cut-in', () => {
     expect(mid).toBeGreaterThan(0.2);
     expect(mid).toBeLessThan(0.8);
     expect(pose(slashStart - 1).red).toBe(1);
-    const reds = every(0, CUT_IN_MS - 1, 5).map((ms) => pose(ms).red);
+    const reds = every(0, SILENT_CUT_IN_MS - 1, 5).map((ms) => pose(ms).red);
     expect(reds.every((r, i) => i === 0 || r >= reds[i - 1]!)).toBe(true);
   });
 
@@ -57,7 +57,7 @@ describe('trans-am cut-in', () => {
   });
 
   it('ends with the band gone, the flash out and the dim lifted', () => {
-    const last = pose(CUT_IN_MS - 1);
+    const last = pose(SILENT_CUT_IN_MS - 1);
     expect(last.slide).toBeGreaterThan(0.95);
     expect(last.flash).toBe(0);
     expect(last.dim).toBeLessThan(0.01);
@@ -79,8 +79,8 @@ describe('a cut-in stretched to a voice line', () => {
   });
 
   it('never runs shorter than the silent cut-in', () => {
-    expect(cutInPose(CUT_IN_MS - 1, 400)).toEqual(cutInPose(CUT_IN_MS - 1));
-    expect(cutInPose(CUT_IN_MS, 400)).toBeNull();
+    expect(cutInPose(SILENT_CUT_IN_MS - 1, 400)).toEqual(cutInPose(SILENT_CUT_IN_MS - 1));
+    expect(cutInPose(SILENT_CUT_IN_MS, 400)).toBeNull();
   });
 
   it('starts at rest and dims first, as the silent one does', () => {

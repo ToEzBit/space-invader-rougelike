@@ -110,7 +110,7 @@ const result = await page.evaluate(async () => {
   }
   const { VOICE_URLS, decodeLine, playLine } = await import('/src/audio/voice.ts');
   const { VOICE_LOUD95 } = await import('/src/audio/voiceLine.ts');
-  const { CUT_IN, CUT_IN_MS } = await import('/src/core/cutIn.ts');
+  const { CUT_IN, SILENT_CUT_IN_MS } = await import('/src/core/cutIn.ts');
   const voice = {};
   for (const url of VOICE_URLS) {
     const line = await decodeLine(new OfflineAudioContext(1, 1, RATE), url);
@@ -119,16 +119,16 @@ const result = await page.evaluate(async () => {
       continue;
     }
     const last = line.slices.at(-1);
-    const ctx = new OfflineAudioContext(1, Math.round((last.at + last.to - last.from) * RATE), RATE);
+    const ctx = new OfflineAudioContext(1, Math.round((last.lineAtSec + last.toSec - last.fromSec) * RATE), RATE);
     playLine(ctx, ctx.destination, line, 0);
     const data = (await ctx.startRendering()).getChannelData(0);
-    voice[url] = { ...stats(data), sec: +(data.length / RATE).toFixed(3), gain: +line.gain.toFixed(4), shoutAtMs: Math.round(line.shoutAtMs), freezeMs: Math.round(Math.max(CUT_IN_MS, CUT_IN.dimMs + line.shoutAtMs)), segments: line.segments, wav: wav(data) };
+    voice[url] = { ...stats(data), sec: +(data.length / RATE).toFixed(3), gain: +line.gain.toFixed(4), shoutAtMs: Math.round(line.shoutAtMs), freezeMs: Math.round(Math.max(SILENT_CUT_IN_MS, CUT_IN.dimMs + line.shoutAtMs)), segments: line.segments, wav: wav(data) };
   }
-  // The activation sweep under the line's first words, which start once the dim is over.
   const sweepCtx = new OfflineAudioContext(1, RATE, RATE);
   blip(sweepCtx, sweepCtx.destination, 'transAm', 0);
   const sweep = (await sweepCtx.startRendering()).getChannelData(0);
-  const sweepUnderVoice = windowedRms(sweep.subarray(Math.round((CUT_IN.dimMs / 1000) * RATE))).loudMax;
+  const voiceStartSample = Math.round((CUT_IN.dimMs / 1000) * RATE);
+  const sweepUnderVoice = windowedRms(sweep.subarray(voiceStartSample)).loudMax;
   const sweepAtPress = windowedRms(sweep).loudMax;
   return { musicVolume: MUSIC_VOLUME, sfx, tracks, boss1PreBusLoud95, BOSS1_PRE_BUS_LOUD95, voice, VOICE_LOUD95, sweepUnderVoice, sweepAtPress };
 });

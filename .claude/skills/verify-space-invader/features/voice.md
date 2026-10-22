@@ -20,7 +20,7 @@ When TRANS-AM starts, the pilot says a short lead-in and then shouts "TRANS-AM!"
 Preconditions:
 
 - `doctor.sh <run-id>` passes.
-- `state().voice` is `{ lines, last, spoken }`. `lines` has one entry per file: `{ url, status: 'loading' }`, `{ url, status: 'failed', why }`, or `{ url, status: 'ready', segments, slices, shoutAtMs, gain }` with `segments` and `slices` in seconds. `last` is the index of the line spoken last, `null` before any, and `spoken` counts lines started. In `Stage`, `cutInTotalMs` is the running cut-in's length.
+- `state().voice` is `{ lines, last, spoken }`. `lines` has one entry per file: `{ url, status: 'loading' }`, `{ url, status: 'failed', why }`, or `{ url, status: 'ready', segments, slices, shoutAtMs, gain }`. A segment is `{ fromSec, toSec }` in the file, and a slice adds `lineAtSec`, where it starts in the line. `last` is the index of the line spoken last, `null` before any, and `spoken` counts lines started. In `Stage`, `cutInTotalMs` is the running cut-in's length.
 
 Run `drive.mjs <run-id> voice`. It runs at device scale 2. An init script taps the game's `AudioContext` output with a 512-sample `AnalyserNode` (Phaser opens a context of its own, so the journey names the game's). Every frame from the press to 40 frames after the release records the tap's RMS on the audio clock, `life`, `cutInMs`, `cutInTotalMs`, the release (TRANS-AM's `msLeft` dropping under `activeMs`), and the bullets, foes, ship, `tally.fired` and `clock.fightMs`.
 

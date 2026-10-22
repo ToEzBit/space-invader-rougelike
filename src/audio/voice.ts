@@ -3,15 +3,12 @@ import transAm2 from '../assets/voice/transam-2.mp3';
 import { audioContext, onAudio } from './context';
 import { pickLine, speechSegments, voiceGain, voiceTimeline, type Segment, type Slice } from './voiceLine';
 
-// The pilot's TRANS-AM lines, generated with MiniMax TTS. Every one ends on the shout.
 export const VOICE_URLS = [transAm1, transAm2];
-// Each slice fades in and out over this, so cutting the file between words never clicks.
-const EDGE_SEC = 0.005;
+const DECLICK_FADE_SEC = 0.005;
 
 export type VoiceLine = { buffer: AudioBuffer; segments: Segment[]; slices: Slice[]; shoutAtMs: number; gain: number };
 type LineLoad = { status: 'loading' } | { status: 'ready'; line: VoiceLine } | { status: 'failed'; why: string };
-// shoutAtMs is when the shout lands, counted from the press on the audio clock the line plays on.
-export type Speech = { shoutAtMs: number; elapsedMs: () => number };
+export type Speech = { shoutAfterPressMs: number; audioMsSincePress: () => number };
 
 const loads: LineLoad[] = VOICE_URLS.map(() => ({ status: 'loading' }));
 let last: number | null = null;
@@ -19,38 +16,39 @@ let spoken = 0;
 
 onAudio((ctx) => void loadAll(ctx));
 
-// Starts a line now so its speech begins leadMs from now, later if that would put the shout before atLeastMs.
-// Null, and the cut-in plays silent, while the audio is not running or no line has loaded.
-export function speak(leadMs: number, atLeastMs: number): Speech | null {
+export function speak(speechLeadMs: number, minShoutAfterPressMs: number): Speech | null {
   const ctx = audioContext();
   if (ctx?.state !== 'running') return null;
   const ready = loads.flatMap((l, i) => (l.status === 'ready' ? [{ i, line: l.line }] : []));
-  // Not Math.random, which a seeded boss replay owns.
-  const pick = pickLine(ready.map((r) => r.i), last, crypto.getRandomValues(new Uint32Array(1))[0]! / 2 ** 32);
+  const pick = pickLine(ready.map((r) => r.i), last, unseededRandom());
   const line = ready.find((r) => r.i === pick)?.line;
   if (pick === null || !line) return null;
   const t0 = ctx.currentTime;
-  const shoutAtMs = Math.max(atLeastMs, leadMs + line.shoutAtMs);
-  playLine(ctx, ctx.destination, line, t0 + (shoutAtMs - line.shoutAtMs) / 1000);
+  const shoutAfterPressMs = Math.max(minShoutAfterPressMs, speechLeadMs + line.shoutAtMs);
+  playLine(ctx, ctx.destination, line, t0 + (shoutAfterPressMs - line.shoutAtMs) / 1000);
   last = pick;
   spoken++;
-  return { shoutAtMs, elapsedMs: () => (ctx.currentTime - t0) * 1000 };
+  return { shoutAfterPressMs, audioMsSincePress: () => (ctx.currentTime - t0) * 1000 };
+}
+
+function unseededRandom(): number {
+  return crypto.getRandomValues(new Uint32Array(1))[0]! / 2 ** 32;
 }
 
 export function playLine(ctx: BaseAudioContext, out: AudioNode, line: VoiceLine, when: number): void {
   for (const s of line.slices) {
-    const at = when + s.at;
-    const len = s.to - s.from;
+    const at = when + s.lineAtSec;
+    const len = s.toSec - s.fromSec;
     const source = ctx.createBufferSource();
     const gain = ctx.createGain();
     source.buffer = line.buffer;
     gain.gain.setValueAtTime(0, at);
-    gain.gain.linearRampToValueAtTime(line.gain, at + EDGE_SEC);
-    gain.gain.setValueAtTime(line.gain, at + len - EDGE_SEC);
+    gain.gain.linearRampToValueAtTime(line.gain, at + DECLICK_FADE_SEC);
+    gain.gain.setValueAtTime(line.gain, at + len - DECLICK_FADE_SEC);
     gain.gain.linearRampToValueAtTime(0, at + len);
     source.connect(gain).connect(out);
     source.onended = () => gain.disconnect();
-    source.start(at, s.from, len);
+    source.start(at, s.fromSec, len);
   }
 }
 
@@ -68,7 +66,7 @@ export async function decodeLine(ctx: BaseAudioContext, url: string): Promise<Vo
   const timeline = voiceTimeline(segments, buffer.duration);
   const gain = timeline && voiceGain(samples, buffer.sampleRate, timeline.slices);
   if (!timeline || !gain) return 'silent';
-  return { buffer, segments, slices: timeline.slices, shoutAtMs: timeline.shoutAt * 1000, gain };
+  return { buffer, segments, slices: timeline.slices, shoutAtMs: timeline.shoutAtSec * 1000, gain };
 }
 
 export function voiceState(): Record<string, unknown> {
