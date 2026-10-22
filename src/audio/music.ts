@@ -2,12 +2,9 @@ import { onAudio } from './context';
 import { compile, playStep, type Song } from './synth';
 import type { TrackId } from './tracks';
 
-// The music bus sits under the sfx, which go straight to the destination.
 export const MUSIC_VOLUME = 0.065;
 const FADE_SEC = 0.8;
 const MUTE_SEC = 0.08;
-// Notes go to the audio clock this far ahead, from a timer rather than the frame loop, so the music keeps time
-// through frame hitches and through anything that pauses a scene's clock, such as the TRANS-AM cut-in.
 const LOOKAHEAD_SEC = 0.2;
 const TICK_MS = 25;
 const MUTED_KEY = 'space-invader.musicMuted';
@@ -26,10 +23,9 @@ onAudio((ctx) => {
   bus = ctx.createGain();
   bus.gain.value = muted ? 0 : MUSIC_VOLUME;
   bus.connect(ctx.destination);
-  setInterval(() => tick(ctx), TICK_MS);
+  setInterval(() => scheduleAheadOfAudioClock(ctx), TICK_MS);
 });
 
-// Idempotent, so a scene can call it every frame: only a different track crossfades.
 export function want(id: TrackId | null): void {
   wanted = id;
 }
@@ -72,7 +68,7 @@ function loadMuted(): boolean {
   }
 }
 
-function tick(ctx: AudioContext): void {
+function scheduleAheadOfAudioClock(ctx: AudioContext): void {
   const now = ctx.currentTime;
   if ((current?.song.id ?? null) !== wanted) crossfade(ctx, now);
   for (const p of current ? [current, ...fading] : fading) schedule(ctx, p, now);
@@ -105,9 +101,8 @@ function crossfade(ctx: AudioContext, now: number): void {
 }
 
 function schedule(ctx: AudioContext, p: Playing, now: number): void {
+  const { stepSec } = p.song;
   const horizon = Math.min(now + LOOKAHEAD_SEC, p.until);
-  for (let at = p.t0 + p.next * p.song.stepSec; at < horizon; at = p.t0 + ++p.next * p.song.stepSec) {
-    // After a long stall the timer wakes up behind the audio clock; drop the missed steps rather than bunch them.
-    if (at >= now) playStep(ctx, p.gain, p.song, p.next, at);
-  }
+  p.next = Math.max(p.next, Math.ceil((now - p.t0) / stepSec));
+  for (let at = p.t0 + p.next * stepSec; at < horizon; at = p.t0 + ++p.next * stepSec) playStep(ctx, p.gain, p.song, p.next, at);
 }

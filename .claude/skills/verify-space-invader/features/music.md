@@ -1,6 +1,6 @@
 # Background music
 
-Three chiptune tracks synthesized with WebAudio, no audio files. The scores are `TRACKS` in `src/audio/tracks.ts`, one bar per string and one token per 16th-note step (format at the top of `src/audio/score.ts`). `src/audio/synth.ts` turns a step into oscillators and noise, and `src/audio/music.ts` schedules steps on the shared `AudioContext` clock from a 25 ms timer with 200 ms of lookahead.
+Three chiptune tracks synthesized with WebAudio, no audio files. The scores are `TRACKS` in `src/audio/tracks.ts`, one bar per string and one token per 16th-note step: a note (`A4`, `C#5`, `Bb3`), a chord (`E4+G4+B4`), a drum hit `x` or accented hit `X`, a rest `.`, or `-` to hold the previous one (`TOKEN` and `parseBars` in `src/audio/score.ts`). `src/audio/synth.ts` turns a step into oscillators and noise, and `src/audio/music.ts` schedules steps on the shared `AudioContext` clock from a 25 ms timer with 200 ms of lookahead.
 
 ## Sub-features
 
@@ -39,7 +39,7 @@ Run `drive.mjs <run-id> music`.
 .claude/skills/verify-space-invader/scripts/music.mjs <run-id>
 ```
 
-Renders one loop of each track in Chrome with `OfflineAudioContext`, through the game's own `playStep` and `MUSIC_VOLUME`, and writes `.verify/<run-id>/evidence/music/<track>.wav` and `report.json`. It prints each track's bpm, bars, seconds, peak, RMS and `loud95` (the 95th-percentile RMS over 50 ms windows), each channel's solo peak and RMS, and the same for the `pop`, `boom`, `hurt` and `buy` sfx. It fails if any channel renders silent or a track's peak plus the `boom` peak reaches 1. `loudVsSfx` compares a track's `loud95` with the median sfx's loudest window. Around 0.5 keeps the music under the sfx.
+Renders one loop of each track in Chrome with `OfflineAudioContext`, through the game's own `playStep` and `MUSIC_VOLUME`, and writes `.verify/<run-id>/evidence/music/<track>.wav` and `report.json`. It prints each track's bpm, bars, seconds, peak, RMS and `loud95` (the 95th-percentile RMS over 50 ms windows), each channel's solo peak and RMS, and the same for the `pop`, `boom`, `hurt` and `buy` sfx. It fails on a console error, a channel that renders silent, or a track whose peak plus the loudest sfx's peak reaches 1. `loudVsSfx` compares a track's `loud95` with the median sfx's loudest window. Around 0.5 keeps the music under the sfx.
 
 ## Gotchas
 

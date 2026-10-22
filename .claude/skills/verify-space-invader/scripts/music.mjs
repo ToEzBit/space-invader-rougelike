@@ -1,8 +1,4 @@
 #!/usr/bin/env node
-// Usage: music.mjs <run-id>
-// Renders one loop of every music track offline in Chrome, through the game's own synth and music bus level, and
-// writes .verify/<run-id>/evidence/music/<track>.wav plus report.json. Exit code 1 if a channel is silent or the mix
-// can clip under the loudest sfx.
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,17 +28,10 @@ const result = await page.evaluate(async () => {
   const { MUSIC_VOLUME } = await import('/src/audio/music.ts');
   const { blip } = await import('/src/audio/sfx.ts');
   const RATE = 44100;
+  const LOUDNESS_WINDOW_SEC = 0.05;
 
-  const stats = (data) => {
-    let peak = 0;
-    let sum = 0;
-    for (const v of data) {
-      peak = Math.max(peak, Math.abs(v));
-      sum += v * v;
-    }
-    // Loudness as the ear takes it: RMS over 50 ms windows. A blip is as loud as its loudest window, a track as its
-    // 95th-percentile one.
-    const win = Math.round(RATE * 0.05);
+  const windowedRms = (data) => {
+    const win = Math.round(RATE * LOUDNESS_WINDOW_SEC);
     const windows = [];
     for (let i = 0; i + win <= data.length; i += win) {
       let w = 0;
@@ -51,7 +40,17 @@ const result = await page.evaluate(async () => {
     }
     windows.sort((a, b) => a - b);
     const at = (q) => +(windows[Math.min(windows.length - 1, Math.floor(q * windows.length))] ?? 0).toFixed(4);
-    return { peak: +peak.toFixed(4), rms: +Math.sqrt(sum / data.length).toFixed(4), loud95: at(0.95), loudMax: at(1) };
+    return { loud95: at(0.95), loudMax: at(1) };
+  };
+
+  const stats = (data) => {
+    let peak = 0;
+    let sum = 0;
+    for (const v of data) {
+      peak = Math.max(peak, Math.abs(v));
+      sum += v * v;
+    }
+    return { peak: +peak.toFixed(4), rms: +Math.sqrt(sum / data.length).toFixed(4), ...windowedRms(data) };
   };
 
   const render = async (id, track) => {
@@ -110,7 +109,7 @@ const result = await page.evaluate(async () => {
 await browser.close();
 
 const failures = [...errors.map((e) => `console error: ${e}`)];
-const boomPeak = result.sfx.boom.peak;
+const [loudestSfx, { peak: loudestSfxPeak }] = Object.entries(result.sfx).sort(([, a], [, b]) => b.peak - a.peak)[0];
 const sfxLoud = Object.values(result.sfx).map((s) => s.loudMax).sort((a, b) => a - b);
 const medianSfxLoud = sfxLoud[Math.floor(sfxLoud.length / 2)];
 const report = { musicVolume: result.musicVolume, sfx: result.sfx, medianSfxLoud, tracks: {} };
@@ -119,7 +118,7 @@ for (const [id, t] of Object.entries(result.tracks)) {
   writeFileSync(join(outDir, `${id}.wav`), Buffer.from(wav, 'base64'));
   const silent = Object.entries(t.channels).filter(([, c]) => c.rms < 1e-4).map(([name]) => name);
   if (silent.length) failures.push(`${id}: silent channel(s) ${silent.join(', ')}`);
-  if (t.peak + boomPeak >= 1) failures.push(`${id}: peak ${t.peak} plus the boom sfx ${boomPeak} can clip`);
+  if (t.peak + loudestSfxPeak >= 1) failures.push(`${id}: peak ${t.peak} plus the ${loudestSfx} sfx ${loudestSfxPeak} can clip`);
   report.tracks[id] = { ...rest, loudVsSfx: +(t.loud95 / medianSfxLoud).toFixed(2), wav: join(outDir, `${id}.wav`) };
   console.log(
     `${id.padEnd(7)} ${t.title.padEnd(20)} ${t.bpm} bpm  ${t.bars} bars  ${t.sec}s  peak ${t.peak}  rms ${t.rms}  loud95 ${t.loud95} (${report.tracks[id].loudVsSfx}x the median sfx)  channels ${Object.entries(t.channels).map(([n, c]) => `${n}:${c.peak}/${c.rms}`).join(' ')}`,

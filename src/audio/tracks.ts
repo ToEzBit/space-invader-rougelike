@@ -1,23 +1,21 @@
-import { beat, octaveUp } from './score';
+import { fillRhythm, octaveUp } from './score';
 
 export type TrackId = 'normal' | 'boss1' | 'boss2';
 export type Voice = 'pulse25' | 'pulse12' | 'triangle' | 'kick' | 'snare' | 'hat';
 export type Channel = { name: string; voice: Voice; gain: number; bars: readonly string[] };
-// Every channel of a track has the same number of bars; that count is the loop.
 export type Track = { title: string; bpm: number; stepsPerBeat: number; beatsPerBar: number; channels: readonly Channel[] };
 
 type Chord = { root: string; triad: readonly [string, string, string] };
 
-const pump = (rhythm: string, chords: readonly Chord[]) => chords.map(({ root }) => beat(rhythm, { L: root, H: octaveUp(root) }));
-const stab = (rhythm: string, chords: readonly Chord[]) => chords.map(({ triad }) => beat(rhythm, { x: triad.join('+') }));
+const pump = (rhythm: string, chords: readonly Chord[]) => chords.map(({ root }) => fillRhythm(rhythm, { L: root, H: octaveUp(root) }));
+const stab = (rhythm: string, chords: readonly Chord[]) => chords.map(({ triad }) => fillRhythm(rhythm, { x: triad.join('+') }));
 const arp = (rhythm: string, chords: readonly Chord[]) =>
-  chords.map(({ triad: [a, b, c] }) => beat(rhythm, { a, b, c, d: octaveUp(a) }));
-// Drums repeat one bar and swap in a fill on every eighth bar.
-const drums = (bars: number, bar: string, fill = bar) => Array.from({ length: bars }, (_, i) => ((i + 1) % 8 === 0 ? fill : bar));
+  chords.map(({ triad: [a, b, c] }) => fillRhythm(rhythm, { a, b, c, d: octaveUp(a) }));
+const FILL_EVERY_BARS = 8;
+const drums = (bars: number, bar: string, fill = bar) => Array.from({ length: bars }, (_, i) => ((i + 1) % FILL_EVERY_BARS === 0 ? fill : bar));
 
 const chord = (root: string, ...triad: [string, string, string]): Chord => ({ root, triad });
 
-// Normal: A minor, a bright running lead over off-beat stabs.
 const N = {
   Am: chord('A2', 'A3', 'C4', 'E4'),
   F: chord('F2', 'F3', 'A3', 'C4'),
@@ -66,7 +64,6 @@ const NORMAL: Track = {
   ],
 };
 
-// Boss, first form: E minor. The hook falls G-F#-E on a 3+3+2 syncopation, then climbs back up.
 const B = {
   Em: chord('E2', 'G3', 'B3', 'E4'),
   C: chord('C3', 'G3', 'C4', 'E4'),
@@ -114,8 +111,6 @@ const BOSS1: Track = {
   ],
 };
 
-// Boss, second form: the first form's harmony a semitone up in F minor, faster, with a 16th-note lead,
-// a rolling arpeggio in place of the stabs, nonstop octave bass and doubled drums.
 const F = {
   Fm: chord('F2', 'F4', 'Ab4', 'C5'),
   Db: chord('Db3', 'F4', 'Ab4', 'Db5'),

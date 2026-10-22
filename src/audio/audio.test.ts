@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { trackFor } from './director';
-import { beat, freqOf, midiOf, octaveUp, parseBars } from './score';
+import { fillRhythm, freqOf, midiOf, octaveUp, parseBars } from './score';
 import { TRACKS, type Track, type TrackId } from './tracks';
 
 const barsOf = (t: Track) => t.channels[0]!.bars.length;
@@ -57,7 +57,7 @@ describe('bars', () => {
   });
 
   it('fill a rhythm with the notes its symbols stand for', () => {
-    expect(beat('L . H x', { L: 'E2', H: 'E3' })).toBe('E2 . E3 x');
+    expect(fillRhythm('L . H x', { L: 'E2', H: 'E3' })).toBe('E2 . E3 x');
   });
 });
 

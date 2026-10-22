@@ -10,7 +10,9 @@ export type Song = {
 
 export function compile(id: TrackId, track: Track = TRACKS[id]): Song {
   const stepsPerBar = track.stepsPerBeat * track.beatsPerBar;
-  const steps = (track.channels[0]?.bars.length ?? 0) * stepsPerBar;
+  const bars = new Set(track.channels.map((c) => c.bars.length));
+  if (bars.size !== 1) throw new Error(`${id}: channels disagree on the loop length (${[...bars].join(', ')} bars)`);
+  const steps = [...bars][0]! * stepsPerBar;
   return {
     id,
     stepSec: 60 / track.bpm / track.stepsPerBeat,
@@ -23,7 +25,6 @@ export function compile(id: TrackId, track: Track = TRACKS[id]): Song {
   };
 }
 
-// Plays whatever starts on this step of the loop. The live scheduler and the offline render both come through here.
 export function playStep(ctx: BaseAudioContext, out: AudioNode, song: Song, step: number, at: number): void {
   const kit = kitFor(ctx);
   for (const { channel, byStep } of song.channels) {
@@ -34,6 +35,12 @@ export function playStep(ctx: BaseAudioContext, out: AudioNode, song: Song, step
 
 type Kit = { ctx: BaseAudioContext; pulse25: PeriodicWave; pulse12: PeriodicWave; noise: AudioBuffer };
 type Play = (kit: Kit, out: AudioNode, e: NoteEvent, at: number, dur: number, gain: number) => void;
+
+const OPEN_HAT_SEC = 0.15;
+const CLOSED_HAT_SEC = 0.035;
+const ATTACK_SEC = 0.003;
+const RELEASE_SEC = 0.015;
+const SUSTAIN_LEVEL = 0.7;
 
 const VOICES: Record<Voice, Play> = {
   pulse25: (kit, out, e, at, dur, gain) => tones(kit, out, kit.pulse25, e, at, dur, gain),
@@ -54,8 +61,7 @@ const VOICES: Record<Voice, Play> = {
     body.frequency.exponentialRampToValueAtTime(130, at + 0.05);
     decay(kit.ctx, body, out, at, 0.06, g * 0.8);
   },
-  // An accented hat rings open.
-  hat: (kit, out, e, at, _dur, gain) => noise(kit, out, e, at, e.accent ? 0.15 : 0.035, gain * (e.accent ? 1.2 : 1), 'highpass', 7000),
+  hat: (kit, out, e, at, _dur, gain) => noise(kit, out, e, at, e.accent ? OPEN_HAT_SEC : CLOSED_HAT_SEC, gain * (e.accent ? 1.2 : 1), 'highpass', 7000),
 };
 
 const kits = new WeakMap<BaseAudioContext, Kit>();
@@ -63,13 +69,12 @@ const kits = new WeakMap<BaseAudioContext, Kit>();
 function kitFor(ctx: BaseAudioContext): Kit {
   let kit = kits.get(ctx);
   if (!kit) {
-    kit = { ctx, pulse25: pulse(ctx, 0.25), pulse12: pulse(ctx, 0.125), noise: whiteNoise(ctx) };
+    kit = { ctx, pulse25: pulse(ctx, 0.25), pulse12: pulse(ctx, 0.125), noise: seededWhiteNoise(ctx) };
     kits.set(ctx, kit);
   }
   return kit;
 }
 
-// The Fourier series of a pulse wave high for `duty` of each period.
 function pulse(ctx: BaseAudioContext, duty: number): PeriodicWave {
   const n = 48;
   const real = new Float32Array(n);
@@ -77,8 +82,7 @@ function pulse(ctx: BaseAudioContext, duty: number): PeriodicWave {
   return ctx.createPeriodicWave(real, new Float32Array(n));
 }
 
-// Seeded so two renders of a track come out the same.
-function whiteNoise(ctx: BaseAudioContext): AudioBuffer {
+function seededWhiteNoise(ctx: BaseAudioContext): AudioBuffer {
   const buffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
   const data = buffer.getChannelData(0);
   let seed = 0x2f6b1d;
@@ -93,10 +97,9 @@ function tones(kit: Kit, out: AudioNode, wave: OscillatorType | PeriodicWave, e:
   const { ctx } = kit;
   const end = at + dur;
   const env = ctx.createGain();
-  // A quick attack, a slight sag over the note, and a short release, so repeated notes stay separate.
   env.gain.setValueAtTime(0, at);
-  env.gain.linearRampToValueAtTime(gain, at + 0.003);
-  env.gain.linearRampToValueAtTime(gain * 0.7, Math.max(at + 0.004, end - 0.015));
+  env.gain.linearRampToValueAtTime(gain, at + ATTACK_SEC);
+  env.gain.linearRampToValueAtTime(gain * SUSTAIN_LEVEL, Math.max(at + ATTACK_SEC + 0.001, end - RELEASE_SEC));
   env.gain.linearRampToValueAtTime(0, end);
   env.connect(out);
   for (const midi of e.midis) {
@@ -130,7 +133,10 @@ function noise(kit: Kit, out: AudioNode, e: NoteEvent, at: number, sec: number, 
   env.gain.setValueAtTime(gain, at);
   env.gain.exponentialRampToValueAtTime(0.001, at + sec);
   src.connect(filter).connect(env).connect(out);
-  // A different stretch of the noise per step, so hits are not identical clicks.
-  src.start(at, (e.step * 0.137) % 0.8);
+  src.start(at, noiseOffset(e.step));
   src.stop(at + sec + 0.01);
+}
+
+function noiseOffset(step: number): number {
+  return (step * 0.137) % 0.8;
 }
