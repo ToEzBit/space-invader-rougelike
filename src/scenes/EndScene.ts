@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { want } from '../audio/music';
 import { PERKS, PERK_IDS } from '../core/perks';
 import type { RunState } from '../core/run';
 import { STAGE_COUNT } from '../core/stages';
@@ -35,6 +36,7 @@ export class EndScene extends Phaser.Scene {
 
   create(): void {
     fitCamera(this);
+    want('normal');
     this.leaving = false;
     this.backdrop = new Backdrop(this);
     const ending: Ending = this.run.phase.kind === 'victory' ? 'victory' : 'defeat';

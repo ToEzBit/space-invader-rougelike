@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { isMuted, toggleMute, want } from '../audio/music';
 import { ITEM_IDS, ITEMS } from '../core/items';
 import { newRun } from '../core/run';
 import { css, COLORS } from '../art/palette';
@@ -21,6 +22,7 @@ const ROW_H = 20;
 
 export class TitleScene extends Phaser.Scene {
   private backdrop!: Backdrop;
+  private musicHint!: Phaser.GameObjects.Text;
   private starting = false;
 
   constructor() {
@@ -29,6 +31,7 @@ export class TitleScene extends Phaser.Scene {
 
   create(): void {
     fitCamera(this);
+    want('normal');
     this.starting = false;
     this.backdrop = new Backdrop(this);
     const cx = VIEW.w / 2;
@@ -61,6 +64,15 @@ export class TitleScene extends Phaser.Scene {
       },
     );
 
+    this.musicHint = label(this, 12, 10, '', { size: 12, bold: true, color: '#c9d4ff', stroke: ink });
+    this.musicHint.setInteractive({ useHandCursor: true }).on(
+      'pointerdown',
+      (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+        event.stopPropagation();
+        toggleMute();
+      },
+    );
+
     const keyboard = this.input.keyboard;
     keyboard?.once('keydown-ENTER', () => this.begin());
     keyboard?.once('keydown-SPACE', () => this.begin());
@@ -70,6 +82,7 @@ export class TitleScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     this.backdrop.update(Math.min(delta, 50) / 1000);
+    this.musicHint.setText(`M · เพลง ${isMuted() ? 'ปิด' : 'เปิด'}`);
   }
 
   private begin(): void {

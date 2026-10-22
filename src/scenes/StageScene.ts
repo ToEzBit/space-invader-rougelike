@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { trackFor } from '../audio/director';
+import { want } from '../audio/music';
 import { clearStage, failRun, type RunState } from '../core/run';
 import { stageDef, STAGE_COUNT } from '../core/stages';
 import { COLORS, css } from '../art/palette';
@@ -179,6 +181,7 @@ export class StageScene extends Phaser.Scene {
         break;
     }
     if (input.transAm) this.pressTransAm();
+    want(trackFor(this.encounter.boss));
     this.hud.update();
   }
 
