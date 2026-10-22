@@ -1,6 +1,6 @@
 # Viewport and fullscreen
 
-The canvas fills the whole browser window at any size. The 480x640 playfield is zoomed to the largest size that fits and centered, with a thin violet frame at its edges. The parallax star field and nebula continue past the frame, so there are no black bars. The canvas backing store tracks device pixels (devicePixelRatio, capped at 2) and Text resolution follows the camera zoom, so Thai text stays sharp. `F` toggles browser fullscreen in every scene, and the Title screen has a clickable `F · เต็มจอ` hint.
+The canvas fills the whole browser window at any size. The 480x640 playfield is zoomed to the largest size that fits and centered, with a thin violet frame at its edges. The parallax star field and nebula continue past the frame, so there are no black bars. The canvas backing store tracks device pixels (devicePixelRatio, capped at 2) and Text resolution follows the camera zoom, so Thai text stays sharp. `F` toggles browser fullscreen in every scene, and the Title screen has a clickable `F · เต็มจอ` hint (`เต็มจอ` on touch, toggled on release, and hidden where the browser has no element fullscreen, such as iPhone Safari).
 
 ## Sub-features
 

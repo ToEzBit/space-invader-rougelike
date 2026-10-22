@@ -11,8 +11,8 @@ This directory is the maintained source for verifying what a player can do in th
 ## Driving conventions
 
 - Every journey starts in a fresh browser context, so no run, money or perks carry over between journeys.
-- The game is one canvas. Drive with keyboard keys and read results from `window.__game.state()`. Never click by guessed coordinates. A pointer journey such as `shop-tooltip` aims at world bounds the game reports in state and converts them to page coordinates.
-- `__game.start`, `kill`, `hurt`, `hit` and `bossHp` only set preconditions. The feature itself is driven with real keys.
+- The game is one canvas. Drive with keyboard keys, or touch in `mobile`, and read results from `window.__game.state()`. Never click or tap by guessed coordinates. A pointer or touch journey such as `shop-tooltip` or `mobile` aims at world bounds the game reports in state (`chips`, `targets`, `tray`) and converts them to page coordinates.
+- `__game.start`, `kill`, `hurt`, `hit` and `bossHp` only set preconditions. The feature itself is driven with real keys or real touches.
 - Compute expected numbers with the game's own `src/core/run.ts` (via `h.core`), not hand-copied constants.
 
 ## Proof and skip reporting
@@ -42,3 +42,4 @@ This directory is the maintained source for verifying what a player can do in th
 - [Run end](./run-end.md) covers victory, defeat and restarting.
 - [Background music](./music.md) covers the normal and two boss tracks, which plays when, crossfades, the music through the TRANS-AM cut-in, the M mute and the offline WAV render.
 - [Viewport and fullscreen](./viewport.md) covers filling the window, fitting the playfield, HiDPI, live resize and the F fullscreen toggle.
+- [Mobile touch](./mobile.md) covers a full run by touch on a phone: tap to start, relative drag steering and its speed cap, second-finger taps on the tray in the band under the playfield, the shop by tap and the tap back to Title.

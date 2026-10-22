@@ -1891,6 +1891,215 @@ const JOURNEYS = {
     h.check('M mutes the song file like the synth tracks, which keeps playing', quietSong.music.muted && quietSong.music.playing === 'empress' && quietSong.music.url === url && heardMuted < 1e-4, { music: quietSong.music, heardMuted });
     await h.game('resume');
   },
+  async mobile(h) {
+    const outDir = join(ROOT, '.verify', runId, 'evidence', 'mobile');
+    const context = await h.page.context().browser().newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+    const m = harness(await context.newPage(), outDir);
+    const cdp = await context.newCDPSession(m.page);
+    // Chrome's CDP touch emulation takes every finger still down on touchStart and touchMove, and only the lifted
+    // finger on touchEnd; a touchMove that leaves a finger out does not lift it.
+    const fingers = new Map();
+    const pageOf = async ({ x, y }) => {
+      const [box, s] = [await m.page.locator('canvas').boundingBox(), await m.state()];
+      const w = s.view.world;
+      return { x: box.x + ((x - w.x) * box.width) / w.width, y: box.y + ((y - w.y) * box.height) / w.height };
+    };
+    const send = (type, points = fingers) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: [...points].map(([id, p]) => ({ id, ...p })) });
+    const down = async (id, at) => {
+      fingers.set(id, await pageOf(at));
+      await send('touchStart');
+    };
+    const move = async (id, at) => {
+      fingers.set(id, await pageOf(at));
+      await send('touchMove');
+    };
+    const up = async (id) => {
+      const lifted = [[id, fingers.get(id)]];
+      fingers.delete(id);
+      await send('touchEnd', lifted);
+    };
+    const tap = async (id, at) => {
+      await down(id, at);
+      await sleep(50);
+      await up(id);
+    };
+    const slide = async (id, from, to, steps) => {
+      for (let i = 1; i <= steps; i++) {
+        await move(id, { x: from.x + ((to.x - from.x) * i) / steps, y: from.y + ((to.y - from.y) * i) / steps });
+        await sleep(16);
+      }
+    };
+    const record = () =>
+      m.page.evaluate(() => {
+        const samples = (window.__samples = []);
+        const tick = () => {
+          if (window.__samples !== samples) return;
+          const s = window.__game.state();
+          samples.push({ x: s.player.x, y: s.player.y, ms: s.clock.fightMs, moveSpeed: s.stats.moveSpeed });
+          requestAnimationFrame(tick);
+        };
+        tick();
+      });
+    const recorded = () =>
+      m.page.evaluate(() => {
+        const samples = window.__samples;
+        window.__samples = null;
+        return samples;
+      });
+    // Speed between consecutive frames in game time, against the moveSpeed in force on the later frame.
+    const speeds = (samples) =>
+      samples.slice(1).flatMap((b, i) => {
+        const a = samples[i];
+        const dt = (b.ms - a.ms) / 1000;
+        return dt > 0 ? [{ v: Math.hypot(b.x - a.x, b.y - a.y) / dt, cap: b.moveSpeed }] : [];
+      });
+    const slot = (s, button) => s.tray.find((t) => t.button === button);
+    const onTarget = (x) => x.move.kind === 'to' && x.player.x === x.move.x && x.player.y === x.move.y;
+
+    try {
+      const title = await m.openTitle();
+      m.check('a coarse pointer puts the game in touch mode', title.input === 'touch', { input: title.input });
+      await sleep(400);
+      await m.shot('title');
+      await m.step('tap the title screen', () => tap(1, { x: 240, y: 330 }));
+      const s1 = await m.waitFor('stage 1 fighting', (x) => x.scenes.includes('Stage') && x.life === 'fighting', 8000);
+      m.check('a tap on Title starts a fresh run at stage 1', s1.run.stage === 1 && s1.run.money === 0 && Object.keys(s1.run.perks).length === 0, { run: s1.run });
+
+      const w = s1.view.world;
+      const band = { top: 640, bottom: w.y + w.height };
+      const thumb = { x: 240, y: (band.top + band.bottom) / 2 };
+      m.check('the phone shows a band below the playfield for the thumb', band.bottom - band.top > 150, { band });
+
+      await down(1, thumb);
+      await record();
+      const p0 = (await m.state()).player;
+      const right = { x: thumb.x + 80, y: thumb.y };
+      await slide(1, thumb, right, 8);
+      const settled = await m.waitFor('ship settled on the drag target', onTarget, 3000);
+      const toRight = speeds(await recorded());
+      const fastest = Math.max(...toRight.map((s) => s.v));
+      m.check('a drag right in the bottom band flies the ship right by the drag, at the same height', Math.abs(settled.player.x - p0.x - 80) < 1.5 && Math.abs(settled.player.y - p0.y) < 0.01, { from: p0, to: settled.player, move: settled.move });
+      m.check('the ship never flies faster than its moveSpeed toward the finger', toRight.every((s) => s.v <= s.cap * 1.01) && fastest > s1.stats.moveSpeed * 0.9, { fastest, moveSpeed: s1.stats.moveSpeed, frames: toRight.length });
+      await record();
+      await sleep(300);
+      const still = await recorded();
+      m.check('a finger held still keeps the ship exactly on its target, no jitter', still.length > 5 && still.every((s) => s.x === settled.player.x && s.y === settled.player.y), { frames: still.length, at: settled.player });
+
+      const pastWall = { x: 2, y: thumb.y };
+      await slide(1, right, pastWall, 12);
+      const walled = await m.waitFor('ship stopped at the left wall', (x) => onTarget(x) && x.player.x < 60, 3000);
+      await sleep(100);
+      const wall = (await m.state()).player.x;
+      m.check('pushing the finger past the left wall parks the ship on it', walled.move.x === wall, { wall, move: walled.move });
+      await record();
+      await slide(1, pastWall, { x: pastWall.x + 20, y: thumb.y }, 2);
+      await sleep(150);
+      const back = (await recorded()).filter((s) => s.x > wall);
+      m.check('pulling the finger back after the wall moves the ship off it at once', back.length > 0 && back.at(-1).x > wall + 5, { wall, firstOff: back[0], last: back.at(-1) });
+      await m.step('lift the steering finger', () => up(1));
+      const lifted = await m.waitFor('steering over', (x) => x.move.kind === 'dir' && x.pointers.length === 0, 1000);
+      await record();
+      await sleep(200);
+      const parked = await recorded();
+      m.check('lifting the finger stops the ship', parked.every((s) => s.x === parked[0].x && s.y === parked[0].y), { at: lifted.player, frames: parked.length });
+
+      const s3 = await m.startAt(3, { afterburnerDash: 1 }, 0, { nitro: 2 });
+      const box = await m.page.locator('canvas').boundingBox();
+      const cssPerWorld = box.width / s3.view.world.width;
+      m.check('the tray offers TRANS-AM, dash and the held item as tap targets', ['transAm', 'dash', 'nitro'].every((b) => slot(s3, b)), { tray: s3.tray });
+      m.check('every tray tap target is at least 48 CSS px across', s3.tray.every((t) => t.r * 2 * cssPerWorld >= 48), { tray: s3.tray, cssPerWorld });
+
+      await down(1, thumb);
+      const steering = await m.waitFor('first finger steering', (x) => x.pointers.some((p) => p.job === 'steer') && x.move.kind === 'to', 1000);
+      const nitro = slot(steering, 'nitro');
+      const afterItem = await m.step('press the Nitro slot with a second finger while the first steers', async () => {
+        await down(2, nitro);
+        await m.waitFor('second finger owned by the Nitro slot', (x) => x.pointers.some((p) => p.job === 'nitro'), 1000);
+      });
+      await m.step('lift the second finger', () => up(2));
+      const spent = await m.waitFor('nitro running and the second finger released', (x) => x.buffs.some((b) => b.buff === 'nitro') && x.pointers.length === 1, 1000);
+      m.check('the tap spends exactly one Nitro and starts its buff', spent.run.items.nitro === 1, { before: steering.run.items, after: spent.run.items, buffs: spent.buffs });
+      m.check('the tap leaves the first finger steering and the ship where it was going', spent.pointers[0].job === 'steer' && afterItem.pointers.some((p) => p.job === 'nitro') && spent.move.kind === 'to' && Math.abs(spent.move.x - steering.move.x) < 1e-6, { pointers: afterItem.pointers, before: steering.move, after: spent.move });
+      m.check('Nitro raises moveSpeed', spent.stats.moveSpeed > s3.stats.moveSpeed * 1.2, { base: s3.stats.moveSpeed, nitro: spent.stats.moveSpeed });
+      await record();
+      await slide(1, thumb, { x: thumb.x - 150, y: thumb.y - 60 }, 6);
+      await m.waitFor('ship caught up with the finger', onTarget, 3000);
+      const boosted = speeds(await recorded());
+      const fastestBoosted = Math.max(...boosted.map((s) => s.v));
+      m.check('with Nitro the drag flies faster than the base speed but never past the boosted moveSpeed', boosted.every((s) => s.v <= s.cap * 1.01) && fastestBoosted > s3.stats.moveSpeed * 1.1, { fastest: fastestBoosted, base: s3.stats.moveSpeed, boosted: spent.stats.moveSpeed });
+      await m.shot('mid-fight-tray');
+
+      await m.step('tap the dash slot with a second finger', () => tap(2, slot(steering, 'dash')));
+      const dashed = await m.waitFor('dashing', (x) => x.dashing, 1000);
+      m.check('a tap on the dash slot dashes', dashed.dashing, { skills: dashed.skills });
+      await m.waitFor('dash over', (x) => !x.dashing, 4000);
+
+      const gaugeMax = await m.page.evaluate(() => import('/src/core/transAm.ts').then((t) => t.TRANS_AM.gaugeMax));
+      await m.game('transAmGauge', gaugeMax);
+      await m.step('tap the TRANS-AM slot with a second finger', () => tap(2, slot(steering, 'transAm')));
+      const cut = await m.waitFor('TRANS-AM cut-in', (x) => x.life === 'cutIn', 1000);
+      m.check('a tap on the TRANS-AM slot with a full gauge starts the cut-in', cut.life === 'cutIn' && cut.transAm.kind === 'active', { transAm: cut.transAm });
+      await up(1);
+
+      const center = (r) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
+      const target = (s, id) => s.targets.find((t) => t.id === id);
+      const costs = () =>
+        m.page.evaluate(async () => {
+          const r = await import('/src/core/run.ts');
+          const s = window.__game.state();
+          return { offers: s.cards.map((o) => o && r.offerCost(s.run, o)), refresh: r.refreshCost(s.run) };
+        });
+      await m.startAt(1, {}, 300);
+      await down(1, { x: 240, y: 160 });
+      await m.game('kill');
+      const shop = await m.waitFor('Shop open with a finger still down from the stage', (x) => x.scenes.includes('Shop') && x.targets?.length, 6000);
+      await m.step('lift the finger that was steering when the stage ended, over the first card', () => up(1));
+      await sleep(200);
+      const kept = await m.state();
+      m.check('a finger lifted over a card it did not press there buys nothing', kept.run.money === shop.run.money && JSON.stringify(kept.cards) === JSON.stringify(shop.cards), { before: shop.run.money, after: kept.run.money });
+
+      const price = await costs();
+      const bought = await m.step('tap the first card', () => tap(1, center(target(shop, 'card0'))));
+      const afterBuy = await m.waitFor('first card bought', (x) => x.cards[0] === null || x.run.money < shop.run.money, 2000);
+      const owned = (s) => JSON.stringify([s.run.perks, s.run.items]);
+      m.check('a tap on a card buys it for its price', afterBuy.run.money === shop.run.money - price.offers[0] && owned(afterBuy) !== owned(shop), { before: shop.run, after: afterBuy.run, cost: price.offers[0], step: bought.run.money });
+
+      const before = await costs();
+      await m.step('tap refresh', () => tap(1, center(target(afterBuy, 'refresh'))));
+      const refreshed = await m.waitFor('offers refreshed', (x) => x.run.money === afterBuy.run.money - before.refresh, 2000);
+      m.check('a tap on refresh pays its cost for a new set of offers', JSON.stringify(refreshed.cards) !== JSON.stringify(afterBuy.cards), { before: afterBuy.cards, after: refreshed.cards, cost: before.refresh });
+
+      const chip = refreshed.chips[0];
+      await m.step('tap the owned chip', () => tap(1, center(chip)));
+      const tipped = await m.waitFor('tooltip shown', (x) => x.tooltip.visible, 1000);
+      await sleep(400);
+      m.check('a tap on an owned chip shows its tooltip and it stays up after the finger lifts', (await m.state()).tooltip.visible && tipped.tooltip.kind === chip.kind && tipped.tooltip.id === chip.id, { chip, tooltip: tipped.tooltip });
+      await sleep(400);
+      await m.shot('shop-tooltip');
+      await m.step('tap away from the chips', () => tap(1, { x: 240, y: 30 }));
+      const untipped = await m.waitFor('tooltip hidden', (x) => !x.tooltip.visible, 1000);
+      m.check('a tap elsewhere hides the tooltip without buying', untipped.run.money === refreshed.run.money, { tooltip: untipped.tooltip });
+      await m.shot('shop');
+
+      await m.step('tap continue', () => tap(1, center(target(untipped, 'go'))));
+      const next = await m.waitFor('next stage', (x) => x.scenes.includes('Stage') && x.run.stage === 2, 4000);
+      m.check('a tap on continue leaves the shop for the next stage', next.run.stage === 2, { stage: next.run.stage });
+
+      await m.waitFor('stage 2 fighting', (x) => x.life === 'fighting', 4000);
+      for (let i = 0; i < next.run.hp; i++) await m.game('hurt');
+      await m.waitFor('End scene', (x) => x.scenes.includes('End'), 6000);
+      await sleep(600);
+      await m.shot('end');
+      await m.step('tap the End screen', () => tap(1, { x: 240, y: 330 }));
+      const restarted = await m.waitFor('back on Title', (x) => x.scenes.includes('Title'), 3000);
+      m.check('a tap on End returns to Title', restarted.scenes.includes('Title'), { scenes: restarted.scenes });
+    } finally {
+      h.log.steps.push(...m.log.steps);
+      h.log.checks.push(...m.log.checks);
+      h.log.consoleErrors.push(...m.log.consoleErrors);
+      await context.close();
+    }
+  },
 };
 
 // Close-ups of small HUD art need the canvas's full backing resolution.
