@@ -1,3 +1,6 @@
+import type { Point } from './geometry';
+import { VIEW } from '../viewSize';
+
 // Classic invaders: the formation speeds up as it thins out, up to MAX_SPEEDUP times its base pace.
 const MAX_SPEEDUP = 3.2;
 
@@ -14,4 +17,11 @@ export function frontRank<T extends { col: number; row: number }>(members: reado
     if (!cur || m.row > cur.row) front.set(m.col, m);
   }
   return [...front.values()];
+}
+
+const OFFSCREEN_PX = 24;
+
+// A diving enemy rejoins its slot from above the top edge once it has flown off the screen.
+export function diveOver(at: Point): boolean {
+  return at.y > VIEW.h + OFFSCREEN_PX;
 }

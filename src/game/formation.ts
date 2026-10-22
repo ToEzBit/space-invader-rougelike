@@ -5,7 +5,7 @@ import type { Encounter } from './encounter';
 import { FOE_RADIUS } from './hitbox';
 import { beatAt, hop } from './idle';
 import { BREACH_Y, PLAYFIELD } from './layout';
-import { frontRank, marchSpeed } from './march';
+import { diveOver, frontRank, marchSpeed } from './march';
 import type { Foe, World } from './world';
 
 const CELL = { w: 36, h: 30 };
@@ -127,7 +127,7 @@ export class Formation implements Encounter {
         s.x += mode.vx * dt;
         s.y += mode.vy * dt;
         s.setRotation(Math.atan2(-mode.vx, mode.vy) * 0.6);
-        if (s.y > VIEW.h + 24) {
+        if (diveOver(s)) {
           s.y = -24;
           m.mode = { kind: 'returning' };
         }
