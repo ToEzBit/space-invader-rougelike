@@ -63,3 +63,54 @@ describe('trans-am cut-in', () => {
     expect(last.dim).toBeLessThan(0.01);
   });
 });
+
+describe('a cut-in stretched to a voice line', () => {
+  const total = 2700;
+  const slashStart = total - CUT_IN.slashMs;
+  const pose = (ms: number): CutInPose => {
+    const p = cutInPose(ms, total);
+    if (!p) throw new Error(`no pose at ${ms}ms`);
+    return p;
+  };
+
+  it('lasts the length it is given', () => {
+    expect(cutInPose(total - 1, total)).not.toBeNull();
+    expect(cutInPose(total, total)).toBeNull();
+  });
+
+  it('never runs shorter than the silent cut-in', () => {
+    expect(cutInPose(CUT_IN_MS - 1, 400)).toEqual(cutInPose(CUT_IN_MS - 1));
+    expect(cutInPose(CUT_IN_MS, 400)).toBeNull();
+  });
+
+  it('starts at rest and dims first, as the silent one does', () => {
+    expect(pose(0)).toMatchObject({ dim: 0, slide: -1, red: 0, title: 0, slash: null, flash: 0 });
+    for (const ms of every(0, CUT_IN.dimMs - 1)) expect(pose(ms)).toEqual(cutInPose(ms));
+  });
+
+  it('brings the band and title in as fast as the silent one, then holds them until the slash', () => {
+    for (const ms of every(CUT_IN.dimMs, CUT_IN.dimMs + 250)) {
+      expect(pose(ms).slide).toBe(cutInPose(ms)!.slide);
+      expect(pose(ms).title).toBe(cutInPose(ms)!.title);
+    }
+    for (const ms of every(CUT_IN.dimMs + 250, slashStart - 1)) expect(pose(ms)).toMatchObject({ slide: 0, title: 1, slash: null, flash: 0, dim: 1 });
+  });
+
+  it('spreads the eyes over the longer hold and has them red before the slash', () => {
+    const reds = every(0, total - 1, 5).map((ms) => pose(ms).red);
+    expect(reds.every((r, i) => i === 0 || r >= reds[i - 1]!)).toBe(true);
+    const mid = pose((CUT_IN.dimMs + slashStart) / 2).red;
+    expect(mid).toBeGreaterThan(0.2);
+    expect(mid).toBeLessThan(0.8);
+    expect(pose(slashStart - 100).red).toBe(1);
+  });
+
+  it('ends with the same slash and flash as the silent one, and at rest', () => {
+    for (const ms of every(0, CUT_IN.slashMs - 1)) expect(pose(slashStart + ms)).toEqual(cutInPose(CUT_IN.dimMs + CUT_IN.bandMs + ms));
+    expect(pose(slashStart).slash).toBe(0);
+    const last = pose(total - 1);
+    expect(last.slide).toBeGreaterThan(0.95);
+    expect(last.flash).toBe(0);
+    expect(last.dim).toBeLessThan(0.01);
+  });
+});
