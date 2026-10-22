@@ -3,6 +3,7 @@ import { cueFor } from '../audio/director';
 import { want } from '../audio/music';
 import { speak, type Speech } from '../audio/voice';
 import { clearStage, failRun, type RunState } from '../core/run';
+import { sectorFor } from '../core/sectors';
 import { stageDef, STAGE_COUNT } from '../core/stages';
 import { COLORS, css } from '../art/palette';
 import { CUT_IN, SILENT_CUT_IN_MS, cutInPose } from '../core/cutIn';
@@ -63,10 +64,11 @@ export class StageScene extends Phaser.Scene {
     this.setLife({ kind: 'intro', msLeft: INTRO_MS });
     this.clock = { fightMs: 0, frames: 0, capped: 0 };
     const final = this.run.stage === STAGE_COUNT;
+    const sector = sectorFor(this.run.stage);
     banner(
       this,
       def.kind === 'boss' ? 'WARNING' : `STAGE ${this.run.stage}`,
-      def.kind === 'boss' ? (final ? 'บอสสุดท้ายกำลังมา!' : 'บอสกำลังเข้ามา!') : 'กำจัดผู้รุกรานให้หมด!',
+      def.kind === 'boss' ? `${final ? 'บอสสุดท้ายกำลังมา!' : 'บอสกำลังเข้ามา!'} · ${sector.nameTh}` : `เขต${sector.nameTh} · ${sector.name}`,
       css(def.kind === 'boss' ? COLORS.red : COLORS.cyan),
       INTRO_MS - 300,
     );
