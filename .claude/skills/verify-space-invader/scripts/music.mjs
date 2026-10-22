@@ -28,7 +28,9 @@ const result = await page.evaluate(async () => {
   const { MUSIC_VOLUME, TRACK_LEVEL } = await import('/src/audio/music.ts');
   const { blip } = await import('/src/audio/sfx.ts');
   const { BOSS1_PRE_BUS_LOUD95, loud95 } = await import('/src/audio/loudness.ts');
+  const { lint } = await import('/src/audio/scoreLint.ts');
   const RATE = 44100;
+  const JINGLE_TAIL_SEC = 0.3;
   const LOUDNESS_WINDOW_SEC = 0.05;
   const PREVIEW_PEAK = 0.9;
 
@@ -57,7 +59,7 @@ const result = await page.evaluate(async () => {
 
   const render = async (id, track) => {
     const song = compile(id, track);
-    const sec = song.steps * song.stepSec;
+    const sec = song.steps * song.stepSec + (track.loop ? 0 : JINGLE_TAIL_SEC);
     const ctx = new OfflineAudioContext(1, Math.ceil(sec * RATE), RATE);
     const bus = ctx.createGain();
     bus.gain.value = MUSIC_VOLUME * TRACK_LEVEL[id];
@@ -106,7 +108,8 @@ const result = await page.evaluate(async () => {
     const channels = {};
     for (const channel of track.channels) channels[channel.name] = stats((await render(id, { ...track, channels: [channel] })).data);
     const bars = track.channels[0].bars.length;
-    tracks[id] = { title: track.title, level: TRACK_LEVEL[id], bpm: track.bpm, bars, sec: +sec.toFixed(2), ...stats(data), channels, wav: wav(data), preview: wav(data, PREVIEW_PEAK / stats(data).peak) };
+    const { strongBeatChordTones } = lint(track);
+    tracks[id] = { title: track.title, loop: track.loop, level: TRACK_LEVEL[id], bpm: track.bpm, bars, sec: +sec.toFixed(2), strongBeatChordTones, ...stats(data), channels, wav: wav(data), preview: wav(data, PREVIEW_PEAK / stats(data).peak) };
   }
   const { VOICE_URLS, decodeLine, playLine } = await import('/src/audio/voice.ts');
   const { VOICE_LOUD95 } = await import('/src/audio/voiceLine.ts');
@@ -153,7 +156,7 @@ for (const [id, t] of Object.entries(result.tracks)) {
   if (t.peak + loudestSfxPeak >= 1) failures.push(`${id}: peak ${t.peak} plus the ${loudestSfx} sfx ${loudestSfxPeak} can clip`);
   report.tracks[id] = { ...rest, loudVsSfx: +(t.loud95 / medianSfxLoud).toFixed(2), wav: join(outDir, `${id}.wav`) };
   console.log(
-    `${id.padEnd(7)} ${t.title.padEnd(20)} ${t.bpm} bpm  ${t.bars} bars  ${t.sec}s  peak ${t.peak}  rms ${t.rms}  loud95 ${t.loud95} (${report.tracks[id].loudVsSfx}x the median sfx)  channels ${Object.entries(t.channels).map(([n, c]) => `${n}:${c.peak}/${c.rms}`).join(' ')}`,
+    `${id.padEnd(7)} ${t.title.padEnd(20)} ${t.loop ? 'loop' : 'once'} ${t.bpm} bpm  ${t.bars} bars  ${t.sec}s  chord tones ${t.strongBeatChordTones}  level ${t.level}  peak ${t.peak}  rms ${t.rms}  loud95 ${t.loud95} (${report.tracks[id].loudVsSfx}x the median sfx)  channels ${Object.entries(t.channels).map(([n, c]) => `${n}:${c.peak}/${c.rms}`).join(' ')}`,
   );
 }
 console.log(`boss1 pre-bus loud95 ${result.boss1PreBusLoud95.toFixed(4)} (BOSS1_PRE_BUS_LOUD95 ${result.BOSS1_PRE_BUS_LOUD95}, the target file tracks are matched to)`);

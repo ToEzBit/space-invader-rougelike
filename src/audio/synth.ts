@@ -33,7 +33,7 @@ export function playStep(ctx: BaseAudioContext, out: AudioNode, song: Song, step
   }
 }
 
-type Kit = { ctx: BaseAudioContext; pulse25: PeriodicWave; pulse12: PeriodicWave; noise: AudioBuffer };
+type Kit = { ctx: BaseAudioContext; pulse50: PeriodicWave; pulse25: PeriodicWave; pulse12: PeriodicWave; noise: AudioBuffer };
 type Play = (kit: Kit, out: AudioNode, e: NoteEvent, at: number, dur: number, gain: number) => void;
 
 const OPEN_HAT_SEC = 0.15;
@@ -41,8 +41,12 @@ const CLOSED_HAT_SEC = 0.035;
 const ATTACK_SEC = 0.003;
 const RELEASE_SEC = 0.015;
 const SUSTAIN_LEVEL = 0.7;
+// The vibrato voice sings: a held note starts plain, then wavers once it has sounded a moment.
+const VIBRATO = { hz: 5.5, cents: 22, delaySec: 0.12, riseSec: 0.2 };
 
 const VOICES: Record<Voice, Play> = {
+  pulse50: (kit, out, e, at, dur, gain) => tones(kit, out, kit.pulse50, e, at, dur, gain),
+  vibrato: (kit, out, e, at, dur, gain) => tones(kit, out, kit.pulse50, e, at, dur, gain, true),
   pulse25: (kit, out, e, at, dur, gain) => tones(kit, out, kit.pulse25, e, at, dur, gain),
   pulse12: (kit, out, e, at, dur, gain) => tones(kit, out, kit.pulse12, e, at, dur, gain),
   triangle: (kit, out, e, at, dur, gain) => tones(kit, out, 'triangle', e, at, dur, gain),
@@ -74,7 +78,7 @@ export function seededNoise(ctx: BaseAudioContext): AudioBuffer {
 function kitFor(ctx: BaseAudioContext): Kit {
   let kit = kits.get(ctx);
   if (!kit) {
-    kit = { ctx, pulse25: pulse(ctx, 0.25), pulse12: pulse(ctx, 0.125), noise: seededWhiteNoise(ctx) };
+    kit = { ctx, pulse50: pulse(ctx, 0.5), pulse25: pulse(ctx, 0.25), pulse12: pulse(ctx, 0.125), noise: seededWhiteNoise(ctx) };
     kits.set(ctx, kit);
   }
   return kit;
@@ -98,7 +102,7 @@ function seededWhiteNoise(ctx: BaseAudioContext): AudioBuffer {
   return buffer;
 }
 
-function tones(kit: Kit, out: AudioNode, wave: OscillatorType | PeriodicWave, e: NoteEvent, at: number, dur: number, gain: number): void {
+function tones(kit: Kit, out: AudioNode, wave: OscillatorType | PeriodicWave, e: NoteEvent, at: number, dur: number, gain: number, vibrato = false): void {
   const { ctx } = kit;
   const end = at + dur;
   const env = ctx.createGain();
@@ -112,10 +116,24 @@ function tones(kit: Kit, out: AudioNode, wave: OscillatorType | PeriodicWave, e:
     if (wave instanceof PeriodicWave) osc.setPeriodicWave(wave);
     else osc.type = wave;
     osc.frequency.setValueAtTime(freqOf(midi), at);
+    if (vibrato && dur > VIBRATO.delaySec) waver(ctx, osc.frequency, freqOf(midi), at, end);
     osc.connect(env);
     osc.start(at);
     osc.stop(end + 0.01);
   }
+}
+
+function waver(ctx: BaseAudioContext, frequency: AudioParam, hz: number, at: number, end: number): void {
+  const lfo = ctx.createOscillator();
+  lfo.frequency.value = VIBRATO.hz;
+  const depth = ctx.createGain();
+  const from = at + VIBRATO.delaySec;
+  depth.gain.setValueAtTime(0, at);
+  depth.gain.setValueAtTime(0, from);
+  depth.gain.linearRampToValueAtTime(hz * (2 ** (VIBRATO.cents / 1200) - 1), Math.min(end, from + VIBRATO.riseSec));
+  lfo.connect(depth).connect(frequency);
+  lfo.start(at);
+  lfo.stop(end + 0.01);
 }
 
 function decay(ctx: BaseAudioContext, src: AudioScheduledSourceNode, out: AudioNode, at: number, sec: number, gain: number): void {

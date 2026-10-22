@@ -1,9 +1,9 @@
 import { fillRhythm, octaveUp } from './score';
 
-export type ScoreId = 'normal' | 'boss1' | 'boss2';
+export type ScoreId = 'normal' | 'act1' | 'boss1' | 'boss2';
 export type FileId = 'empress';
 export type TrackId = ScoreId | FileId;
-export type Voice = 'pulse25' | 'pulse12' | 'triangle' | 'kick' | 'snare' | 'hat';
+export type Voice = 'pulse50' | 'vibrato' | 'pulse25' | 'pulse12' | 'triangle' | 'kick' | 'snare' | 'hat';
 export type Channel = { name: string; voice: Voice; gain: number; bars: readonly string[] };
 export type FileTrack = { title: string; urls: readonly string[] };
 export type Chord = { root: string; triad: readonly [string, string, string] };
@@ -28,6 +28,7 @@ const arp = (rhythm: string, chords: readonly Chord[]) =>
   chords.map(({ triad: [a, b, c] }) => fillRhythm(rhythm, { a, b, c, d: octaveUp(a) }));
 const FILL_EVERY_BARS = 8;
 const drums = (bars: number, bar: string, fill = bar) => Array.from({ length: bars }, (_, i) => ((i + 1) % FILL_EVERY_BARS === 0 ? fill : bar));
+const times = (bars: number, bar: string) => Array.from({ length: bars }, () => bar);
 
 const chord = (root: string, ...triad: [string, string, string]): Chord => ({ root, triad });
 
@@ -182,7 +183,117 @@ const BOSS2: Track = {
   ],
 };
 
-export const TRACKS: Record<ScoreId, Track> = { normal: NORMAL, boss1: BOSS1, boss2: BOSS2 };
+const D = {
+  D: chord('D3', 'F#4', 'A4', 'D5'),
+  A: chord('A2', 'E4', 'A4', 'C#5'),
+  Bm: chord('B2', 'F#4', 'B4', 'D5'),
+  G: chord('G2', 'G4', 'B4', 'D5'),
+  Em: chord('E2', 'E4', 'G4', 'B4'),
+  Fsm: chord('F#2', 'F#4', 'A4', 'C#5'),
+};
+// A, A', B, a breakdown, then a turnaround that climbs back to the top.
+const ACT1_CHORDS = [
+  ...[D.D, D.A, D.Bm, D.G, D.D, D.A, D.G, D.A],
+  ...[D.D, D.A, D.Bm, D.G, D.Em, D.Fsm, D.G, D.A],
+  ...[D.Bm, D.G, D.D, D.A, D.Bm, D.G, D.Em, D.A],
+  ...[D.G, D.A, D.Fsm, D.Bm],
+  ...[D.Em, D.Fsm, D.G, D.A],
+];
+const ACT1_HOOK = ['A4 - D5 - F#5 - A5 - - - F#5 - A5 - D6 -', 'C#6 - - - B5 - A5 - E5 - - - A5 B5 C#6 -', 'D6 - - - C#6 - B5 - F#5 - - - B5 - D6 -'];
+
+const ACT1: Track = {
+  title: 'Azure Horizon',
+  bpm: 128,
+  stepsPerBeat: 4,
+  beatsPerBar: 4,
+  key: { tonic: 'D', mode: 'major', borrowed: [] },
+  chords: ACT1_CHORDS,
+  loop: true,
+  channels: [
+    {
+      name: 'lead',
+      voice: 'pulse12',
+      gain: 0.4,
+      bars: [
+        ...ACT1_HOOK,
+        'B5 - - - A5 - G5 - D5 - - - E5 F#5 G5 A5',
+        'A5 - - - F#5 - D5 - A5 - - - D6 - - -',
+        'C#6 - - - E6 - C#6 - A5 - - - E5 - - -',
+        'D6 - - - B5 - G5 - B5 - - - D6 - C#6 -',
+        'C#6 - - - - - - - E5 - F#5 - G5 - A5 -',
+        ...ACT1_HOOK,
+        'B5 - - - D6 - G5 - B5 - A5 - G5 - F#5 -',
+        'E5 - G5 - B5 - - - G5 - - - E5 - G5 -',
+        'F#5 - A5 - C#6 - - - A5 - - - F#5 - A5 -',
+        'G5 - B5 - D6 - - - B5 - G5 - B5 - D6 -',
+        'E6 - - - C#6 - - - A5 - - - E5 - - -',
+        'F#5 - - - - - D5 - B4 - - - D5 - F#5 -',
+        'G5 - - - - - D5 - B4 - - - D5 - G5 -',
+        'A5 - - - - - F#5 - D5 - - - F#5 - A5 -',
+        'E5 - - - - - - - C#5 - D5 - E5 - - -',
+        'B5 - - - A5 - F#5 - D5 - - - F#5 - B5 -',
+        'D6 - - - B5 - G5 - D5 - - - G5 - B5 -',
+        'E6 - - - D6 - B5 - G5 - - - B5 - E6 -',
+        'C#6 - - - - - - - A5 - - - E5 - - -',
+        'D5 - - - . . . . . . . . G5 - - -',
+        'E5 - - - . . . . . . . . A5 - - -',
+        'F#5 - - - . . . . . . . . C#6 - - -',
+        'B5 - - - . . . . D6 - - - - - - -',
+        'E5 F#5 G5 - B5 - G5 - E5 F#5 G5 - B5 - E6 -',
+        'F#5 G5 A5 - C#6 - A5 - F#5 G5 A5 - C#6 - F#6 -',
+        'G5 A5 B5 - D6 - B5 - G5 A5 B5 - D6 - G6 -',
+        'E6 - - - C#6 - A5 - E5 - - - C#5 - E5 -',
+      ],
+    },
+    {
+      name: 'arp',
+      voice: 'pulse50',
+      gain: 0.07,
+      bars: [
+        ...arp('a . b . c . b . a . b . c . d .', ACT1_CHORDS.slice(0, 24)),
+        ...arp('a b c d c b a b c d c b a b c d', ACT1_CHORDS.slice(24, 28)),
+        ...arp('a . b . c . b . a . b . c . d .', ACT1_CHORDS.slice(28)),
+      ],
+    },
+    {
+      name: 'bass',
+      voice: 'triangle',
+      gain: 0.36,
+      bars: [
+        ...pump('L . H . L . H . L . H . L . H .', ACT1_CHORDS.slice(0, 24)),
+        ...pump('L - - - - - - - L - - - H - - -', ACT1_CHORDS.slice(24, 28)),
+        ...pump('L . H . L . H . L . H . L H L H', ACT1_CHORDS.slice(28)),
+      ],
+    },
+    {
+      name: 'kick',
+      voice: 'kick',
+      gain: 0.45,
+      bars: [...times(24, 'x . . . x . . . x . . . x . . .'), ...times(4, 'x . . . . . . . . . . . . . . .'), ...times(4, 'x . . . x . . . x . . . x . . .')],
+    },
+    {
+      name: 'snare',
+      voice: 'snare',
+      gain: 0.4,
+      bars: [
+        ...drums(24, '. . . . x . . . . . . . x . . .', '. . . . x . . . x . x x x x x x'),
+        ...times(4, '. . . . . . . . . . . . . . . .'),
+        '. . . . x . . . . . . . x . . .',
+        '. . . . x . . . x . . . x . x .',
+        'x . x . x . x . x . x . x . x .',
+        'x x x x x x x x X x X x X X X X',
+      ],
+    },
+    {
+      name: 'hat',
+      voice: 'hat',
+      gain: 0.14,
+      bars: [...times(24, '. . X . . . X . . . X . . . X .'), ...times(4, 'x . x . x . x . x . x . x . x .'), ...times(4, '. . X . . . X . . . X . . . X .')],
+    },
+  ],
+};
+
+export const TRACKS: Record<ScoreId, Track> = { normal: NORMAL, act1: ACT1, boss1: BOSS1, boss2: BOSS2 };
 
 const MUSIC_DIR = `${import.meta.env.BASE_URL}music/`;
 
