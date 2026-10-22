@@ -3,7 +3,7 @@ import { BASE_STATS } from './stats';
 import { ITEMS, ITEM_IDS, ITEM_STACK_MAX, itemForKey, withBuffs, type ItemId, type OwnedItems } from './items';
 import { PERKS, PERK_IDS, deriveStats, describePerk, type OwnedPerks, type PerkId } from './perks';
 import { STAGES } from './stages';
-import { buyOffer, clearStage, heal, leaveShop, newRun, offerCost, refreshCost, refreshShop, rollOffers, takeHit, useItem, type Offer, type RunState } from './run';
+import { buyOffer, carryTransAm, clearStage, heal, leaveShop, newRun, offerCost, refreshCost, refreshShop, rollOffers, takeHit, useItem, type Offer, type RunState } from './run';
 
 function shopOf(run: RunState) {
   if (run.phase.kind !== 'shop') throw new Error(`expected shop, got ${run.phase.kind}`);
@@ -236,5 +236,16 @@ describe('run loop', () => {
     const run = takeHit(newRun(3), 2);
     expect(heal(run, 1).hp).toBe(run.hp + 1);
     expect(heal(run, 99).hp).toBe(deriveStats(run.perks).maxHp);
+  });
+});
+
+describe('trans-am carry', () => {
+  it('starts a run with an empty TRANS-AM gauge and carries it through the shop', () => {
+    const run = newRun(5);
+    expect(run.transAmGauge).toBe(0);
+    const next = leaveShop(clearStage(carryTransAm(run, 37), 0));
+    expect(next.phase.kind).toBe('playing');
+    expect(next.stage).toBe(2);
+    expect(next.transAmGauge).toBe(37);
   });
 });

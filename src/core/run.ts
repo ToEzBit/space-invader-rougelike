@@ -26,6 +26,8 @@ export type RunState = {
   perks: OwnedPerks;
   // Consumables carry across stages until used.
   items: OwnedItems;
+  // The TRANS-AM gauge the next stage starts charging from.
+  transAmGauge: number;
   rng: number;
   phase: RunPhase;
 };
@@ -51,7 +53,7 @@ export function tierWeights(stageCleared: number): Record<Tier, number> {
 
 export function newRun(seed: number): RunState {
   const perks: OwnedPerks = {};
-  return { stage: 1, money: 0, hp: deriveStats(perks).maxHp, perks, items: {}, rng: seed >>> 0, phase: { kind: 'playing' } };
+  return { stage: 1, money: 0, hp: deriveStats(perks).maxHp, perks, items: {}, transAmGauge: 0, rng: seed >>> 0, phase: { kind: 'playing' } };
 }
 
 export function clearStage(run: RunState, coinsEarned: number): RunState {
@@ -74,6 +76,10 @@ export function takeHit(run: RunState, amount: number): RunState {
 
 export function heal(run: RunState, amount: number): RunState {
   return { ...run, hp: Math.min(run.hp + amount, deriveStats(run.perks).maxHp) };
+}
+
+export function carryTransAm(run: RunState, gauge: number): RunState {
+  return run.transAmGauge === gauge ? run : { ...run, transAmGauge: gauge };
 }
 
 export function leaveShop(run: RunState): RunState {
