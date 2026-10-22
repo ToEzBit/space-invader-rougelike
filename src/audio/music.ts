@@ -7,7 +7,7 @@ import { FILE_TRACKS, type FileId, type ScoreId, type TrackId } from './tracks';
 export const MUSIC_VOLUME = 0.038;
 // Boss fights play louder than the rest of the game, on top of the bus volume.
 const BOSS_LEVEL = 2;
-export const TRACK_LEVEL: Record<TrackId, number> = { normal: 1, act1: 1, boss1: BOSS_LEVEL, boss2: BOSS_LEVEL, empress: BOSS_LEVEL };
+export const TRACK_LEVEL: Record<TrackId, number> = { normal: 1, act1: 1, act2: 1, act3: 1, act4: 1, boss1: BOSS_LEVEL, boss2: BOSS_LEVEL, empress: BOSS_LEVEL };
 const FADE_SEC = 0.8;
 const MUTE_SEC = 0.08;
 const LOOKAHEAD_SEC = 0.2;

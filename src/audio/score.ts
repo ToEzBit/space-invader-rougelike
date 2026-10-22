@@ -17,9 +17,17 @@ export function freqOf(midi: number): number {
 }
 
 export function octaveUp(name: string): string {
+  return octaves(name, 1);
+}
+
+export function octaveDown(name: string): string {
+  return octaves(name, -1);
+}
+
+function octaves(name: string, by: number): string {
   const m = NOTE.exec(name);
   if (!m) throw new Error(`not a note: ${name}`);
-  return `${m[1]}${m[2] ?? ''}${Number(m[3]) + 1}`;
+  return `${m[1]}${m[2] ?? ''}${Number(m[3]) + by}`;
 }
 
 export function fillRhythm(rhythm: string, notes: Record<string, string>): string {
