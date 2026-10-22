@@ -610,12 +610,12 @@ const JOURNEYS = {
     await h.startAt(5);
     await h.game('god', true);
     await h.waitFor('the boss fighting', (x) => x.boss?.stance === 'fighting', 10000);
-    await h.game('transAmGauge', 50);
+    await h.game('transAmGauge', 15);
     const samples = [];
     let key = 'ArrowRight';
     await h.page.keyboard.down(key);
-    const end = Date.now() + 10000;
-    while (Date.now() < end) {
+    const end = Date.now() + 20000;
+    while (Date.now() < end && (samples.length < 100 || samples.at(-1).grazes - samples[0].grazes < 4)) {
       const { s } = await snap();
       samples.push({ fightMs: s.clock.fightMs, gauge: s.transAm.gauge, grazes: s.tally.grazes, hits: s.tally.hits, kills: s.tally.kills, bossDealt: s.tally.bossDealt, maxHp: s.boss.maxHp });
       const turn = key === 'ArrowRight' ? s.player.x > Math.min(s.boss.x + 110, 430) : s.player.x < Math.max(s.boss.x - 110, 50);
@@ -627,7 +627,7 @@ const JOURNEYS = {
       await sleep(30);
     }
     await h.page.keyboard.up(key);
-    h.log.steps.push({ action: 'weave under the boss for 10s', samples });
+    h.log.steps.push({ action: 'weave under the boss until 4 grazes, for up to 20s', samples });
     const first = samples[0];
     const last = samples.at(-1);
     // Each step: grazes, kills and boss damage add, a landed hit subtracts. Steps that touch the cap or 0 are clamped,
@@ -678,21 +678,29 @@ const JOURNEYS = {
     await h.waitFor('release over', (x) => x.transAm.kind === 'active' && x.transAm.msLeft < TA.activeMs - TA.releaseMs, 2000);
     const cleared = await snap();
     h.check('the release cleared the bullets near the ship', nearBefore >= 2 && nearShip(cleared, TA.clearRadiusPx - 20) === 0, { nearBefore, nearAfter: nearShip(cleared, TA.clearRadiusPx - 20), radius: TA.clearRadiusPx });
-    await sleep(300);
-    const post = await snap();
 
     // A bullet's speed is its travel over game time. The same bullets are timed before and during TRANS-AM when any
-    // survive both windows; otherwise bullets of one kind, which all fly at one speed in a wave stage.
+    // survive both windows; otherwise each is held to the shot speed of the stage's enemy that fires its kind.
     const speeds = (a, b) => a.shots.flatMap((s) => {
       const t = b.shots.find((x) => x.id === s.id);
       return t ? [{ id: s.id, kind: s.kind, v: Math.hypot(t.x - s.x, t.y - s.y) / (b.s.clock.fightMs - a.s.clock.fightMs) }] : [];
     });
     const before = speeds(pre, preLater);
-    const during = speeds(cleared, post);
-    const sameIds = during.filter((d) => before.some((b) => b.id === d.id));
-    const pairs = (sameIds.length ? sameIds : during.filter((d) => before.some((b) => b.kind === d.kind))).map((d) => {
-      const b = before.find((x) => x.id === d.id) ?? before.find((x) => x.kind === d.kind);
-      return { id: d.id, kind: d.kind, matchedBy: sameIds.length ? 'id' : 'kind', before: b.v, during: d.v, ratio: d.v / b.v };
+    let during = [];
+    for (let from = cleared; during.length === 0 && from.s.transAm.kind === 'active' && from.s.transAm.msLeft > 1500; ) {
+      await sleep(300);
+      const to = await snap();
+      during = speeds(from, to);
+      from = to;
+    }
+    const table = await h.page.evaluate(async () => {
+      const [{ ENEMY_SHOT }, { stageDef }] = await Promise.all([import('/src/game/formation.ts'), import('/src/core/stages.ts')]);
+      return Object.fromEntries(stageDef(4).rows.map((kind) => [ENEMY_SHOT[kind].bullet, ENEMY_SHOT[kind].speed / 1000]));
+    });
+    const pairs = during.map((d) => {
+      const same = before.find((x) => x.id === d.id);
+      const normal = same ? same.v : table[d.kind];
+      return { id: d.id, kind: d.kind, matchedBy: same ? 'id' : 'table', before: normal, during: d.v, ratio: d.v / normal };
     });
     h.log.steps.push({ action: 'timed enemy bullets before and during TRANS-AM', before, during, pairs });
     h.check('enemy bullets fly at half speed during TRANS-AM', pairs.length > 0 && pairs.every((r) => Math.abs(r.ratio - TA.enemyTimeScale) < 0.08), { pairs: pairs.slice(0, 6) });

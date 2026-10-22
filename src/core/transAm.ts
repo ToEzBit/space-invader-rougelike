@@ -2,7 +2,8 @@ import type { ShipStats } from './stats';
 
 export const TRANS_AM = {
   gaugeMax: 100,
-  gain: { graze: 1, kill: 2, bossHpPercent: 1 },
+  // Tuned with measure.mjs --trans-am --hit-budget to about 2 uses per stage 5 boss fight and 3 per stage 10.
+  gain: { graze: 1.5, kill: 2, bossHpPercent: 3 },
   hitLoss: 20,
   // Added to the ship's core radius: a bullet that passes inside it and leaves without touching the core grazed.
   grazePadPx: 16,
