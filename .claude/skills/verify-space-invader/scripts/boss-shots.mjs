@@ -20,11 +20,17 @@ const against = flag('--against');
 
 function virtualWorld() {
   let seed = 1;
-  Math.random = () => {
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+  let idSeed = 1;
+  const mulberry = (s) => {
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  // Phaser's UUID() draws from Math.random for every Text texture, so a new HUD label would shift every later
+  // gameplay draw. Those draws get a stream of their own.
+  Math.random = () => {
+    if (new Error().stack?.includes('UUID')) return mulberry((idSeed = (idSeed + 0x6d2b79f5) | 0));
+    return mulberry((seed = (seed + 0x6d2b79f5) | 0));
   };
   let now = 0;
   performance.now = () => now;
@@ -35,7 +41,9 @@ function virtualWorld() {
   window.__vt = {
     reseed: (s) => (seed = s),
     step: () => {
-      now += 1000 / 60;
+      // 1000/64 is exact in binary, so every frame delta is identical however many frames the page took to boot.
+      // With 1000/60 the clock's rounding depended on that boot count, and a timer could fire a frame apart.
+      now += 1000 / 64;
       const q = queue;
       queue = [];
       for (const cb of q) cb(now);
@@ -97,7 +105,7 @@ const plan = await page.evaluate(async () => {
   const { BOSSES } = await import('/src/core/stages.ts');
   const { PATTERNS } = await import('/src/game/patterns.ts');
   const cycleFrames = (phase) =>
-    Math.ceil(((phase.patterns.reduce((ms, p) => ms + phase.patternGapMs + (PATTERNS[p].cast?.chargeMs ?? 0), 0) + 3000) * 60) / 1000);
+    Math.ceil(((phase.patterns.reduce((ms, p) => ms + phase.patternGapMs + (PATTERNS[p].cast?.chargeMs ?? 0), 0) + 3000) * 64) / 1000);
   return Object.fromEntries(Object.entries(BOSSES).map(([id, def]) => [id, { def: JSON.parse(JSON.stringify(def)), frames: def.forms.map((f) => f.phases.map(cycleFrames)) }]));
 });
 
