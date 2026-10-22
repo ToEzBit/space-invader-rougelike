@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { ITEM_IDS, ITEMS, type ItemId } from '../core/items';
 import { STAGE_COUNT } from '../core/stages';
+import { TRANS_AM } from '../core/transAm';
 import { COLORS, css } from '../art/palette';
 import type { CharacterKey } from '../art/characters';
 import type { IconKey } from '../art/ui';
@@ -58,7 +59,8 @@ export class Hud {
   refuseTransAm(): void {
     sfx('deny');
     this.skills.get('transAm')?.refuse();
-    if (this.world.transAm.kind === 'charging') this.world.fx.float(TRAY.x + 30, TRAY.y - 36, 'เกจยังไม่เต็ม', COLORS.red);
+    const t = this.world.transAm;
+    if (t.kind === 'charging' && t.gauge < TRANS_AM.gaugeMax) this.world.fx.float(TRAY.x + 30, TRAY.y - 36, 'เกจยังไม่เต็ม', COLORS.red);
   }
 
   update(): void {
