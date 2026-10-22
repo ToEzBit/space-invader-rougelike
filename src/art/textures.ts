@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { PALETTE } from './palette';
+import { seeded } from './sky';
 import { ART_SCALE, SPRITES, type SpriteKey } from './sprites';
 import { VIEW } from '../view';
 
@@ -38,8 +39,7 @@ function stars(scene: Phaser.Scene, key: string, layer: number): void {
   const tex = scene.textures.createCanvas(key, VIEW.w, VIEW.h);
   if (!tex) throw new Error(`Could not create texture ${key}`);
   const style = STAR_STYLE[layer]!;
-  let seed = 1234 + layer * 977;
-  const rand = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+  const rand = seeded(1234 + layer * 977);
   for (let i = 0; i < style.count; i++) {
     const x = Math.floor(rand() * VIEW.w);
     const y = Math.floor(rand() * VIEW.h);
