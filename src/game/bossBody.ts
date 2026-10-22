@@ -17,10 +17,11 @@ const DIM = { color: 0x05040f, alpha: 0.6, depth: -7 } as const;
 const WHITE_HOT = 0.7;
 export const MUZZLE_DROP = 0.28;
 
-export type BodyLook = { glow: number; castArt?: CharacterKey };
+// castPalm is the casting art's open hand, in art pixels from its center, so a skill that forms in her hand draws there.
+export type BodyLook = { glow: number; castArt?: CharacterKey; castPalm?: Point };
 
 type Layers = { behind: Graphics; behindAdd: Graphics; front: Graphics };
-type Aura = (g: Layers, at: { center: Point; muzzle: Point }, ms: number, a: number, color: number, leadMs: number) => void;
+type Aura = (g: Layers, at: { center: Point; muzzle: Point; hand: Point }, ms: number, a: number, color: number, leadMs: number) => void;
 
 function glowLine(g: Graphics, width: number, color: number, a: number, x1: number, y1: number, x2: number, y2: number): void {
   g.lineStyle(width * 2.4, color, 0.16 * a).lineBetween(x1, y1, x2, y2);
@@ -65,14 +66,14 @@ const AURAS: Record<AuraKind, Aura> = {
     glowLine(behindAdd, 5 + 4 * a, color, a, center.x - wide, y, center.x + wide, y);
     behindAdd.fillStyle(COLORS.white, 0.5 * a).fillCircle(center.x, y, 6 + 8 * a);
   },
-  implode: ({ front }, { muzzle }, ms, a, color, leadMs) => {
-    if (ms >= 0) return glowRing(front, 4, color, a, muzzle.x, muzzle.y, 16 + ms * 0.45);
+  implode: ({ front }, { hand }, ms, a, color, leadMs) => {
+    if (ms >= 0) return glowRing(front, 4, color, a, hand.x, hand.y, 16 + ms * 0.45);
     for (let i = 0; i < 3; i++) {
       const k = 1 - (((((ms + leadMs) / 420 + i / 3) % 1) + 1) % 1);
-      glowRing(front, 3, color, a * (1 - k), muzzle.x, muzzle.y, 8 + k * 110);
+      glowRing(front, 3, color, a * (1 - k), hand.x, hand.y, 8 + k * 110);
     }
-    front.fillStyle(DIM.color, 0.95 * a).fillCircle(muzzle.x, muzzle.y, 4 + 9 * a);
-    front.lineStyle(2, COLORS.gold, 0.9 * a).strokeCircle(muzzle.x, muzzle.y, 6 + 9 * a);
+    front.fillStyle(DIM.color, 0.95 * a).fillCircle(hand.x, hand.y, 4 + 9 * a);
+    front.lineStyle(2, COLORS.gold, 0.9 * a).strokeCircle(hand.x, hand.y, 6 + 9 * a);
   },
   corona: ({ behind, behindAdd }, { center }, ms, a, color) => {
     const r = 30 + 36 * a;
@@ -168,10 +169,14 @@ export class BossBody {
     this.dim.setFillStyle(DIM.color, DIM.alpha * pose.darken);
     for (const g of Object.values(this.layers)) g.clear();
     const muzzle = { x: center.x - Math.sin(pose.rot) * s.height * MUZZLE_DROP * pose.sy, y: center.y + Math.cos(pose.rot) * s.height * MUZZLE_DROP * pose.sy };
+    const palm = castKey && look.castPalm;
+    const hand = palm
+      ? { x: center.x + (palm.x * Math.cos(pose.rot) - palm.y * Math.sin(pose.rot)) * pose.sx, y: center.y + (palm.x * Math.sin(pose.rot) + palm.y * Math.cos(pose.rot)) * pose.sy }
+      : muzzle;
     for (const m of moves) {
       const p = poseAt(m.pattern, m.ms, m.dir);
       const motion = MOTIONS[m.pattern];
-      if (p.aura > 0) AURAS[motion.aura](this.layers, { center, muzzle }, m.ms, p.aura, motion.color ?? look.glow, -motion.keys[0]!.at);
+      if (p.aura > 0) AURAS[motion.aura](this.layers, { center, muzzle, hand }, m.ms, p.aura, motion.color ?? look.glow, -motion.keys[0]!.at);
     }
     if (pose.glint > 0) glint(this.layers.front, muzzle, pose.glint, color);
   }

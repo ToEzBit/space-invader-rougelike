@@ -34,13 +34,13 @@ const TRANSFORM = { peak: 0.45, healFrom: 0.3, healTo: 0.9, shockMs: 900, shockR
 const IMMUNE_FLOAT_GAP_MS = 260;
 const HALO_SCALE = 1.08;
 
-type Look = { orb: BulletKind; beam: number; glow: number; subtitle: string; castArt?: CharacterKey };
+type Look = { orb: BulletKind; beam: number; glow: number; subtitle: string; castArt?: CharacterKey; castPalm?: Point };
 
 const FORM_LOOK: Record<BossTexture, Look> = {
   crimsonSeraph: { orb: 'orb', beam: COLORS.red, glow: COLORS.pink, subtitle: '' },
-  crimsonSeraphAscended: { orb: 'orb', beam: COLORS.orange, glow: COLORS.gold, subtitle: 'ปีกเพลิงตื่นขึ้นแล้ว!' },
+  crimsonSeraphAscended: { orb: 'orb', beam: COLORS.orange, glow: COLORS.gold, subtitle: 'ปีกเพลิงตื่นขึ้นแล้ว!', castArt: 'crimsonSeraphAscendedCast' },
   voidEmpress: { orb: 'voidOrb', beam: COLORS.violet, glow: COLORS.cyan, subtitle: '' },
-  voidEmpressEclipse: { orb: 'voidOrb', beam: COLORS.violet, glow: COLORS.violet, subtitle: 'สุริยุปราคากลืนกินท้องฟ้า!' },
+  voidEmpressEclipse: { orb: 'voidOrb', beam: COLORS.violet, glow: COLORS.violet, subtitle: 'สุริยุปราคากลืนกินท้องฟ้า!', castArt: 'voidEmpressEclipseCast', castPalm: { x: -17, y: -23 } },
 };
 
 // A beam sweeps its down-angle (0 straight down, positive leaning right) from fromDeg to toDeg after blinking
