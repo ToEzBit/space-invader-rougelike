@@ -1,6 +1,6 @@
 import { fillRhythm, octaveDown, octaveUp, TOKEN } from './score';
 
-export type ScoreId = 'normal' | 'act1' | 'act2' | 'act3' | 'act4' | 'boss1' | 'boss2';
+export type ScoreId = 'normal' | 'act1' | 'act2' | 'act3' | 'act4' | 'shop' | 'boss1' | 'boss2';
 export type FileId = 'empress';
 export type TrackId = ScoreId | FileId;
 export type Voice = 'pulse50' | 'vibrato' | 'pulse25' | 'pulse12' | 'triangle' | 'kick' | 'snare' | 'hat';
@@ -581,7 +581,69 @@ const ACT4: Track = {
   ],
 };
 
-export const TRACKS: Record<ScoreId, Track> = { normal: NORMAL, act1: ACT1, act2: ACT2, act3: ACT3, act4: ACT4, boss1: BOSS1, boss2: BOSS2 };
+const S = {
+  F: chord('F2', 'A4', 'C5', 'F5'),
+  Dm: chord('D3', 'A4', 'D5', 'F5'),
+  Gm: chord('G2', 'Bb4', 'D5', 'G5'),
+  C: chord('C3', 'G4', 'C5', 'E5'),
+  Bb: chord('Bb2', 'Bb4', 'D5', 'F5'),
+  Am: chord('A2', 'A4', 'C5', 'E5'),
+};
+const SHOP_CHORDS = [
+  ...[S.F, S.Dm, S.Gm, S.C, S.F, S.Dm, S.Gm, S.C],
+  ...[S.F, S.Dm, S.Gm, S.C, S.Bb, S.C, S.F, S.F],
+  ...[S.Bb, S.C, S.Am, S.Dm, S.Gm, S.Am, S.Bb, S.C],
+  ...[S.F, S.Dm, S.Gm, S.C, S.Bb, S.C, S.F, S.C],
+];
+const SHOP_HOOK = ['A5 - - - G5 - F5 - C5 - - - - - . .', 'D5 - - - F5 - A5 - - - - - G5 - F5 -', 'G5 - - - - - Bb5 - D5 - - - . . . .', 'E5 - - - F5 - G5 - - - - - . . . .'];
+const SHOP_TURN = ['D5 - - - F5 - Bb5 - - - A5 - G5 - F5 -', 'E5 - - - G5 - C6 - - - Bb5 - A5 - G5 -'];
+
+const SHOP: Track = {
+  title: 'Hangar Lounge',
+  bpm: 96,
+  stepsPerBeat: 4,
+  beatsPerBar: 4,
+  key: { tonic: 'F', mode: 'major', borrowed: [] },
+  chords: SHOP_CHORDS,
+  loop: true,
+  channels: [
+    {
+      name: 'lead',
+      voice: 'triangle',
+      gain: 0.34,
+      bars: [
+        ...SHOP_HOOK,
+        'A5 - - - C6 - A5 - F5 - - - . . . .',
+        'F5 - - - E5 - D5 - A4 - - - . . D5 -',
+        'Bb4 - - - D5 - F5 - G5 - - - F5 - D5 -',
+        'E5 - - - - - - - C5 - - - . . . .',
+        ...SHOP_HOOK,
+        ...SHOP_TURN,
+        'A5 - - - - - - - F5 - - - . . . .',
+        'C5 - - - - - - - . . . . . . . .',
+        'F5 - - - D5 - F5 - Bb5 - - - A5 - - -',
+        'G5 - - - E5 - G5 - C6 - - - - - - -',
+        'C6 - - - A5 - E5 - A5 - - - G5 - - -',
+        'F5 - - - - - D5 - A5 - - - - - - -',
+        'Bb5 - - - A5 - G5 - D5 - - - - - - -',
+        'C6 - - - Bb5 - A5 - E5 - - - - - - -',
+        'D6 - - - C6 - Bb5 - F5 - - - G5 - A5 -',
+        'G5 - - - - - - - E5 - - - . . . .',
+        ...SHOP_HOOK,
+        ...SHOP_TURN,
+        'F5 - - - - - - - . . . . . . . .',
+        '. . . . . . . . G5 - - - - - - -',
+      ],
+    },
+    { name: 'stabs', voice: 'pulse12', gain: 0.07, bars: stab('. . . . . . x - . . . . . . x -', SHOP_CHORDS) },
+    { name: 'bass', voice: 'triangle', gain: 0.34, bars: pump('L - - - - - . . H - - - L - - -', SHOP_CHORDS) },
+    { name: 'kick', voice: 'kick', gain: 0.26, bars: times(32, 'x . . . . . x . . . . . . . . .') },
+    { name: 'snare', voice: 'snare', gain: 0.18, bars: times(32, '. . . . . . . . . . . . x . . .') },
+    { name: 'hat', voice: 'hat', gain: 0.08, bars: drums(32, 'x . x . x . x . x . x . x . x .', 'x . x . x . x . x . x . x . X .') },
+  ],
+};
+
+export const TRACKS: Record<ScoreId, Track> = { normal: NORMAL, act1: ACT1, act2: ACT2, act3: ACT3, act4: ACT4, shop: SHOP, boss1: BOSS1, boss2: BOSS2 };
 
 const MUSIC_DIR = `${import.meta.env.BASE_URL}music/`;
 
