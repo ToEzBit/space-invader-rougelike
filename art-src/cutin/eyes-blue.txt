@@ -1,0 +1,9 @@
+Use case: illustration-story
+Asset type: cut-in art for a pixel-art space shooter. It is shown for one second inside a wide tilted letterbox band across the screen when the player activates the ultimate move.
+Reference images: the first attached image is the approved cut-in mockup; match its eye close-up character, drawing style and framing. The second attached image is the player's ship with the pilot girl in its canopy; she is this character.
+Primary request: an extreme close-up of the pilot girl's eyes, from the middle of her forehead to just below her eyes, filling the whole canvas edge to edge. Light blue hair with soft bangs across the forehead, a small pink gem on the forehead, pink-and-white headgear pieces at both sides. A focused, determined expression, eyes wide open, irises bright sky blue with white star highlights.
+Style/medium: clean cel-shaded anime illustration exactly like the mockup's eye shot, crisp line art, high contrast, rich saturated color.
+Composition/framing: landscape 3:2 canvas. The two eyes sit side by side across the vertical middle of the canvas. Her face and hair fill the entire canvas with no background visible anywhere, so any horizontal band through the middle can be cropped out.
+Lighting/mood: cool neutral light with soft shading, intense and heroic.
+Constraints: no text, no letters, no logo, no UI, no frame, no black bars, no particles, no lens flares, no glow effects, no motion lines.
+Avoid: watermark, signature, a second character.

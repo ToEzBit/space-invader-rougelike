@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { CHARACTER_ART } from '../art/characters';
+import { CUT_IN_ART } from '../art/cutIn';
 import { buildTextures } from '../art/textures';
 import { UI_FRAMES, UI_ICONS, UI_IMAGES } from '../art/ui';
 
@@ -9,12 +10,14 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
-    for (const [key, url] of Object.entries({ ...CHARACTER_ART, ...UI_ICONS, ...UI_IMAGES })) this.load.image(key, url);
+    for (const [key, url] of Object.entries({ ...CHARACTER_ART, ...UI_ICONS, ...UI_IMAGES, ...CUT_IN_ART })) this.load.image(key, url);
     for (const [key, { url }] of Object.entries(UI_FRAMES)) this.load.image(key, url);
   }
 
   create(): void {
     buildTextures(this);
+    // The game renders pixel art, but these strips are painted art drawn scaled and rotated.
+    for (const key of Object.keys(CUT_IN_ART)) this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
     this.scene.start('Title');
   }
 }
