@@ -28,6 +28,7 @@ const CALLOUT_MIN_Y = 98;
 // Fractions of the transformation's duration, except shockMs.
 const TRANSFORM = { peak: 0.45, healFrom: 0.3, healTo: 0.9, shockMs: 900, shockReach: 820, crossfadeMs: 380 } as const;
 const IMMUNE_FLOAT_GAP_MS = 260;
+const HALO_SCALE = 1.08;
 
 type Look = { orb: BulletKind; beam: number; glow: number; subtitle: string };
 
@@ -93,7 +94,7 @@ export class BossFight implements Encounter {
       .setTint(FORM_LOOK[texture].glow)
       .setTintMode(Phaser.TintModes.FILL)
       .setAlpha(0.25)
-      .setScale(1.08)
+      .setScale(HALO_SCALE)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(DEPTH.foe - 1);
     this.gfx = world.scene.add.graphics().setDepth(DEPTH.beam);
@@ -133,9 +134,10 @@ export class BossFight implements Encounter {
     return this.foe.dead;
   }
 
+  // Unscaled sizes here and in drift, so how she is drawn never moves where she fires from.
   get muzzle(): Point {
     const s = this.foe.sprite;
-    return { x: s.x, y: s.y + s.displayHeight * 0.28 };
+    return { x: s.x, y: s.y + s.height * 0.28 };
   }
 
   update(dtMs: number): void {
@@ -227,7 +229,7 @@ export class BossFight implements Encounter {
   private drift(dtMs: number): void {
     this.driftMs += dtMs;
     const s = this.foe.sprite;
-    const reach = Math.min(110 + this.phase * 15, VIEW.w / 2 - this.halo.displayWidth / 2 - 6);
+    const reach = Math.min(110 + this.phase * 15, VIEW.w / 2 - (s.width * HALO_SCALE) / 2 - 6);
     s.x = VIEW.w / 2 + Math.sin(this.driftMs / 1500) * reach;
     s.y = HOME_Y + Math.sin(this.driftMs / 700) * 10;
   }
@@ -276,7 +278,7 @@ export class BossFight implements Encounter {
     s.setScale(1 + 0.08 * charge + 0.03 * Math.sin(t / 40) * charge);
     this.halo
       .setPosition(s.x + (Math.random() - 0.5) * 4 * charge, s.y + (Math.random() - 0.5) * 4 * charge)
-      .setScale(1.08 + 0.15 * charge)
+      .setScale(HALO_SCALE + 0.15 * charge)
       .setAlpha(0.3 + 0.6 * charge);
     const heal = Phaser.Math.Clamp((p - TRANSFORM.healFrom) / (TRANSFORM.healTo - TRANSFORM.healFrom), 0, 1);
     this.foe.hp = stance.fromHp + (healedHp(this.def, stance.fromHp) - stance.fromHp) * Phaser.Math.Easing.Sine.InOut(heal);
@@ -330,7 +332,7 @@ export class BossFight implements Encounter {
 
   private finishTransform(fromHp: number): void {
     this.foe.sprite.setScale(1);
-    this.halo.setScale(1.08);
+    this.halo.setScale(HALO_SCALE);
     this.foe.hp = healedHp(this.def, fromHp);
     this.phase = bossPhaseAt(this.def, this.form, this.hpRatio);
     this.patternIndex = 0;
@@ -398,7 +400,7 @@ export class BossFight implements Encounter {
     }
     if (stance.msLeft > 0) return;
     s.setScale(1);
-    this.halo.setScale(1.08);
+    this.halo.setScale(HALO_SCALE);
     const { callout } = stance;
     this.world.scene.tweens.add({ targets: callout, y: callout.y - 18, alpha: 0, duration: 360, onComplete: () => callout.destroy() });
     const glow = Phaser.Display.Color.IntegerToRGB(this.look.glow);
