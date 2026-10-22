@@ -29,6 +29,7 @@ const result = await page.evaluate(async () => {
   const { blip } = await import('/src/audio/sfx.ts');
   const RATE = 44100;
   const LOUDNESS_WINDOW_SEC = 0.05;
+  const PREVIEW_PEAK = 0.9;
 
   const windowedRms = (data) => {
     const win = Math.round(RATE * LOUDNESS_WINDOW_SEC);
@@ -64,7 +65,7 @@ const result = await page.evaluate(async () => {
     return { sec, data: (await ctx.startRendering()).getChannelData(0) };
   };
 
-  const wav = (data) => {
+  const wav = (data, gain = 1) => {
     const bytes = new Uint8Array(44 + data.length * 2);
     const view = new DataView(bytes.buffer);
     const text = (at, s) => [...s].forEach((c, i) => view.setUint8(at + i, c.charCodeAt(0)));
@@ -80,7 +81,7 @@ const result = await page.evaluate(async () => {
     view.setUint16(34, 16, true);
     text(36, 'data');
     view.setUint32(40, data.length * 2, true);
-    data.forEach((v, i) => view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, v)) * 0x7fff, true));
+    data.forEach((v, i) => view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, v * gain)) * 0x7fff, true));
     let bin = '';
     for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
     return btoa(bin);
@@ -102,7 +103,7 @@ const result = await page.evaluate(async () => {
     const channels = {};
     for (const channel of track.channels) channels[channel.name] = stats((await render(id, { ...track, channels: [channel] })).data);
     const bars = track.channels[0].bars.length;
-    tracks[id] = { title: track.title, bpm: track.bpm, bars, sec: +sec.toFixed(2), ...stats(data), channels, wav: wav(data) };
+    tracks[id] = { title: track.title, bpm: track.bpm, bars, sec: +sec.toFixed(2), ...stats(data), channels, wav: wav(data), preview: wav(data, PREVIEW_PEAK / stats(data).peak) };
   }
   return { musicVolume: MUSIC_VOLUME, sfx, tracks };
 });
@@ -114,8 +115,9 @@ const sfxLoud = Object.values(result.sfx).map((s) => s.loudMax).sort((a, b) => a
 const medianSfxLoud = sfxLoud[Math.floor(sfxLoud.length / 2)];
 const report = { musicVolume: result.musicVolume, sfx: result.sfx, medianSfxLoud, tracks: {} };
 for (const [id, t] of Object.entries(result.tracks)) {
-  const { wav, ...rest } = t;
+  const { wav, preview, ...rest } = t;
   writeFileSync(join(outDir, `${id}.wav`), Buffer.from(wav, 'base64'));
+  writeFileSync(join(outDir, `${id}-preview.wav`), Buffer.from(preview, 'base64'));
   const silent = Object.entries(t.channels).filter(([, c]) => c.rms < 1e-4).map(([name]) => name);
   if (silent.length) failures.push(`${id}: silent channel(s) ${silent.join(', ')}`);
   if (t.peak + loudestSfxPeak >= 1) failures.push(`${id}: peak ${t.peak} plus the ${loudestSfx} sfx ${loudestSfxPeak} can clip`);

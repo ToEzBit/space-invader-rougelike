@@ -39,7 +39,7 @@ Run `drive.mjs <run-id> music`.
 .claude/skills/verify-space-invader/scripts/music.mjs <run-id>
 ```
 
-Renders one loop of each track in Chrome with `OfflineAudioContext`, through the game's own `playStep` and `MUSIC_VOLUME`, and writes `.verify/<run-id>/evidence/music/<track>.wav` and `report.json`. It prints each track's bpm, bars, seconds, peak, RMS and `loud95` (the 95th-percentile RMS over 50 ms windows), each channel's solo peak and RMS, and the same for the `pop`, `boom`, `hurt` and `buy` sfx. It fails on a console error, a channel that renders silent, or a track whose peak plus the loudest sfx's peak reaches 1. `loudVsSfx` compares a track's `loud95` with the median sfx's loudest window. Around 0.5 keeps the music under the sfx.
+Renders one loop of each track in Chrome with `OfflineAudioContext`, through the game's own `playStep` and `MUSIC_VOLUME`, and writes `.verify/<run-id>/evidence/music/<track>.wav` at the in-game level, `<track>-preview.wav` normalized to a 0.9 peak for listening, and `report.json`. It prints each track's bpm, bars, seconds, peak, RMS and `loud95` (the 95th-percentile RMS over 50 ms windows), each channel's solo peak and RMS, and the same for the `pop`, `boom`, `hurt` and `buy` sfx. It fails on a console error, a channel that renders silent, or a track whose peak plus the loudest sfx's peak reaches 1. `loudVsSfx` compares a track's `loud95` with the median sfx's loudest window. Around 0.5 keeps the music under the sfx.
 
 ## Gotchas
 
