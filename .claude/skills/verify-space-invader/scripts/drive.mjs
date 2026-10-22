@@ -123,7 +123,7 @@ function summarize(s) {
   const { run, ...restState } = s;
   return {
     ...restState,
-    run: run && { stage: run.stage, money: run.money, hp: run.hp, phase: run.phase.kind, perks: run.perks, items: run.items, shop: run.phase.shop },
+    run: run && { stage: run.stage, money: run.money, hp: run.hp, phase: run.phase.kind, perks: run.perks, items: run.items, transAmGauge: run.transAmGauge, shop: run.phase.shop },
   };
 }
 
@@ -564,6 +564,198 @@ const JOURNEYS = {
     h.check('without the shield the same hit costs 1 HP', landed.run.hp === sh.run.hp - 1, { hp: [sh.run.hp, landed.run.hp] });
   },
 
+  async 'trans-am'(h) {
+    const TRAY = { x: 0, y: 570, w: 140, h: 70 };
+    const slot = (s) => s.skills.find((k) => k.id === 'transAm');
+    const close = (a, b) => Math.abs(a - b) < 1e-6;
+    const shipBox = (s) => ({ x: s.player.x - 60, y: s.player.y - 70, w: 120, h: 110 });
+    const pausedShots = async (name, s) => {
+      await h.game('pause');
+      await h.shot(name);
+      await h.shot(`${name}-tray`, TRAY);
+      if (s) await h.shot(`${name}-ship`, shipBox(s));
+      await h.game('resume');
+    };
+    // State and bullets read in one task describe the same frame.
+    const snap = () => h.page.evaluate(() => ({ s: window.__game.state(), shots: window.__game.shots() }));
+    const nearShip = ({ s, shots }, r) => shots.filter((b) => Math.hypot(b.x - s.player.x, b.y - s.player.y) <= r).length;
+    const s0 = await h.startAt(4);
+    const TA = await h.page.evaluate(() => import('/src/core/transAm.ts').then((m) => m.TRANS_AM));
+    const base = await h.core('perks.deriveStats({})');
+    h.check('a fresh run starts the gauge charging near 0 with the SPACE slot charging', s0.transAm.kind === 'charging' && s0.transAm.gauge < 10 && slot(s0)?.kind === 'charging', { transAm: s0.transAm, slot: slot(s0) });
+    const refused = await h.step('press Space with the gauge not full', async () => {
+      await h.page.keyboard.press('Space');
+      await sleep(60);
+    });
+    h.check('Space with a non-full gauge is refused', refused.transAm.kind === 'charging' && refused.transAm.gauge < TA.gaugeMax, { transAm: refused.transAm });
+    await pausedShots('refused');
+
+    const hit = await h.page.evaluate(() => {
+      const g = window.__game;
+      g.pause();
+      g.transAmGauge(50);
+      const pick = (s) => ({ gauge: s.transAm.gauge, hits: s.tally.hits, hp: s.run.hp });
+      const before = pick(g.state());
+      g.hit();
+      const after = pick(g.state());
+      g.hit();
+      const again = pick(g.state());
+      g.resume();
+      return { before, after, again };
+    });
+    h.log.steps.push({ action: 'paused: set gauge 50, hit(), hit() again inside the i-frames', ...hit });
+    h.check('a landed hit costs hitLoss gauge', hit.after.hits === hit.before.hits + 1 && hit.after.hp === hit.before.hp - 1 && hit.after.gauge === hit.before.gauge - TA.hitLoss, hit);
+    h.check('a hit the i-frames absorb costs nothing', hit.again.hits === hit.after.hits && hit.again.gauge === hit.after.gauge, hit);
+
+    await h.startAt(5);
+    await h.game('god', true);
+    await h.waitFor('the boss fighting', (x) => x.boss?.stance === 'fighting', 10000);
+    await h.game('transAmGauge', 50);
+    const samples = [];
+    let key = 'ArrowRight';
+    await h.page.keyboard.down(key);
+    const end = Date.now() + 10000;
+    while (Date.now() < end) {
+      const { s } = await snap();
+      samples.push({ fightMs: s.clock.fightMs, gauge: s.transAm.gauge, grazes: s.tally.grazes, hits: s.tally.hits, kills: s.tally.kills, bossDealt: s.tally.bossDealt, maxHp: s.boss.maxHp });
+      const turn = key === 'ArrowRight' ? s.player.x > Math.min(s.boss.x + 110, 430) : s.player.x < Math.max(s.boss.x - 110, 50);
+      if (turn) {
+        await h.page.keyboard.up(key);
+        key = key === 'ArrowRight' ? 'ArrowLeft' : 'ArrowRight';
+        await h.page.keyboard.down(key);
+      }
+      await sleep(30);
+    }
+    await h.page.keyboard.up(key);
+    h.log.steps.push({ action: 'weave under the boss for 10s', samples });
+    const first = samples[0];
+    const last = samples.at(-1);
+    // Each step: grazes, kills and boss damage add, a landed hit subtracts. Steps that touch the cap or 0 are clamped,
+    // so they are skipped.
+    const steps = samples.slice(1).map((b, i) => {
+      const a = samples[i];
+      const expect =
+        (b.grazes - a.grazes) * TA.gain.graze +
+        (b.kills - a.kills) * TA.gain.kill +
+        ((b.bossDealt - a.bossDealt) * 100 * TA.gain.bossHpPercent) / b.maxHp -
+        (b.hits - a.hits) * TA.hitLoss;
+      return { a, b, expect, got: b.gauge - a.gauge, clamped: b.gauge <= 0 || b.gauge >= TA.gaugeMax || a.gauge <= 0 };
+    });
+    const unclamped = steps.filter((x) => !x.clamped);
+    const mismatched = unclamped.filter((x) => Math.abs(x.got - x.expect) > 1e-6);
+    const grazeSteps = unclamped.filter((x) => x.b.grazes > x.a.grazes);
+    h.check('weaving under the boss grazes bullets', last.grazes - first.grazes >= 3, { grazes: [first.grazes, last.grazes] });
+    h.check('the gauge moves by exactly grazes + kills + boss damage - hits on every unclamped step', mismatched.length === 0 && unclamped.length > 50, { unclamped: unclamped.length, mismatched: mismatched.slice(0, 5) });
+    h.check('that sum holds on at least 3 steps where a graze landed', grazeSteps.length >= 3, {
+      grazeSteps: grazeSteps.slice(0, 5).map((x) => ({ grazes: [x.a.grazes, x.b.grazes], gauge: [x.a.gauge, x.b.gauge], expect: x.expect })),
+    });
+
+    await h.startAt(4);
+    await h.game('god', true);
+    await h.game('transAmGauge', TA.gaugeMax);
+    await sleep(400);
+    await pausedShots('ready');
+    const ready = await h.state();
+    h.check('a full gauge shows the slot ready', slot(ready).kind === 'ready', { slot: slot(ready), transAm: ready.transAm });
+
+    let pre;
+    let preLater;
+    for (const until = Date.now() + 15000; Date.now() < until; ) {
+      pre = await snap();
+      await sleep(250);
+      preLater = await snap();
+      if (nearShip(preLater, TA.clearRadiusPx) >= 2) break;
+    }
+    await h.game('transAmGauge', TA.gaugeMax);
+    const nearBefore = nearShip(preLater, TA.clearRadiusPx);
+    const activated = await h.step('press Space with a full gauge', async () => {
+      await h.page.keyboard.press('Space');
+      await sleep(30);
+    });
+    h.check('Space with a full gauge activates TRANS-AM', activated.transAm.kind === 'active' && activated.transAm.msLeft > TA.activeMs - 300, { transAm: activated.transAm });
+    h.check('active stats: fire interval x0.5, move speed x1.25, pierce +1, same damage', close(activated.stats.fireIntervalMs, base.fireIntervalMs * TA.active.fireIntervalScale) && close(activated.stats.moveSpeed, base.moveSpeed * TA.active.moveSpeedScale) && activated.stats.pierce === base.pierce + TA.active.pierce && close(activated.stats.bulletDamage, base.bulletDamage), { stats: activated.stats, base: { fireIntervalMs: base.fireIntervalMs, moveSpeed: base.moveSpeed, pierce: base.pierce, bulletDamage: base.bulletDamage } });
+    const activatedAt = activated.clock.fightMs;
+    await h.waitFor('release over', (x) => x.transAm.kind === 'active' && x.transAm.msLeft < TA.activeMs - TA.releaseMs, 2000);
+    const cleared = await snap();
+    h.check('the release cleared the bullets near the ship', nearBefore >= 2 && nearShip(cleared, TA.clearRadiusPx - 20) === 0, { nearBefore, nearAfter: nearShip(cleared, TA.clearRadiusPx - 20), radius: TA.clearRadiusPx });
+    await sleep(300);
+    const post = await snap();
+
+    // A bullet's speed is its travel over game time. The same bullets are timed before and during TRANS-AM when any
+    // survive both windows; otherwise bullets of one kind, which all fly at one speed in a wave stage.
+    const speeds = (a, b) => a.shots.flatMap((s) => {
+      const t = b.shots.find((x) => x.id === s.id);
+      return t ? [{ id: s.id, kind: s.kind, v: Math.hypot(t.x - s.x, t.y - s.y) / (b.s.clock.fightMs - a.s.clock.fightMs) }] : [];
+    });
+    const before = speeds(pre, preLater);
+    const during = speeds(cleared, post);
+    const sameIds = during.filter((d) => before.some((b) => b.id === d.id));
+    const pairs = (sameIds.length ? sameIds : during.filter((d) => before.some((b) => b.kind === d.kind))).map((d) => {
+      const b = before.find((x) => x.id === d.id) ?? before.find((x) => x.kind === d.kind);
+      return { id: d.id, kind: d.kind, matchedBy: sameIds.length ? 'id' : 'kind', before: b.v, during: d.v, ratio: d.v / b.v };
+    });
+    h.log.steps.push({ action: 'timed enemy bullets before and during TRANS-AM', before, during, pairs });
+    h.check('enemy bullets fly at half speed during TRANS-AM', pairs.length > 0 && pairs.every((r) => Math.abs(r.ratio - TA.enemyTimeScale) < 0.08), { pairs: pairs.slice(0, 6) });
+
+    await h.page.keyboard.down('ArrowLeft');
+    await sleep(350);
+    const moving = await h.state();
+    await pausedShots('active', moving);
+    await h.page.keyboard.up('ArrowLeft');
+
+    const depleted = await h.waitFor('depleted', (x) => x.transAm.kind === 'depleted', TA.activeMs + 1500);
+    h.check('TRANS-AM runs out after activeMs of game time', Math.abs(depleted.clock.fightMs - activatedAt - TA.activeMs) < 250, { activeForMs: depleted.clock.fightMs - activatedAt });
+    h.check('depleted stats: fires at 60% rate and moves at x0.8, no pierce', close(depleted.stats.fireIntervalMs, base.fireIntervalMs / TA.depleted.fireRateScale) && close(depleted.stats.moveSpeed, base.moveSpeed * TA.depleted.moveSpeedScale) && depleted.stats.pierce === base.pierce, { stats: depleted.stats });
+    h.check('the depleted slot counts down', slot(depleted).kind === 'cooling' && slot(depleted).msLeft > 0, { slot: slot(depleted) });
+    await sleep(500);
+    await pausedShots('depleted', await h.state());
+    const charged = await h.waitFor('charging again', (x) => x.transAm.kind === 'charging', TA.depletedMs + 1500);
+    h.check('the depleted time lasts depletedMs and charging restarts near 0', Math.abs(charged.clock.fightMs - depleted.clock.fightMs - TA.depletedMs) < 250 && charged.transAm.gauge < 10, { depletedForMs: charged.clock.fightMs - depleted.clock.fightMs, transAm: charged.transAm });
+    h.check('stats return to base', close(charged.stats.fireIntervalMs, base.fireIntervalMs) && close(charged.stats.moveSpeed, base.moveSpeed), { stats: charged.stats });
+    await sleep(800);
+    await pausedShots('charging');
+
+    const c0 = await h.startAt(1);
+    await h.game('transAmGauge', 30);
+    await h.game('kill');
+    const shop = await h.waitFor('Shop scene', (x) => x.scenes.includes('Shop'));
+    const carried = Math.min(TA.gaugeMax, 30 + c0.foes * TA.gain.kill);
+    h.check('the gauge plus the kills reaches the shop', shop.run.transAmGauge === carried, { shopGauge: shop.run.transAmGauge, carried, foes: c0.foes });
+    await h.step('press Enter in the shop', () => h.page.keyboard.press('Enter'));
+    const next = await h.waitFor('stage 2 fighting', (x) => x.scenes.includes('Stage') && x.run.stage === 2 && x.life === 'fighting');
+    h.check('the next stage starts charging from the carried gauge', next.transAm.kind === 'charging' && next.transAm.gauge >= carried && next.transAm.gauge <= carried + 2 * TA.gain.kill, { transAm: next.transAm, carried });
+
+    await h.startAt(1);
+    await h.game('transAmGauge', TA.gaugeMax);
+    await h.step('press Space', () => h.page.keyboard.press('Space'));
+    await h.waitFor('active', (x) => x.transAm.kind === 'active', 1000);
+    await h.game('kill');
+    const shop2 = await h.waitFor('Shop scene', (x) => x.scenes.includes('Shop'));
+    h.check('a stage that ends while active carries 0, and its kills add nothing', shop2.run.transAmGauge === 0, { shopGauge: shop2.run.transAmGauge });
+    await h.step('press Enter in the shop', () => h.page.keyboard.press('Enter'));
+    const next2 = await h.waitFor('stage 2 fighting', (x) => x.scenes.includes('Stage') && x.run.stage === 2 && x.life === 'fighting');
+    h.check('the next stage starts charging from 0', next2.transAm.kind === 'charging' && next2.transAm.gauge <= 2 * TA.gain.kill, { transAm: next2.transAm });
+
+    await h.startAt(5);
+    await h.game('god', true);
+    await h.waitFor('the boss fighting', (x) => x.boss?.stance === 'fighting', 10000);
+    await sleep(2500);
+    await h.game('transAmGauge', TA.gaugeMax);
+    await h.step('press Space in a boss fight', () => h.page.keyboard.press('Space'));
+    await sleep(1200);
+    const boss = await h.state();
+    h.check('TRANS-AM activates in a boss fight', boss.transAm.kind === 'active', { transAm: boss.transAm });
+    await h.game('pause');
+    await h.shot('boss-active');
+    await h.game('resume');
+
+    const full = await h.startAt(6, { afterburnerDash: 1, prismLance: 1, orbitalCannon: 1 }, 0, { repairKit: 1, nitro: 1, powerCell: 1, overclock: 1, barrierCapsule: 1 });
+    h.check('TRANS-AM leads the tray beside every other skill', full.skills.map((k) => k.id).join() === 'transAm,dash,laser,orbital', { skills: full.skills.map((k) => k.id) });
+    await h.game('pause');
+    await h.shot('full-tray', { x: 0, y: 566, w: 480, h: 74 });
+    await h.game('resume');
+  },
+
   async bosses(h) {
     const b0 = await h.startAt(5);
     h.check('stage 5 is Crimson Seraph at full HP in her first form', b0.boss?.name === 'Crimson Seraph' && b0.boss.hpRatio === 1 && b0.boss.form === 0 && b0.boss.phase === 0, { boss: b0.boss });
@@ -890,7 +1082,7 @@ const JOURNEYS = {
 };
 
 // Close-ups of small HUD art need the canvas's full backing resolution.
-const CONTEXT = { 'boss-forms': { deviceScaleFactor: 2 }, 'skill-hud': { deviceScaleFactor: 2 }, items: { deviceScaleFactor: 2 }, movement: { deviceScaleFactor: 2 }, 'enemy-hp': { deviceScaleFactor: 2 }, 'shop-tooltip': { deviceScaleFactor: 2 } };
+const CONTEXT = { 'boss-forms': { deviceScaleFactor: 2 }, 'skill-hud': { deviceScaleFactor: 2 }, items: { deviceScaleFactor: 2 }, movement: { deviceScaleFactor: 2 }, 'enemy-hp': { deviceScaleFactor: 2 }, 'shop-tooltip': { deviceScaleFactor: 2 }, 'trans-am': { deviceScaleFactor: 2 } };
 
 const selected = names.includes('all') ? Object.keys(JOURNEYS).filter((n) => n !== 'doctor') : names;
 const unknown = selected.filter((n) => !JOURNEYS[n]);

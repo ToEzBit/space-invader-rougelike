@@ -30,6 +30,7 @@ This directory is the maintained source for verifying what a player can do in th
 - [Perk shop](./shop.md) covers offers, refresh, buying, sold-out cards, continuing, and the owned-chip tooltips (journey `shop-tooltip`).
 - [Laser and dash perks](./perk-mechanics.md) covers the Prism Lance beam and the Afterburner Dash, locked and unlocked.
 - [Consumable items](./items.md) covers item offers in the shop, buying, keys 1-5, buffs, the item shield and the bottom-right item tray.
+- [TRANS-AM](./trans-am.md) covers the ultimate's gauge (grazes, kills, boss damage, hits), Space activation and refusal, the release shockwave, bullet time, the active and depleted stats, the carry across stages and its tray slot.
 - [Skill cooldown tray](./skill-hud.md) covers the bottom-left skill icons, the clockwise cooldown sweep and countdown, dash charges and the laser cycle.
 - [Enemy HP bars](./enemy-hp.md) covers the bar over a damaged foe, its color, the white chip, the fade after the last hit and no bar on the boss.
 - [Boss fights](./bosses.md) covers Crimson Seraph and Void Empress, damage, phases and reaching the second form.
