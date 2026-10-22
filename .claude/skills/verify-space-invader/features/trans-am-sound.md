@@ -5,7 +5,7 @@ TRANS-AM's six active seconds have their own sound. A hit lands on the release f
 ## Sub-features
 
 - `press` is unchanged. The `transAm` sweep plays at the press, then the cut-in and the pilot's line (see [cut-in](./cut-in.md) and [voice](./voice.md)). Nothing in this feature plays during the cut-in.
-- `release` is a sub drop, a short punch and a bright noise whoosh on the release frame, the loudest TRANS-AM sound. The whoosh sweeps down from 9 kHz to 1.8 kHz, above the pilot's shout, which lands on the same frame. Its noise is synth's seeded buffer, so nothing draws from `Math.random`.
+- `release` is a sub drop, a short punch and a bright noise whoosh on the release frame, the loudest TRANS-AM sound. The whoosh sweeps down from 9 kHz to 1.8 kHz under the pilot's shout, which lands on the same frame. In the render's spectrogram the shout's harmonics stay clear over it. Its noise is synth's seeded buffer, so nothing draws from `Math.random`.
 - `hum` starts on the release frame. A sub saw and a detuned saw an octave up run through a resonant lowpass with a tremolo. It fades in over `fadeInMs`. Its pitch climbs a fifth (55 to 82.4 Hz) and its cutoff rises from 320 to 1900 Hz over `activeMs`. `humAt` gives those targets for the time since the release, and every frame steers the oscillators towards them on game time.
 - `shot` is a 30 ms triangle zip from 2.6 kHz to 1.2 kHz, once per `Gun` volley while active, quieter than `pop`.
 - `ticks` play at 1500, 1100, 750, 450 and 200 ms left, each closer and higher than the last (1320 to 2640 Hz). A tick fires on the frame whose `msLeft` reaches its time, so frame caps and pauses never move one outside the final window.
