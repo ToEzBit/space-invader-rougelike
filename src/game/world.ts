@@ -2,10 +2,11 @@ import Phaser from 'phaser';
 import { sfx } from '../audio/sfx';
 import { deriveStats } from '../core/perks';
 import { ITEMS, withBuffs, type BuffId, type ItemEffect, type ItemId } from '../core/items';
-import { heal, takeHit, useItem, type RunState } from '../core/run';
+import { carryTransAm, heal, takeHit, useItem, type RunState } from '../core/run';
 import type { ShipStats } from '../core/stats';
+import { activate, carriedGauge, charging, enemyTimeScale, gain, loseOnHit, releaseProgress, tick, TRANS_AM, withTransAm, type TransAm } from '../core/transAm';
 import type { CharacterKey } from '../art/characters';
-import { Bullets } from './bullets';
+import { Bullets, type Bullet } from './bullets';
 import { Dash } from './dash';
 import { Fx } from './fx';
 import { circlesOverlap } from './geometry';
@@ -15,7 +16,8 @@ import { Laser } from './laser';
 import { DEPTH } from './layout';
 import type { Controls } from './controls';
 import { Player } from './player';
-import { READY, type SkillMeter } from './skills';
+import { READY, transAmMeter, type SkillMeter } from './skills';
+import { TransAmLook } from './transAmLook';
 
 export type DamageSource = 'bullet' | 'missile' | 'laser' | 'burn' | 'orbital' | 'dash' | 'shock' | 'collision';
 
@@ -52,6 +54,7 @@ const DISCRETE: Record<DamageSource, boolean> = {
   collision: true,
 };
 const BURN_MS = 2000;
+const SLOWED_SHOT_TINT = 0x6fa8ff;
 
 // fullMs is the duration the HUD sweep counts down from; re-using an active buff resets it to the new total.
 export type ActiveBuff = { buff: BuffId; msLeft: number; fullMs: number };
@@ -64,6 +67,9 @@ export class World {
   private effectiveStats: ShipStats;
   // Buffs last for this stage only; World is rebuilt each stage.
   private buffs: ActiveBuff[] = [];
+  // The run carries only the gauge between stages; the live phase lives here.
+  private trans: TransAm;
+  private readonly look: TransAmLook;
   readonly fx: Fx;
   readonly foes: Foe[] = [];
   readonly playerShots: Bullets;
@@ -78,7 +84,7 @@ export class World {
   readonly onKill: Partial<Record<DamageSource, (foe: Foe) => void>> = {};
   // Dev-only measurement. God mode skips only the HP loss, so `hits` still counts what a real ship would take.
   god = false;
-  readonly tally = { fired: 0, dealt: {} as Partial<Record<DamageSource, number>>, hits: 0, contacts: 0 };
+  readonly tally = { fired: 0, dealt: {} as Partial<Record<DamageSource, number>>, bossDealt: 0, kills: 0, hits: 0, contacts: 0, grazes: 0 };
   // A contact is a run of consecutive frames with any damaging touch, so a beam held on the ship counts once.
   private touchedLastFrame = false;
   private touchedThisFrame = false;
@@ -97,6 +103,8 @@ export class World {
     this.gun = new Gun(this);
     this.laser = new Laser(this);
     this.dash = new Dash(this);
+    this.trans = charging(run.transAmGauge);
+    this.look = new TransAmLook(this);
   }
 
   // Perk stats with every active buff folded in. Systems read this each frame, so buffs apply live.
@@ -106,6 +114,53 @@ export class World {
 
   get activeBuffs(): readonly ActiveBuff[] {
     return this.buffs;
+  }
+
+  get transAm(): TransAm {
+    return this.trans;
+  }
+
+  // Enemy bullets, boss beams and the well's pull on bullets run on this clock; everything else keeps real time.
+  get enemyTimeScale(): number {
+    return enemyTimeScale(this.trans);
+  }
+
+  transAmMeter(): SkillMeter {
+    return transAmMeter(this.trans);
+  }
+
+  // False when the gauge is not full.
+  activateTransAm(): boolean {
+    const next = activate(this.trans);
+    if (!next) return false;
+    this.setTransAm(next);
+    return true;
+  }
+
+  // Dev-only precondition.
+  setTransAmGauge(gauge: number): void {
+    this.setTransAm(charging(gauge));
+  }
+
+  private gainTransAm(points: number): void {
+    this.setTransAm(gain(this.trans, points));
+  }
+
+  private setTransAm(next: TransAm): void {
+    const prev = this.trans;
+    if (next === prev) return;
+    this.trans = next;
+    this.run = carryTransAm(this.run, carriedGauge(next));
+    if (next.kind === prev.kind) return;
+    this.recomputeStats();
+    if (next.kind === 'active') this.enemyShots.tintAll(SLOWED_SHOT_TINT, Phaser.TintModes.SCREEN);
+    else this.enemyShots.tintAll(0xffffff);
+    this.look.enter(next.kind);
+  }
+
+  // Item buffs first, then the TRANS-AM phase.
+  private recomputeStats(): void {
+    this.effectiveStats = withTransAm(withBuffs(this.baseStats, this.buffs.map((b) => b.buff)), this.trans);
   }
 
   // False when the run refuses the use (none held, or a heal at full HP).
@@ -143,7 +198,7 @@ export class World {
           return;
         }
         this.buffs.push({ buff: effect.buff, msLeft: effect.durationMs, fullMs: effect.durationMs });
-        this.effectiveStats = withBuffs(this.baseStats, this.buffs.map((b) => b.buff));
+        this.recomputeStats();
         return;
       }
       case 'shield':
@@ -157,7 +212,7 @@ export class World {
     const left = this.buffs.filter((b) => b.msLeft > 0);
     if (left.length === this.buffs.length) return;
     this.buffs = left;
-    this.effectiveStats = withBuffs(this.baseStats, left.map((b) => b.buff));
+    this.recomputeStats();
   }
 
   addFoe(texture: CharacterKey, x: number, y: number, hp: number, coin: number, radius: number, size: Foe['size'] = 'small'): Foe {
@@ -171,8 +226,13 @@ export class World {
   damage(foe: Foe, amount: number, source: DamageSource): boolean {
     if (foe.dead || amount <= 0 || foe.ward?.(source)) return false;
     const ratioBefore = hpRatio(foe);
+    const removed = Math.min(amount, foe.hp);
     foe.hp -= amount;
     this.tally.dealt[source] = (this.tally.dealt[source] ?? 0) + amount;
+    if (foe.size === 'big') {
+      this.tally.bossDealt += removed;
+      this.gainTransAm((TRANS_AM.gain.bossHpPercent * 100 * removed) / foe.maxHp);
+    }
     if (DISCRETE[source] && foe.flashMs <= -FLASH_GAP_MS) {
       foe.flashMs = FLASH_MS;
       foe.sprite.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
@@ -182,6 +242,8 @@ export class World {
       return false;
     }
     foe.dead = true;
+    this.tally.kills++;
+    this.gainTransAm(TRANS_AM.gain.kill);
     this.coins += foe.coin;
     this.fx.explode(foe.sprite.x, foe.sprite.y, foe.size);
     sfx(foe.size === 'big' ? 'boom' : 'pop');
@@ -203,6 +265,7 @@ export class World {
     if (!force && (p.invulnMs > 0 || this.dash.active)) return;
     if (!force && p.shieldMs > 0) return p.breakShield();
     this.tally.hits++;
+    this.setTransAm(loseOnHit(this.trans));
     if (this.god) return p.onHit();
     this.run = takeHit(this.run, 1);
     p.onHit();
@@ -222,14 +285,39 @@ export class World {
     this.touchedLastFrame = this.touchedThisFrame;
     this.touchedThisFrame = false;
     this.tickBuffs(dtMs);
+    this.setTransAm(tick(this.trans, dtMs));
     if (!this.dash.active) this.player.steer(input, dt);
     this.player.update(dtMs);
     this.gun.update(dtMs, firing);
     this.laser.update(dtMs, firing);
     this.dash.update(dtMs, input.dash);
     this.playerShots.update(dt, this.foes);
-    this.enemyShots.update(dt, this.foes);
+    this.enemyShots.update(dt * this.enemyTimeScale, this.foes);
+    const release = releaseProgress(this.trans);
+    const shockRadius = release === null ? null : TRANS_AM.clearRadiusPx * Phaser.Math.Easing.Quadratic.Out(release);
+    if (shockRadius !== null) this.clearShotsWithin(shockRadius);
+    this.look.update(dtMs, this.trans, shockRadius, this.gun.overdriven);
     this.tickFoes(dtMs);
+  }
+
+  private clearShotsWithin(radius: number): void {
+    const p = this.player;
+    for (const b of this.enemyShots.list) {
+      if (!b.alive || (b.sprite.x - p.x) ** 2 + (b.sprite.y - p.y) ** 2 > radius * radius) continue;
+      this.enemyShots.kill(b);
+      this.fx.spark(b.sprite.x, b.sprite.y, 2);
+    }
+  }
+
+  // Dashing through bullets is not a near miss, so a dash never starts a graze.
+  private trackGraze(b: Bullet, near: boolean): void {
+    if (near && b.graze === 'far' && !this.dash.active) b.graze = 'near';
+    if (near || b.graze !== 'near') return;
+    b.graze = 'counted';
+    this.tally.grazes++;
+    this.gainTransAm(TRANS_AM.gain.graze);
+    const p = this.player;
+    this.fx.spark((p.x + b.sprite.x) / 2, (p.y + b.sprite.y) / 2, 3);
   }
 
   resolveCollisions(): void {
@@ -249,11 +337,16 @@ export class World {
       }
     }
     const p = this.player;
+    const grazeRadius = p.coreRadius + TRANS_AM.grazePadPx;
     for (const b of this.enemyShots.list) {
-      if (b.alive && circlesOverlap(b.sprite, this.enemyShots.radius(b), p, p.coreRadius)) {
+      if (!b.alive) continue;
+      const r = this.enemyShots.radius(b);
+      if (circlesOverlap(b.sprite, r, p, p.coreRadius)) {
         b.alive = false;
         this.hurtPlayer();
+        continue;
       }
+      this.trackGraze(b, circlesOverlap(b.sprite, r, p, grazeRadius));
     }
     for (const foe of this.foes) {
       if (!foe.dead && !this.dash.active && circlesOverlap(foe.sprite, foe.radius, p, p.bodyRadius)) {

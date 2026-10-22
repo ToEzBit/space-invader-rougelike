@@ -374,6 +374,7 @@ const JOURNEYS = {
   async 'skill-hud'(h) {
     const TRAY = { x: 0, y: 570, w: 180, h: 70 };
     const slot = (s, id) => s.skills.find((k) => k.id === id);
+    const perkSlots = (s) => s.skills.filter((k) => k.id !== 'transAm');
     const pausedShots = async (name) => {
       await h.game('pause');
       await h.shot(name);
@@ -382,7 +383,7 @@ const JOURNEYS = {
     };
 
     const d0 = await h.startAt(3, { afterburnerDash: 1 });
-    h.check('only the dash slot shows with Afterburner Dash', d0.skills.length === 1 && slot(d0, 'dash')?.kind === 'ready', { skills: d0.skills });
+    h.check('only the dash slot shows beside TRANS-AM with Afterburner Dash', perkSlots(d0).length === 1 && slot(d0, 'dash')?.kind === 'ready' && d0.skills[0].id === 'transAm', { skills: d0.skills });
     const cooldownMs = await h.core('perks.deriveStats({ afterburnerDash: 1 }).dashCooldownMs');
     await h.step('press Shift', () => h.page.keyboard.press('Shift'));
     const c1 = await h.waitFor('dash cooling', (x) => slot(x, 'dash')?.kind === 'cooling', 1000);
@@ -438,7 +439,7 @@ const JOURNEYS = {
     await pausedShots('laser-orbital-cooling');
 
     const none = await h.startAt(1, {});
-    h.check('no skill slots without skill perks', Array.isArray(none.skills) && none.skills.length === 0, { skills: none.skills });
+    h.check('only the TRANS-AM slot without skill perks', Array.isArray(none.skills) && none.skills.map((k) => k.id).join() === 'transAm', { skills: none.skills });
     await h.shot('no-skills-closeup', TRAY);
   },
 

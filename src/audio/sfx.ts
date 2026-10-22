@@ -1,4 +1,4 @@
-export type Sound = 'pop' | 'boom' | 'hurt' | 'buy' | 'deny' | 'dash' | 'laser' | 'phase';
+export type Sound = 'pop' | 'boom' | 'hurt' | 'buy' | 'deny' | 'dash' | 'laser' | 'phase' | 'transAm' | 'powerDown';
 
 type Blip = { wave: OscillatorType; from: number; to: number; ms: number; gain: number; minGapMs: number };
 
@@ -11,6 +11,8 @@ const BLIPS: Record<Sound, Blip> = {
   dash: { wave: 'sawtooth', from: 200, to: 900, ms: 220, gain: 0.07, minGapMs: 100 },
   laser: { wave: 'sine', from: 1200, to: 400, ms: 380, gain: 0.07, minGapMs: 200 },
   phase: { wave: 'square', from: 90, to: 400, ms: 600, gain: 0.08, minGapMs: 300 },
+  transAm: { wave: 'sawtooth', from: 120, to: 1600, ms: 700, gain: 0.1, minGapMs: 300 },
+  powerDown: { wave: 'triangle', from: 600, to: 70, ms: 650, gain: 0.1, minGapMs: 300 },
 };
 
 let ctx: AudioContext | null = null;

@@ -1,10 +1,13 @@
+import { TRANS_AM, type TransAm } from '../core/transAm';
 import type { Charges } from './charges';
 
 // `progress` runs 0 to 1 as the cooldown elapses. `refill` is the next charge's progress while spare charges remain.
+// A charging skill fills from what the player does rather than from time, so it has no countdown.
 export type SkillMeter =
   | { kind: 'ready'; charges: number; maxCharges: number; refill: number | null }
   | { kind: 'active'; ratioLeft: number }
-  | { kind: 'cooling'; msLeft: number; progress: number; charges: number; maxCharges: number };
+  | { kind: 'cooling'; msLeft: number; progress: number; charges: number; maxCharges: number }
+  | { kind: 'charging'; ratio: number };
 
 export const READY: SkillMeter = { kind: 'ready', charges: 1, maxCharges: 1, refill: null };
 
@@ -15,6 +18,17 @@ export function cooldownMeter(msLeft: number, cooldownMs: number): SkillMeter {
 export function chargesMeter({ count, msToNext }: Charges, max: number, cooldownMs: number): SkillMeter {
   if (count === 0) return { kind: 'cooling', msLeft: msToNext, progress: elapsed(msToNext, cooldownMs), charges: 0, maxCharges: max };
   return { kind: 'ready', charges: count, maxCharges: max, refill: count < max ? elapsed(msToNext, cooldownMs) : null };
+}
+
+export function transAmMeter(t: TransAm): SkillMeter {
+  switch (t.kind) {
+    case 'charging':
+      return t.gauge >= TRANS_AM.gaugeMax ? READY : { kind: 'charging', ratio: t.gauge / TRANS_AM.gaugeMax };
+    case 'active':
+      return { kind: 'active', ratioLeft: t.msLeft / TRANS_AM.activeMs };
+    case 'depleted':
+      return cooldownMeter(t.msLeft, TRANS_AM.depletedMs);
+  }
 }
 
 function elapsed(msLeft: number, cooldownMs: number): number {

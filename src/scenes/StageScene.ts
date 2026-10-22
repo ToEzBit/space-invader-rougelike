@@ -6,6 +6,7 @@ import { setDebugHooks } from '../debug';
 import { KeyboardControls } from '../game/controls';
 import { createEncounter, type Encounter } from '../game/encounter';
 import { hpRatio, visibleBar } from '../game/hpBar';
+import type { Bullet } from '../game/bullets';
 import { World, type Foe } from '../game/world';
 import { Backdrop } from '../ui/backdrop';
 import { banner } from '../ui/banner';
@@ -67,6 +68,12 @@ export class StageScene extends Phaser.Scene {
       if (!foeIds.has(foe)) foeIds.set(foe, nextFoeId++);
       return foeIds.get(foe)!;
     };
+    const shotIds = new WeakMap<Bullet, number>();
+    let nextShotId = 0;
+    const shotId = (b: Bullet) => {
+      if (!shotIds.has(b)) shotIds.set(b, nextShotId++);
+      return shotIds.get(b)!;
+    };
     setDebugHooks(this, {
       run: () => this.world.run,
       info: () => ({
@@ -86,7 +93,8 @@ export class StageScene extends Phaser.Scene {
             const { x, y } = foe.sprite;
             return { id: foeId(foe), x, y, maxHp: foe.maxHp, hpRatio: hpRatio(foe), bar: foe.hpBar.kind, ...(bar && { chipRatio: bar.chip, msLeft: bar.msLeft }) };
           }),
-        stats: { moveSpeed: this.world.stats.moveSpeed, bulletDamage: this.world.stats.bulletDamage, fireIntervalMs: this.world.stats.fireIntervalMs },
+        stats: { moveSpeed: this.world.stats.moveSpeed, bulletDamage: this.world.stats.bulletDamage, fireIntervalMs: this.world.stats.fireIntervalMs, pierce: this.world.stats.pierce },
+        transAm: this.world.transAm,
         boss: this.encounter.boss && {
           name: this.encounter.boss.name,
           form: this.encounter.boss.form,
@@ -118,6 +126,8 @@ export class StageScene extends Phaser.Scene {
       god: (on) => {
         this.world.god = on;
       },
+      transAmGauge: (value) => this.world.setTransAmGauge(value),
+      shots: () => this.world.enemyShots.list.filter((b) => b.alive).map((b) => ({ id: shotId(b), kind: b.kind, x: b.sprite.x, y: b.sprite.y })),
     });
   }
 
@@ -126,6 +136,7 @@ export class StageScene extends Phaser.Scene {
     const input = this.controls.read();
     this.backdrop.update(dtMs / 1000, 1.5);
     const life = this.life;
+    if (input.transAm && !(life.kind === 'fighting' && this.world.activateTransAm())) this.hud.refuseTransAm();
     switch (life.kind) {
       case 'intro':
         this.world.update(dtMs, input, false);

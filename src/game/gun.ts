@@ -39,7 +39,6 @@ export class Gun {
       const ty = player.y + 8 + Math.sin(this.bobMs / 260 + i * Math.PI) * 4;
       d.setPosition(Phaser.Math.Linear(d.x, tx, 0.25), Phaser.Math.Linear(d.y, ty, 0.25));
     });
-    player.sprite.setTint(this.overdriven && Math.floor(this.bobMs / 90) % 2 ? 0xffb0e0 : 0xffffff);
   }
 
   private fire(): void {

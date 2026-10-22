@@ -36,6 +36,8 @@ export type Bullet = {
   pierceLeft: number;
   // Foes this bullet already hit, so a piercing round damages each one once.
   hit: Set<Foe>;
+  // An enemy bullet's pass by the ship: near inside the graze ring, counted once it leaves without touching the core.
+  graze: 'far' | 'near' | 'counted';
   alive: boolean;
 };
 
@@ -53,6 +55,8 @@ export type BulletSpawn = {
 export class Bullets {
   readonly list: Bullet[] = [];
   private readonly spare: Phaser.GameObjects.Image[] = [];
+  // Spare sprites keep their last tint, so every spawn sets this one.
+  private tint = { color: 0xffffff, mode: Phaser.TintModes.MULTIPLY as Phaser.TintModes };
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -65,6 +69,8 @@ export class Bullets {
       .setTexture(def.texture)
       .setPosition(s.x, s.y)
       .setDepth(this.depth)
+      .setTint(this.tint.color)
+      .setTintMode(this.tint.mode)
       .setVisible(true)
       .setActive(true);
     const bullet: Bullet = {
@@ -76,11 +82,17 @@ export class Bullets {
       source: s.source ?? 'bullet',
       pierceLeft: s.pierce ?? 0,
       hit: new Set(),
+      graze: 'far',
       alive: true,
     };
     this.face(bullet);
     this.list.push(bullet);
     return bullet;
+  }
+
+  tintAll(color: number, mode: Phaser.TintModes = Phaser.TintModes.MULTIPLY): void {
+    this.tint = { color, mode };
+    for (const b of this.list) b.sprite.setTint(color).setTintMode(mode);
   }
 
   kill(b: Bullet): void {

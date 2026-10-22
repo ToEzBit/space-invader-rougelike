@@ -426,7 +426,7 @@ export class BossFight implements Encounter {
     const g = this.gfx;
     const { player } = this.world;
     for (const beam of this.beams) {
-      beam.t += dtMs;
+      beam.t += dtMs * this.world.enemyTimeScale;
       const from = beam.origin === 'muzzle' ? this.muzzle : beam.origin;
       const sweepT = beam.t - beam.telegraphMs;
       const k = Phaser.Math.Clamp(sweepT / beam.sweepMs, 0, 1);
@@ -447,7 +447,8 @@ export class BossFight implements Encounter {
   }
 
   // The well pulls the ship (slower than it can fly, and never while dashing) and bends enemy bullets into its core,
-  // which swallows them. It never hurts the ship itself.
+  // which swallows them. It never hurts the ship itself. The bend runs on the enemy clock, so slowed bullets keep
+  // the same curve.
   private updateWell(dtMs: number): void {
     const well = this.well;
     if (!well) return;
@@ -473,7 +474,7 @@ export class BossFight implements Encounter {
         continue;
       }
       if (d > WELL.pullRadius) continue;
-      const a = (WELL.bulletPull * (1 - d / WELL.pullRadius) * fade * dt) / d;
+      const a = (WELL.bulletPull * (1 - d / WELL.pullRadius) * fade * dt * world.enemyTimeScale) / d;
       b.vx += dx * a;
       b.vy += dy * a;
     }

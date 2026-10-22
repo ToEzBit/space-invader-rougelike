@@ -3,6 +3,7 @@ import { sfx } from '../audio/sfx';
 import { ITEM_IDS, ITEMS, type ItemId } from '../core/items';
 import { STAGE_COUNT } from '../core/stages';
 import { COLORS, css } from '../art/palette';
+import type { CharacterKey } from '../art/characters';
 import type { IconKey } from '../art/ui';
 import { MONEY_ANCHOR } from '../game/fx';
 import { barAlpha, hpBarColor, hpRatio, visibleBar } from '../game/hpBar';
@@ -23,7 +24,7 @@ export class Hud {
   private readonly bossBar: Phaser.GameObjects.Graphics;
   private readonly bossName: Phaser.GameObjects.Text | null;
   private readonly foeBars: Phaser.GameObjects.Graphics;
-  private readonly skills: SkillSlot[];
+  private readonly skills: Map<SkillDef['id'], SkillSlot>;
   private readonly items: Map<ItemId, SkillSlot>;
 
   constructor(
@@ -40,7 +41,8 @@ export class Hud {
     this.bossBar = scene.add.graphics().setDepth(d);
     this.foeBars = scene.add.graphics().setDepth(DEPTH.hpBar);
     this.bossName = boss && label(scene, VIEW.w / 2, 40, boss.name.toUpperCase(), { size: 13, bold: true, color: css(COLORS.red), align: 'center', stroke: '#0d0b26' }).setDepth(d);
-    this.skills = SKILL_SLOTS.filter((def) => def.meter(world)).map((def, i) => new SkillSlot(scene, TRAY.x + i * TRAY.gap, TRAY.y, def));
+    const shown = SKILL_SLOTS.filter((def) => def.meter(world));
+    this.skills = new Map(shown.map((def, i) => [def.id, new SkillSlot(scene, TRAY.x + i * TRAY.gap, TRAY.y, def)]));
     // Items can only be spent during a stage, so the slots held at the start stay put (dimmed at x0) until it ends.
     const held = ITEM_IDS.filter((id) => world.run.items[id]);
     this.items = new Map(held.map((id, i) => [id, new SkillSlot(scene, ITEM_TRAY_RIGHT - (held.length - 1 - i) * TRAY.gap, TRAY.y, ITEM_SLOTS[id])]));
@@ -51,6 +53,12 @@ export class Hud {
     const slot = this.items.get(id);
     if (slot) return slot.refuse();
     this.world.fx.float(ITEM_TRAY_RIGHT - 30, TRAY.y - 36, `ไม่มี ${ITEMS[id].name}`, COLORS.red);
+  }
+
+  refuseTransAm(): void {
+    sfx('deny');
+    this.skills.get('transAm')?.refuse();
+    if (this.world.transAm.kind === 'charging') this.world.fx.float(TRAY.x + 30, TRAY.y - 36, 'เกจยังไม่เต็ม', COLORS.red);
   }
 
   update(): void {
@@ -65,7 +73,7 @@ export class Hud {
     }
     this.drawBossBar();
     this.drawFoeBars();
-    for (const slot of this.skills) slot.update(this.world);
+    for (const slot of this.skills.values()) slot.update(this.world);
     for (const slot of this.items.values()) slot.update(this.world);
     const money = run.money + coins;
     if (money !== this.shownMoney) {
@@ -116,12 +124,23 @@ function bossTicks({ def, form }: BossFight): number[] {
   return form === 0 ? [...phases, def.transform.atHpRatio] : phases;
 }
 
-// `count` adds an xN badge and dims the icon at zero, for consumables.
-type SlotDef = { icon: IconKey; color: number; hint: string; meter: (w: World) => SkillMeter | null; count?: (w: World) => number };
+// `count` adds an xN badge and dims the icon at zero, for consumables. `tint` colors the icon whenever it is not
+// dimmed. `pulseReady` keeps a ready slot glowing, for the one skill worth watching for.
+type SlotDef = {
+  icon: IconKey | CharacterKey;
+  color: number;
+  hint: string;
+  meter: (w: World) => SkillMeter | null;
+  count?: (w: World) => number;
+  tint?: number;
+  pulseReady?: boolean;
+};
 
-type SkillDef = SlotDef & { id: 'laser' | 'orbital' | 'dash'; hint: 'AUTO' | 'SHIFT' };
+type SkillDef = SlotDef & { id: 'transAm' | 'laser' | 'orbital' | 'dash'; hint: 'AUTO' | 'SHIFT' | 'SPACE' };
 
+// TRANS-AM always shows, so it leads the tray and never moves.
 export const SKILL_SLOTS: readonly SkillDef[] = [
+  { id: 'transAm', icon: 'player', color: COLORS.red, tint: 0xff8ab4, hint: 'SPACE', meter: (w) => w.transAmMeter(), pulseReady: true },
   { id: 'dash', icon: 'iconRam', color: COLORS.pink, hint: 'SHIFT', meter: (w) => w.dash.meter() },
   { id: 'laser', icon: 'iconLaser', color: COLORS.cyan, hint: 'AUTO', meter: (w) => w.laser.meter() },
   { id: 'orbital', icon: 'iconOrbital', color: COLORS.yellow, hint: 'AUTO', meter: (w) => w.laser.orbitalMeter() },
@@ -134,10 +153,13 @@ const ITEM_SLOTS = Object.fromEntries(
   ]),
 ) as Record<ItemId, SlotDef>;
 
-const TRAY = { x: 32, y: 604, gap: 56, r: 22 } as const;
+// Four skill slots and five item slots fit across the bottom edge at this gap.
+const TRAY = { x: 32, y: 604, gap: 52, r: 22 } as const;
 const FOE_BAR = { h: 3, gap: 3 } as const;
 const ITEM_TRAY_RIGHT = VIEW.w - TRAY.x;
 const FULL_TURN = sweepAngle(1);
+// Icons drawn for a slot are 28 px; anything larger, such as the ship, is scaled down to that.
+const ICON_FIT = 28;
 
 class SkillSlot {
   private readonly root: Phaser.GameObjects.Container;
@@ -160,6 +182,7 @@ class SkillSlot {
     base.fillStyle(0x1b1840, 1).fillCircle(0, 0, r - 1);
     base.fillStyle(def.color, 0.3).fillCircle(0, 0, r - 1);
     this.icon = scene.add.image(0, 0, def.icon);
+    this.icon.setScale(Math.min(1, ICON_FIT / Math.max(this.icon.width, this.icon.height)));
     this.overlay = scene.add.graphics();
     this.countdown = label(scene, 0, 0, '', { size: 15, bold: true, align: 'center', stroke: css(COLORS.ink) });
     this.countdown.setOrigin(0.5);
@@ -179,7 +202,7 @@ class SkillSlot {
     const m = this.def.meter(world);
     if (!m) return;
     const count = this.def.count?.(world);
-    if (this.shown === 'cooling' && m.kind === 'ready') this.pop();
+    if ((this.shown === 'cooling' || this.shown === 'charging') && m.kind === 'ready') this.pop();
     this.shown = m.kind;
     const { r } = TRAY;
     const { color } = this.def;
@@ -195,9 +218,18 @@ class SkillSlot {
         this.countdown.setVisible(true).setText((m.msLeft / 1000).toFixed(1));
         break;
       }
+      case 'charging': {
+        const edge = sweepAngle(m.ratio);
+        this.icon.setTint(0x9a9ab8);
+        g.fillStyle(0x05040f, 0.6).slice(0, 0, r - 1, edge, FULL_TURN, false).fillPath();
+        g.lineStyle(2, 0x3a3566, 1).strokeCircle(0, 0, r);
+        g.lineStyle(3, color, 1).beginPath().arc(0, 0, r, sweepAngle(0), edge, false).strokePath();
+        this.countdown.setVisible(true).setText(String(Math.floor(m.ratio * 100)));
+        break;
+      }
       case 'active': {
         const pulse = 0.5 + 0.5 * Math.sin(this.scene.time.now / 60);
-        this.icon.clearTint();
+        this.lit();
         g.lineStyle(6, color, 0.25 + 0.35 * pulse).strokeCircle(0, 0, r + 2);
         g.lineStyle(2, 0x3a3566, 1).strokeCircle(0, 0, r);
         g.lineStyle(3, COLORS.white, 1).beginPath().arc(0, 0, r, sweepAngle(0), sweepAngle(m.ratioLeft), false).strokePath();
@@ -206,18 +238,24 @@ class SkillSlot {
       }
       case 'ready': {
         if (count === 0) this.icon.setTint(0x6a6a88);
-        else this.icon.clearTint();
+        else this.lit();
+        if (this.def.pulseReady) g.lineStyle(7, color, 0.3 + 0.45 * (0.5 + 0.5 * Math.sin(this.scene.time.now / 110))).strokeCircle(0, 0, r + 3);
         g.lineStyle(2, color, 1).strokeCircle(0, 0, r);
         if (m.refill !== null) g.lineStyle(2, COLORS.white, 1).beginPath().arc(0, 0, r, sweepAngle(0), sweepAngle(m.refill), false).strokePath();
         this.countdown.setVisible(false);
         break;
       }
     }
-    if (m.kind !== 'active' && m.maxCharges > 1) this.pips(g, m.charges, m.maxCharges);
+    if ((m.kind === 'ready' || m.kind === 'cooling') && m.maxCharges > 1) this.pips(g, m.charges, m.maxCharges);
     if (this.badge && count !== undefined && count !== this.shownCount) {
       this.shownCount = count;
       this.badge.setText(`x${count}`).setColor(count ? '#ffffff' : css(COLORS.red));
     }
+  }
+
+  private lit(): void {
+    if (this.def.tint === undefined) this.icon.clearTint();
+    else this.icon.setTint(this.def.tint);
   }
 
   private pips(g: Phaser.GameObjects.Graphics, charges: number, max: number): void {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { chargesMeter, cooldownMeter, sweepAngle } from './skills';
+import { TRANS_AM } from '../core/transAm';
+import { chargesMeter, cooldownMeter, READY, sweepAngle, transAmMeter } from './skills';
 
 describe('chargesMeter', () => {
   it('is ready with no refill on a full stack', () => {
@@ -28,5 +29,17 @@ describe('sweepAngle', () => {
     expect(sweepAngle(0.25)).toBeCloseTo(0);
     expect(sweepAngle(0.5)).toBeCloseTo(Math.PI / 2);
     expect(sweepAngle(1)).toBeCloseTo((Math.PI * 3) / 2);
+  });
+});
+
+describe('transAmMeter', () => {
+  it('shows the gauge fill while charging and ready once full', () => {
+    expect(transAmMeter({ kind: 'charging', gauge: TRANS_AM.gaugeMax / 4 })).toEqual({ kind: 'charging', ratio: 0.25 });
+    expect(transAmMeter({ kind: 'charging', gauge: TRANS_AM.gaugeMax })).toEqual(READY);
+  });
+
+  it('drains while active and counts the depleted time down like a cooldown', () => {
+    expect(transAmMeter({ kind: 'active', msLeft: TRANS_AM.activeMs / 2 })).toEqual({ kind: 'active', ratioLeft: 0.5 });
+    expect(transAmMeter({ kind: 'depleted', msLeft: TRANS_AM.depletedMs / 4 })).toMatchObject({ kind: 'cooling', msLeft: TRANS_AM.depletedMs / 4, progress: 0.75 });
   });
 });

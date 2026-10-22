@@ -13,6 +13,8 @@ export type DebugHooks = {
   hit?: () => void;
   bossHp?: (ratio: number) => void;
   god?: (on: boolean) => void;
+  transAmGauge?: (value: number) => void;
+  shots?: () => { id: number; kind: string; x: number; y: number }[];
 };
 
 type DebugApi = {
@@ -26,6 +28,10 @@ type DebugApi = {
   bossHp(ratio: number): void;
   // For measurement only: the ship keeps its i-frames and shields but never loses HP. Resets with each stage.
   god(on: boolean): void;
+  // Sets the TRANS-AM gauge and puts it back to charging.
+  transAmGauge(value: number): void;
+  // Live enemy bullets with ids that stay put for the stage, so a journey can time one across frames.
+  shots(): { id: number; kind: string; x: number; y: number }[];
   pause(): void;
   resume(): void;
 };
@@ -63,6 +69,8 @@ export function installDebug(game: Phaser.Game): void {
     hit: () => hooks?.hooks.hit?.(),
     bossHp: (ratio) => hooks?.hooks.bossHp?.(ratio),
     god: (on) => hooks?.hooks.god?.(on),
+    transAmGauge: (value) => hooks?.hooks.transAmGauge?.(value),
+    shots: () => hooks?.hooks.shots?.() ?? [],
     // Systems applies these at once, where ScenePlugin would queue them for the next step and drop a key pressed
     // in between. Braces keep Systems out of the return value, which Playwright would serialize whole.
     pause: () => {
