@@ -56,7 +56,7 @@ export class Hud {
     this.items = new Map(held.map((id) => [id, new SkillSlot(scene, ITEM_SLOTS[id])]));
     // On a touch screen a tall enough band under the playfield takes the tray, out of the way and under the thumb.
     onViewport(scene, (view) => {
-      const band = INPUT_MODE === 'touch' ? view.y + view.h - VIEW.h : null;
+      const band = INPUT_MODE === 'touch' ? view.y + view.h - view.safeBottom - VIEW.h : null;
       const { scale, skills, items } = placeTray(this.skills.size, this.items.size, band);
       const slots = [...this.skills.values(), ...this.items.values()];
       [...skills, ...items].forEach((at, i) => slots[i]?.place(at, scale));

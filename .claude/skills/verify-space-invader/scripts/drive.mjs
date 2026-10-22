@@ -2048,6 +2048,19 @@ const JOURNEYS = {
       await m.shot('full-tray');
       await m.game('resume');
 
+      // Chrome has no home indicator, so the iPhone inset is stood in for by the variable view.ts reads it through.
+      const insetCss = 34;
+      await m.page.evaluate((px) => document.documentElement.style.setProperty('--safe-bottom', `${px}px`), insetCss);
+      await m.page.setViewportSize({ width: 390, height: 845 });
+      const inset = await m.waitFor('tray refit above the inset', (x) => x.tray.length === 7 && x.view.world.height > 0 && Math.max(...x.tray.map((t) => t.y + t.r)) < Math.max(...full.tray.map((t) => t.y + t.r)) - 1);
+      const safeEdge = inset.view.world.y + inset.view.world.height - insetCss / cssPerWorld;
+      m.check('with a 34 CSS px home-indicator inset, no tray target reaches under it', inset.tray.every((t) => t.y + t.r <= safeEdge + 1e-6 && t.r * 2 * cssPerWorld >= 48), { tray: inset.tray, safeEdge });
+      await m.game('pause');
+      await m.shot('full-tray-inset');
+      await m.game('resume');
+      await m.page.evaluate(() => document.documentElement.style.removeProperty('--safe-bottom'));
+      await m.page.setViewportSize({ width: 390, height: 844 });
+
       const center = (r) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
       const target = (s, id) => s.targets.find((t) => t.id === id);
       const costs = () =>
