@@ -1302,12 +1302,12 @@ const JOURNEYS = {
       const turning = await h.waitFor(`${name} transforming`, (x) => x.boss?.stance === 'transforming', 4000);
       h.check(`${name}: the transformation switches to the second boss track at once`, turning.music.track === 'boss2', { music: turning.music, boss: { form: turning.boss.form, stance: turning.boss.stance } });
       if (turning.boss.form === 0) h.log.steps.push({ action: `${name}: boss2 asked for while still in form 0`, music: turning.music });
-      await sleep(1100);
-      await h.game('pause');
-      await h.shot(`${name.split(' ')[1].toLowerCase()}-transform`);
-      await h.game('resume');
       const second = await h.waitFor(`${name} second form`, (x) => x.boss?.form === 1 && x.boss.stance === 'fighting' && x.music.playing === 'boss2', 10000);
       h.check(`${name}: the second form fights to the second boss track`, second.music.track === 'boss2' && second.music.playing === 'boss2', { music: second.music });
+      await sleep(600);
+      await h.game('pause');
+      await h.shot(`${name.split(' ')[1].toLowerCase()}-second-form`);
+      await h.game('resume');
       if (stage === 5) {
         await h.game('kill');
         const quiet = await h.waitFor('Seraph dead, music fading out', (x) => x.boss?.stance === 'dead', 4000);

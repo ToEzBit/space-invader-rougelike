@@ -31,7 +31,7 @@ Run `drive.mjs <run-id> music`.
 - **Cut-in.** With a full gauge, `Space` starts the cut-in. Across it the first foe does not move and `step` advances by at least 80% of the steps that fit in the frozen time.
 - **Bosses.** Stage 5 and stage 10 each start on `boss1` with the boss in form 0. `bossHp` below `transform.atHpRatio` turns `track` to `boss2` on the first frame the stance is `transforming`. The second form fights to `boss2`. After `kill()` on the Seraph, `track` is `null`, the music goes silent, and the shop plays `normal`.
 - **Mute.** `M` ramps `busGain` under 1e-4 with the track still `playing`. After a reload and a gesture it is still muted. `M` again brings `busGain` back to `MUSIC_VOLUME`, and that also survives a reload.
-- **Proof.** `01-title` shows the music hint top left. `02-title-music-hint` is a close-up reading `M · เพลง เปิด`. `03-seraph-transform` and `04-empress-transform` show each boss mid transformation with `boss2` playing. `05-title-music-muted` reads `M · เพลง ปิด`.
+- **Proof.** `01-title` shows the music hint top left. `02-title-music-hint` is a close-up reading `M · เพลง เปิด`. `03-seraph-second-form` and `04-empress-second-form` show each boss in her second form with `boss2` playing. `05-title-music-muted` reads `M · เพลง ปิด`.
 
 ## Listening without speakers
 
