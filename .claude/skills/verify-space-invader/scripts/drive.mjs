@@ -2217,6 +2217,205 @@ const JOURNEYS = {
       await context.close();
     }
   },
+  async sfx(h) {
+    const record = (ms, stopSrc = 'false') =>
+      h.page.evaluate(
+        ([ms, stopSrc]) =>
+          new Promise((resolve) => {
+            const stop = new Function('s', `return (${stopSrc})`);
+            const out = [];
+            const start = performance.now();
+            const tick = () => {
+              const s = window.__game.state();
+              out.push({
+                ms: performance.now() - start,
+                scenes: s.scenes,
+                life: s.life,
+                transAm: s.transAm?.kind,
+                fightMs: s.clock?.fightMs,
+                interval: s.stats?.fireIntervalMs,
+                laserFiring: s.laserFiring,
+                played: s.sfx.played,
+                beam: s.sfx.beam,
+                zips: s.transAmSound.shots,
+                stance: s.boss?.stance,
+                castMsLeft: s.boss?.castMsLeft,
+                orbital: s.skills?.find((k) => k.id === 'orbital')?.kind,
+              });
+              if (performance.now() - start > ms || stop(s)) return resolve(out);
+              requestAnimationFrame(tick);
+            };
+            tick();
+          }),
+        [ms, stopSrc],
+      );
+    const n = (x, name) => x.played[name] ?? 0;
+    const { gaugeMax, castSound, motions, bosses, chargeMs } = await (async () => {
+      await h.openTitle();
+      return h.page.evaluate(async () => {
+        const [transAm, recipes, motion, stages, patterns] = await Promise.all([
+          import('/src/core/transAm.ts'),
+          import('/src/audio/sfxRecipes.ts'),
+          import('/src/game/bossMotion.ts'),
+          import('/src/core/stages.ts'),
+          import('/src/game/patterns.ts'),
+        ]);
+        return {
+          gaugeMax: transAm.TRANS_AM.gaugeMax,
+          castSound: recipes.CAST_SOUND,
+          motions: Object.fromEntries(Object.entries(motion.MOTIONS).map(([p, m]) => [p, m.tier])),
+          bosses: JSON.parse(JSON.stringify(stages.BOSSES)),
+          chargeMs: Object.fromEntries(Object.entries(patterns.PATTERNS).map(([p, def]) => [p, def.cast?.chargeMs ?? null])),
+        };
+      });
+    })();
+    await h.page.keyboard.press('Shift');
+
+    const volleysMatch = async (label) => {
+      const rec = await record(3000);
+      const [a, b] = [rec[0], rec.at(-1)];
+      const shots = n(b, 'shot') - n(a, 'shot');
+      const volleys = (b.fightMs - a.fightMs) / b.interval;
+      h.check(`${label}: one gun sound per volley`, rec.every((x) => x.life === 'fighting' && x.interval === b.interval) && Math.abs(shots - volleys) <= 1.5, { shots, volleys, intervalMs: b.interval, fightMs: b.fightMs - a.fightMs });
+    };
+    await h.startAt(4);
+    await h.game('god', true);
+    await volleysMatch('base gun');
+    await h.shot('base-gun');
+
+    await h.startAt(4, { hairTrigger: 3 }, 0, { overclock: 1 });
+    await h.game('god', true);
+    await h.page.keyboard.press('v');
+    await h.waitFor('Overclock running', (s) => s.buffs.some((b) => b.buff === 'overclock'), 2000);
+    await volleysMatch('Hair Trigger III with Overclock');
+
+    await h.game('transAmGauge', gaugeMax);
+    await h.page.keyboard.press('Space');
+    const ta = await record(12000, `s.transAm.kind === 'depleted' && s.transAm.msLeft < 3000`);
+    let [activeFrames, shotsActive, zips] = [0, 0, 0];
+    for (let i = 1; i < ta.length; i++) {
+      if (ta[i].transAm !== 'active' || ta[i - 1].transAm !== 'active') continue;
+      activeFrames++;
+      shotsActive += n(ta[i], 'shot') - n(ta[i - 1], 'shot');
+      zips += ta[i].zips - ta[i - 1].zips;
+    }
+    h.check('no gun sound while TRANS-AM is active, which zips every volley instead', activeFrames > 100 && shotsActive === 0 && zips > 20, { activeFrames, shotsActive, zips });
+    const depleted = ta.filter((x) => x.transAm === 'depleted' && x.life === 'fighting');
+    h.check('the gun sounds again once TRANS-AM is spent', depleted.length > 0 && n(depleted.at(-1), 'shot') > n(depleted[0], 'shot'), { from: n(depleted[0], 'shot'), to: n(depleted.at(-1), 'shot') });
+
+    const beamsOf = (rec) => {
+      const beams = [];
+      rec.forEach((x, i) => {
+        if (i > 0 && x.laserFiring && !rec[i - 1].laserFiring) beams.push({ on: i });
+        if (i > 0 && !x.laserFiring && rec[i - 1].laserFiring && beams.length) beams.at(-1).off = i;
+      });
+      return beams;
+    };
+    await h.startAt(1, { prismLance: 3 });
+    await h.game('god', true);
+    const lr = await record(8000);
+    const beams = beamsOf(lr).filter((b) => b.off !== undefined);
+    h.check('the laser fired at least twice', beams.length >= 2, { beams: beams.length });
+    for (const [k, { on, off }] of beams.slice(0, 2).entries()) {
+      const before = lr[on - 1];
+      const firing = lr.slice(on, off);
+      const after = lr.slice(off).filter((x) => x.ms - lr[off].ms >= 250 && x.ms - lr[off].ms < 600);
+      h.check(`beam ${k + 1}: the zap plays once and the buzz starts as it fires`, n(firing.at(-1), 'laser') - n(before, 'laser') === 1 && lr[on].beam.starts - before.beam.starts === 1 && firing.slice(2).every((x) => x.beam.live === 1), {
+        zaps: n(firing.at(-1), 'laser') - n(before, 'laser'),
+        starts: lr[on].beam.starts - before.beam.starts,
+        live: firing.map((x) => x.beam.live),
+      });
+      h.check(`beam ${k + 1}: the buzz stops when the beam ends and its nodes are gone 250 ms later`, lr[off].beam.stops - before.beam.stops === 1 && after.length > 0 && after.every((x) => x.beam.live === 0 && x.beam.starts === lr[on].beam.starts), {
+        stops: lr[off].beam.stops - before.beam.stops,
+        after: after.map((x) => x.beam),
+        firedForMs: lr[off].ms - lr[on].ms,
+      });
+    }
+    await h.shot('laser-stage');
+
+    await h.startAt(1, { prismLance: 1, longDischarge: 3 });
+    await h.game('god', true);
+    await h.frameWhen('s.laserFiring', false, 8000);
+    await h.game('transAmGauge', gaugeMax);
+    const pre = await h.state();
+    await h.page.keyboard.press('Space');
+    const ci = await record(6000, `s.life === 'fighting' && !s.laserFiring && s.sfx.beam.live === 0`);
+    const cut = ci.filter((x) => x.life === 'cutIn');
+    const cutQuiet = cut.filter((x) => x.ms - cut[0].ms >= 250);
+    const back = ci.filter((x, i) => i > ci.indexOf(cut.at(-1)) && x.life === 'fighting' && x.laserFiring);
+    h.check('the TRANS-AM cut-in stops the buzz while it freezes the beam', cut.length > 0 && cutQuiet.length > 0 && cutQuiet.every((x) => x.beam.live === 0 && x.laserFiring) && cut.at(-1).beam.stops === pre.sfx.beam.stops + 1, {
+      cutFrames: cut.length,
+      live: cutQuiet.map((x) => x.beam.live),
+    });
+    h.check('the beam left after the cut-in buzzes again without a second zap', back.length > 0 && back.at(-1).beam.starts === cut.at(-1).beam.starts + 1 && n(ci.at(-1), 'laser') === n(pre.sfx, 'laser') && back.slice(2).every((x) => x.beam.live === 1), {
+      startsBefore: cut.at(-1).beam.starts,
+      startsAfter: back.at(-1)?.beam.starts,
+      zaps: n(ci.at(-1), 'laser') - n(pre.sfx, 'laser'),
+    });
+    h.check('and stops when that beam ends', ci.at(-1).beam.live === 0 && ci.at(-1).beam.stops === back.at(-1).beam.stops + 1, { end: ci.at(-1).beam });
+
+    for (const [how, stage, end] of [
+      ['a stage clear', 1, async () => h.game('kill')],
+      ['a defeat', 2, async () => { for (let i = 0; i < 12; i++) await h.game('hurt'); }],
+    ]) {
+      await h.startAt(stage, { prismLance: 1, longDischarge: 3 });
+      await h.frameWhen('s.laserFiring', false, 8000);
+      const pre = await h.state();
+      await end();
+      const er = await record(1500, `!s.scenes.includes('Stage')`);
+      const ending = er.filter((x) => x.life === 'ending');
+      const settled = ending.filter((x) => x.ms - ending[0].ms >= 250);
+      h.check(`${how} mid-beam stops the buzz for good while the beam burns on through the outro`, ending.length > 0 && ending.some((x) => x.laserFiring) && settled.length > 0 && settled.every((x) => x.beam.live === 0) && ending.at(-1).beam.starts === pre.sfx.beam.starts && ending.at(-1).beam.stops === pre.sfx.beam.stops + 1, {
+        endingFrames: ending.length,
+        firingInOutro: ending.filter((x) => x.laserFiring).length,
+        first: pre.sfx.beam,
+        last: ending.at(-1)?.beam,
+      });
+    }
+
+    await h.startAt(3, { orbitalCannon: 1 });
+    await h.game('god', true);
+    const or = await record(15000, `(s.sfx.played.orbital ?? 0) > 0 && s.skills.find((k) => k.id === 'orbital')?.kind === 'cooling'`);
+    const struck = or.findIndex((x, i) => i > 0 && n(x, 'orbital') > n(or[i - 1], 'orbital'));
+    h.check('the orbital cannon sounds its blast on the frame it strikes', struck > 0 && or[struck - 1].orbital === 'active' && or[struck].orbital === 'cooling' && n(or.at(-1), 'orbital') - n(or[0], 'orbital') === 1, {
+      before: or[struck - 1]?.orbital,
+      at: or[struck]?.orbital,
+      blasts: n(or.at(-1), 'orbital') - n(or[0], 'orbital'),
+    });
+
+    const castNames = Object.values(castSound);
+    const covered = new Set();
+    for (const [stage, id] of [[5, 'crimsonSeraph'], [10, 'voidEmpress']]) {
+      const def = bosses[id];
+      await h.startAt(stage);
+      await h.game('god', true);
+      await h.waitFor(`${id} in place`, (s) => s.boss?.stance === 'fighting', 12000);
+      await h.game('bossPattern', null);
+      for (const form of [0, 1]) {
+        if (form === 1) {
+          await h.game('bossHp', def.transform.atHpRatio - 0.02);
+          await h.waitFor(`${id} second form`, (s) => s.boss.form === 1 && s.boss.stance === 'fighting', 10000);
+        }
+        for (const p of [...new Set(def.forms[form].phases.flatMap((ph) => ph.patterns))]) {
+          const tier = motions[p];
+          const name = castSound[tier];
+          await h.game('bossHp', form === 0 ? 0.9 : 0.6);
+          const before = await h.waitFor(`${id} holds still before ${p}`, (s) => s.boss.stance === 'fighting' && s.boss.motion.moves.length === 0, 8000);
+          await h.game('bossPattern', p);
+          const rec = await record(8000, `s.boss.motion.moves.some((m) => m.pattern === '${p}' && m.ms > 400)`);
+          const done = await h.waitFor(`${p} settles`, (s) => s.boss.motion.moves.length === 0 && s.boss.stance === 'fighting', 8000);
+          const deltas = Object.fromEntries(castNames.map((c) => [c, n(done.sfx, c) - n(before.sfx, c)]));
+          h.check(`${def.forms[form].name}: ${p} (${tier}) plays ${name} once`, deltas[name] === 1 && castNames.every((c) => c === name || deltas[c] === 0), deltas);
+          if (tier === 'ultimate') {
+            const charge = rec.find((x) => x.stance === 'casting');
+            h.check(`${def.forms[form].name}: ${p} sounds as the charge starts`, charge && n(charge, name) === n(before.sfx, name) + 1 && charge.castMsLeft > chargeMs[p] - 120, { castMsLeft: charge?.castMsLeft, chargeMs: chargeMs[p] });
+          }
+          covered.add(p);
+        }
+      }
+    }
+    h.check('every boss move was cast', covered.size === Object.keys(motions).length, { covered: [...covered] });
+  },
 };
 
 // Close-ups of small HUD art need the canvas's full backing resolution.

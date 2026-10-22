@@ -34,6 +34,7 @@ This directory is the maintained source for verifying what a player can do in th
 - [TRANS-AM cut-in](./cut-in.md) covers the cut-in Space plays before TRANS-AM, the stage freeze under it, input pressed during it, and the release and full active time after it.
 - [TRANS-AM voice](./voice.md) covers the pilot's spoken line through the cut-in, the cut-in's length following it, the shout landing on the release, the lines alternating and the silent fallback.
 - [TRANS-AM sound](./trans-am-sound.md) covers the release hit, the drive hum, the shot zips, the ending ticks and the muffled music while active, their silence through the cut-in, their stop on every way a stage ends, and the offline mix render.
+- [Sound effects](./sfx.md) covers the layered sound recipes, the gun shot once per volley and its silence under TRANS-AM, the laser zap and the buzz held for the beam and stopped on every way out, the orbital strike, one boss cast sound per move by its tier, and the offline render.
 - [Skill cooldown tray](./skill-hud.md) covers the bottom-left skill icons, the clockwise cooldown sweep and countdown, dash charges and the laser cycle.
 - [Enemy HP bars](./enemy-hp.md) covers the bar over a damaged foe, its color, the white chip, the fade after the last hit and no bar on the boss.
 - [Boss fights](./bosses.md) covers Crimson Seraph and Void Empress, damage, phases and reaching the second form.

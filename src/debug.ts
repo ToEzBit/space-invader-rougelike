@@ -3,6 +3,8 @@ import type { OwnedItems } from './core/items';
 import type { BossPattern } from './core/stages';
 import { deriveStats, type OwnedPerks } from './core/perks';
 import { musicState } from './audio/music';
+import { laserSoundState } from './audio/laserSound';
+import { sfxState } from './audio/sfx';
 import { transAmSoundState } from './audio/transAmSound';
 import { voiceState } from './audio/voice';
 import { newRun, type RunState } from './core/run';
@@ -71,7 +73,7 @@ export function installDebug(game: Phaser.Game): void {
       for (const key of active()) game.scene.stop(key);
       game.scene.start(sceneFor(run), { run });
     },
-    state: () => ({ scenes: active(), input: INPUT_MODE, run: hooks?.hooks.run() ?? null, view: view(), music: musicState(), voice: voiceState(), transAmSound: transAmSoundState(), ...hooks?.hooks.info?.() }),
+    state: () => ({ scenes: active(), input: INPUT_MODE, run: hooks?.hooks.run() ?? null, view: view(), music: musicState(), voice: voiceState(), transAmSound: transAmSoundState(), sfx: { played: sfxState(), beam: laserSoundState() }, ...hooks?.hooks.info?.() }),
     kill: () => hooks?.hooks.kill?.(),
     hurt: () => hooks?.hooks.hurt?.(),
     hit: () => hooks?.hooks.hit?.(),
