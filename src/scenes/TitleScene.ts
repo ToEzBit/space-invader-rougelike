@@ -47,14 +47,15 @@ export class TitleScene extends Phaser.Scene {
     const prompt = label(this, cx, 590, WORDS.start, { size: 18, bold: true, color: '#ffffff', align: 'center', stroke: '#d81b8c' });
     this.tweens.add({ targets: prompt, alpha: 0.35, duration: 600, yoyo: true, repeat: -1 });
 
-    const fullscreen = label(this, VIEW.w - 12, 10, WORDS.fullscreen, { size: 12, bold: true, color: '#c9d4ff', align: 'right', stroke: ink });
-    fullscreen.setInteractive({ useHandCursor: true }).on(
-      'pointerdown',
-      (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
-        event.stopPropagation();
-        this.scale.toggleFullscreen();
-      },
-    );
+    // iPhone Safari has no element fullscreen, so the hint only shows where a tap can work.
+    if (this.sys.game.device.fullscreen.available) {
+      const fullscreen = label(this, VIEW.w - 12, 10, WORDS.fullscreen, { size: 12, bold: true, color: '#c9d4ff', align: 'right', stroke: ink });
+      // Toggled on release: a touch's pointerdown is not a user activation, so fullscreen would be refused there.
+      fullscreen
+        .setInteractive({ useHandCursor: true })
+        .on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => event.stopPropagation())
+        .on('pointerup', () => this.scale.toggleFullscreen());
+    }
 
     this.musicHint = label(this, 12, 10, '', { size: 12, bold: true, color: '#c9d4ff', stroke: ink });
     this.musicHint.setInteractive({ useHandCursor: true }).on(
