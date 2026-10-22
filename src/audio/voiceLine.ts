@@ -59,12 +59,13 @@ export function voiceTimeline(segments: readonly Segment[], durationSec: number)
   return { segments: [...segments], slices, shoutAt: last.at + (segments[segments.length - 1]!.from - last.from) };
 }
 
-// The gain that brings the line as played to VOICE_LOUD95.
+// The gain that brings the line as played, shortened pauses included, to VOICE_LOUD95.
 export function voiceGain(samples: Float32Array, sampleRate: number, slices: readonly Slice[]): number | null {
-  const played = slices.map((s) => samples.subarray(Math.round(s.from * sampleRate), Math.round(s.to * sampleRate)));
-  const joined = new Float32Array(played.reduce((n, p) => n + p.length, 0));
-  played.reduce((at, p) => (joined.set(p, at), at + p.length), 0);
-  const loud = loud95([joined], sampleRate);
+  const at = (sec: number) => Math.round(sec * sampleRate);
+  const end = Math.max(0, ...slices.map((s) => s.at + s.to - s.from));
+  const played = new Float32Array(at(end));
+  for (const s of slices) played.set(samples.subarray(at(s.from), at(s.to)).subarray(0, played.length - at(s.at)), at(s.at));
+  const loud = loud95([played], sampleRate);
   return loud > 0 ? VOICE_LOUD95 / loud : null;
 }
 
