@@ -289,7 +289,7 @@ const PERK_SPECS = {
   // ---------- Spirit Call ----------
   familiar: {
     branch: 'summon', tier: 1, name: 'Spirit Familiar',
-    values: [1200, 1000, 800],
+    values: [1200, 1100, 800],
     desc: (v) => `ปลดล็อกภูตผู้ติดตาม 1 ตัว ยิงวิญญาณติดตามศัตรูที่ใกล้ที่สุดทุก ${sec(v)} (ดาเมจ ${SUMMON.wispDamage})`,
     apply: (s, v) => { s.familiars = 1; s.wispIntervalMs = v; s.wispDamage = SUMMON.wispDamage; },
   },
