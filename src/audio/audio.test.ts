@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STAGES } from '../core/stages';
-import { cueFor, sourceFor, WAVE_MUSIC, type BossView, type FileLoad, type StageMoment } from './director';
+import { cueFor, openingCue, sourceFor, WAVE_MUSIC, type BossView, type StageMoment } from './director';
+import type { FileLoad } from './fileLoad';
 import { BOSS1_PRE_BUS_LOUD95, gainToMatch } from './loudness';
 import { fillRhythm, freqOf, midiOf, octaveUp, parseBars } from './score';
 import { TRACKS, type ScoreId, type Track } from './tracks';
@@ -140,9 +141,11 @@ describe('the track for the moment', () => {
   ];
   const LOADS: Record<FileLoad['status'], FileLoad> = {
     idle: { status: 'idle' },
-    loading: { status: 'loading' },
+    fetching: { status: 'fetching', url: '/music/void-empress.ogg', attempt: 1, firstOfRound: 1, tried: [] },
+    fetched: { status: 'fetched', url: '/music/void-empress.ogg', bytes: new ArrayBuffer(8), attempt: 1, firstOfRound: 1, tried: [] },
+    decoding: { status: 'decoding', url: '/music/void-empress.ogg', attempt: 1, firstOfRound: 1, tried: [] },
     ready: { status: 'ready', url: '/music/void-empress.ogg', buffer: {} as AudioBuffer, gain: 0.5 },
-    failed: { status: 'failed', tried: [] },
+    failed: { status: 'failed', attempt: 1, firstOfRound: 1, tried: [], retryAt: 2000 },
   };
   const at = (boss: BossView | null, empress: FileLoad['status'] = 'ready', moment: Partial<StageMoment> = {}) => {
     const source = sourceFor(cueFor({ stage: boss?.id === 'voidEmpress' ? 10 : boss ? 5 : 1, boss, phase: 'playing', ...moment }), () => LOADS[empress]);
@@ -196,12 +199,17 @@ describe('the track for the moment', () => {
   });
 
   it('keeps whatever is playing while her recording is still loading', () => {
-    for (const status of ['idle', 'loading'] as const) expect(playing({ id: 'voidEmpress', form: 0, stanceKind: 'entering' }, status)).toBe('holdWhileLoading');
+    for (const status of ['idle', 'fetching', 'fetched', 'decoding'] as const) expect(playing({ id: 'voidEmpress', form: 0, stanceKind: 'entering' }, status)).toBe('holdWhileLoading');
   });
 
   it('never waits on a recording for the Seraph or between fights', () => {
-    expect(playing({ id: 'crimsonSeraph', form: 0, stanceKind: 'entering' }, 'loading')).toBe('boss1');
-    expect(playing(null, 'loading')).toBe('act1');
+    expect(playing({ id: 'crimsonSeraph', form: 0, stanceKind: 'entering' }, 'fetching')).toBe('boss1');
+    expect(playing(null, 'decoding')).toBe('act1');
+  });
+
+  it("opens only stage 10 on a song file, so only the shop after stage 9 gets the Empress's song ready", () => {
+    const files = STAGES.map((_, i) => openingCue(i + 1)).map((cue) => (cue !== null && typeof cue === 'object' ? cue.file : null));
+    expect(files).toEqual([null, null, null, null, null, null, null, null, null, 'empress']);
   });
 
   it('falls silent once either boss is dead, until the stage ends', () => {

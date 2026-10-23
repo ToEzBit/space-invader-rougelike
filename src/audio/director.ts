@@ -1,14 +1,13 @@
 import type { RunPhase } from '../core/run';
-import type { BossId, FormIndex } from '../core/stages';
+import { stageDef, type BossId, type FormIndex } from '../core/stages';
 import type { BossFight } from '../game/boss';
+import type { FileLoad, ReadyFile } from './fileLoad';
 import type { FileId, JingleId, ScoreId } from './tracks';
 
 export type Cue = ScoreId | { file: FileId; fallback: ScoreId };
 export type BossView = Pick<BossFight, 'id' | 'form' | 'stanceKind'>;
 // phase is where the run is heading: 'playing' while the stage is fought, then the phase its ending leads to.
 export type StageMoment = { stage: number; boss: BossView | null; phase: RunPhase['kind'] };
-export type ReadyFile = { status: 'ready'; url: string; buffer: AudioBuffer; gain: number };
-export type FileLoad = { status: 'idle' | 'loading' } | ReadyFile | { status: 'failed'; tried: readonly string[] };
 export type Source = { kind: 'score'; id: ScoreId } | { kind: 'file'; id: FileId; file: ReadyFile } | { kind: 'silence' } | { kind: 'holdWhileLoading' };
 
 // One track per act of the journey to the Void Empress. Boss stages fight to their boss instead.
@@ -43,10 +42,20 @@ export function sourceFor(cue: Cue | null, load: (id: FileId) => FileLoad): Sour
       return { kind: 'file', id: cue.file, file };
     case 'failed':
       return { kind: 'score', id: cue.fallback };
+    // A retry follows a failed attempt, so the fallback keeps standing in until the song is ready.
+    case 'fetching':
+    case 'fetched':
+    case 'decoding':
+      return file.attempt === 1 ? { kind: 'holdWhileLoading' } : { kind: 'score', id: cue.fallback };
     case 'idle':
-    case 'loading':
       return { kind: 'holdWhileLoading' };
   }
+}
+
+// What a stage asks for as it starts, so the shop before it can get its song ready.
+export function openingCue(stage: number): Cue | null {
+  const def = stageDef(stage);
+  return cueFor({ stage, boss: def.kind === 'boss' ? { id: def.boss, form: 0, stanceKind: 'entering' } : null, phase: 'playing' });
 }
 
 function secondFormStarted(boss: BossView): boolean {
