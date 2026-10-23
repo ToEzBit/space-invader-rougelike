@@ -30,7 +30,7 @@ export const BULLETS: Record<BulletKind, BulletDef> = {
   missile: { texture: 'missile', radius: 5, facing: 'velocity', steer: homing },
   spark: { texture: 'shot', radius: 4, facing: 'velocity', steer: homing, tint: { color: COLORS.lime, mode: Phaser.TintModes.FILL }, burst: { share: 1, color: COLORS.lime } },
   wisp: {
-    texture: 'pellet',
+    texture: 'orb',
     radius: 4,
     facing: 'spin',
     steer: homing,

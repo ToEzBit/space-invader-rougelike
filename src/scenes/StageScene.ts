@@ -99,6 +99,7 @@ export class StageScene extends Phaser.Scene {
         items: this.world.run.items,
         buffs: this.world.activeBuffs.map(({ buff, msLeft }) => ({ buff, msLeft })),
         shieldMs: this.world.player.shieldMs,
+        invulnMs: this.world.player.invulnMs,
         hpBars: this.world.foes
           .filter((foe) => !foe.dead && foe.hp < foe.maxHp)
           .map((foe) => {

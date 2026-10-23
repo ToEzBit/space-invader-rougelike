@@ -8,7 +8,7 @@ import type { Foe, World } from './world';
 
 const WISP_SPEED = 300;
 // Familiars circle a point above the ship's nose, clear of the hull and of the Option Drones' slots beside it.
-const ORBIT = { dy: -42, r: 14, radPerSec: 1.4 };
+const ORBIT = { dy: -50, r: 12, radPerSec: 1.4 };
 const FAMILIAR_RADIUS = 7;
 const DIVE_SPEED = 560;
 const RESTING_ALPHA = 0.4;

@@ -1658,6 +1658,257 @@ const JOURNEYS = {
     h.check(`Bullet Time 2 slows a bullet in flight to ${GRAZE.bulletTimeScale * 100}% of its speed after a graze`, ratios.length >= 5 && Math.abs(mid - GRAZE.bulletTimeScale) < 0.03, { bullets: ratios.length, medianRatio: mid, sample: ratios.slice(0, 6) });
   },
 
+  async summon(h) {
+    const FAMILIAR = { w: 12, h: 15, radius: 7 };
+    const SHIP = { w: 42, h: 35 };
+    const DRONE = { w: 11, h: 12, dx: 36, dy: 8 };
+    const none = await h.startAt(2);
+    const SUMMON = await h.core('perks.SUMMON');
+    const bulletRadius = await h.page.evaluate(() => import('/src/game/bullets.ts').then((m) => Math.max(...Object.values(m.BULLETS).map((b) => b.radius))));
+    const stats = (perks) => h.core(`perks.deriveStats(${JSON.stringify(perks)})`);
+    const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+    const overlaps = (a, aw, ah, b, bw, bh) => Math.abs(a.x - b.x) < (aw + bw) / 2 && Math.abs(a.y - b.y) < (ah + bh) / 2;
+    const around = (p, w = 200, hgt = 220) => ({ x: Math.min(Math.max(0, p.x - w / 2), 480 - w), y: Math.max(0, p.y - hgt + 60), w, h: hgt });
+    const pausedShot = async (name, region) => {
+      await h.game('pause');
+      await h.shot(name);
+      if (region) await h.shot(`${name}-closeup`, region);
+      await h.game('resume');
+    };
+
+    // Every frame's summon state, read in one animation frame; `shots` adds the live enemy bullets.
+    const record = (shots = false) =>
+      h.page.evaluate((shots) => {
+        const g = window.__game;
+        const rec = (window.__summonRec = { on: true, frames: [] });
+        const tick = () => {
+          if (!rec.on) return;
+          const s = g.state();
+          if (s?.summons && s.life === 'fighting')
+            rec.frames.push({
+              ms: s.clock.fightMs,
+              familiars: s.summons.familiars,
+              wisps: s.summons.wisps.length,
+              blockedId: s.summons.lastBlockedId,
+              haunted: s.summons.haunted,
+              spiritMs: s.summons.spiritMs,
+              dealt: { ...s.tally.dealt },
+              hits: s.tally.hits,
+              contacts: s.tally.contacts,
+              hp: s.run.hp,
+              gauge: s.run.transAmGauge,
+              streak: s.graze.streak,
+              invulnMs: s.invulnMs,
+              player: s.player,
+              boss: s.boss && { x: s.boss.x, y: s.boss.y, hpRatio: s.boss.hpRatio },
+              ...(shots && { shots: g.shots().map((b) => [b.id, b.x, b.y]) }),
+            });
+          requestAnimationFrame(tick);
+        };
+        tick();
+      }, shots);
+    const stopRecord = async () => {
+      const frames = await h.page.evaluate(() => {
+        window.__summonRec.on = false;
+        return window.__summonRec.frames;
+      });
+      return { frames, pairs: frames.slice(1).map((b, i) => ({ a: frames[i], b })).filter(({ a, b }) => b.ms > a.ms) };
+    };
+    // Keeps the ship under the boss, and her HP above her transformation, until pred holds.
+    const underBoss = async (label, pred, timeoutMs) => {
+      const end = Date.now() + timeoutMs;
+      let s = await h.state();
+      while (!pred(s) && Date.now() < end) {
+        if (s.boss?.hpRatio < 0.7) await h.game('bossHp', 1);
+        await h.steer(s);
+        await sleep(30);
+        s = await h.state();
+      }
+      await h.steer(null);
+      if (!pred(s)) throw new Error(`timed out waiting for ${label}; last summons ${JSON.stringify(s.summons)}`);
+      return s;
+    };
+    const bossFight = async (perks, god = true) => {
+      await h.startAt(5, perks);
+      if (god) await h.game('god', true);
+      return h.waitFor('the boss fighting', (x) => x.boss?.stance === 'fighting', 10000);
+    };
+
+    // Shop: Pack Call bought with real keys raises the next stage's familiars from one to two.
+    h.check('a ship without summon perks has no familiars', none.summons.familiars.length === 0 && none.summons.wisps.length === 0, { summons: none.summons });
+    const one = await h.startAt(4, { familiar: 1 }, 99999);
+    h.check('Spirit Familiar brings one familiar', one.summons.familiars.length === 1, { familiars: one.summons.familiars });
+    await h.game('kill');
+    let shop = await h.waitFor('the shop after stage 4', (x) => x.scenes.includes('Shop') && x.run.stage === 4);
+    const packSlot = (x) => x.cards.findIndex((o) => o?.kind === 'perk' && o.id === 'packCall');
+    for (let i = 0; i < 80 && packSlot(shop) < 0; i++) shop = await h.step('press R for a Pack Call card', () => h.page.keyboard.press('r'));
+    const slot = packSlot(shop);
+    h.check('with Spirit Familiar owned, the shop offers Pack Call', slot >= 0, { cards: shop.cards, refreshes: shop.run.phase.shop.refreshes });
+    await sleep(800);
+    await h.shot('shop-pack-call-card');
+    const bought = await h.step(`press ${slot + 1} to buy Pack Call`, () => h.page.keyboard.press(String(slot + 1)));
+    h.check('Pack Call is bought', bought.run.perks.packCall === 1, { perks: bought.run.perks });
+    await h.step('press Enter to fly stage 5', () => h.page.keyboard.press('Enter'));
+    const two = await h.waitFor('stage 5 fighting', (x) => x.scenes.includes('Stage') && x.run.stage === 5 && x.life === 'fighting', 8000);
+    h.check('after buying Pack Call 1 the next stage flies two familiars', two.summons.familiars.length === 2, { familiars: two.summons.familiars });
+
+    // Pack of three beside Option Drones: the ship holds still while the familiars shoot.
+    const pack = { familiar: 1, packCall: 2, optionDrones: 2 };
+    const packStats = await stats(pack);
+    const three = await bossFight(pack);
+    h.check('Pack Call 2 brings three familiars', three.summons.familiars.length === 3 && packStats.familiars === SUMMON.maxFamiliars, { familiars: three.summons.familiars });
+    await record();
+    await sleep(500);
+    const flying = await h.frameWhen('!s.flashing && !s.boss?.hitFlash && s.summons.wisps.length >= 2 && s.summons.wisps.every((w) => Math.hypot(w.x - s.player.x, w.y - s.player.y) > 90)', true, 6000);
+    h.log.steps.push({ action: 'paused with wisps in flight', summons: flying.s.summons, player: flying.s.player });
+    await h.shot('familiars-and-wisps');
+    await h.shot('familiars-closeup', { x: flying.s.player.x - 70, y: flying.s.player.y - 100, w: 140, h: 130 });
+    await h.game('resume');
+    await sleep(3000);
+    const packRun = await stopRecord();
+    const settled = packRun.frames.filter((f) => f.ms - packRun.frames[0].ms > 300);
+    const clashes = settled.flatMap((f) =>
+      f.familiars.flatMap((m) => {
+        const drones = [-1, 1].map((side) => ({ x: f.player.x + side * DRONE.dx, y: f.player.y + DRONE.dy }));
+        const hits = [overlaps(m, FAMILIAR.w, FAMILIAR.h, f.player, SHIP.w, SHIP.h) && 'ship', ...drones.map((d, i) => overlaps(m, FAMILIAR.w, FAMILIAR.h, d, DRONE.w, DRONE.h) && `drone${i}`)].filter(Boolean);
+        return hits.length ? [{ ms: f.ms, familiar: m, player: f.player, hits }] : [];
+      }),
+    );
+    h.check('the familiars float clear of the ship and both Option Drone slots', settled.length > 30 && clashes.length === 0, { frames: settled.length, clashes: clashes.slice(0, 5) });
+    const spawned = packRun.pairs.filter(({ a, b }) => b.wisps > a.wisps).length;
+    const wispDealt = (packRun.frames.at(-1).dealt.wisp ?? 0) - (packRun.frames[0].dealt.wisp ?? 0);
+    h.check('the familiars fire wisps and the wisps damage the boss (tally.dealt.wisp rises)', spawned >= 3 && wispDealt >= packStats.wispDamage * 2, { spawned, wispDealt, wispDamage: packStats.wispDamage });
+
+    // Guardian: a ready familiar touched by an enemy bullet destroys it, then rests dimmed and keeps shooting.
+    const guard = { familiar: 1, guardian: 1 };
+    const guardStats = await stats(guard);
+    await bossFight(guard);
+    await record(true);
+    await underBoss('a Guardian block', (s) => s.summons.lastBlockedId !== null, 60000);
+    const resting = await h.frameWhen("!s.flashing && s.summons.familiars[0].state === 'resting'", true, guardStats.guardianRestMs);
+    h.log.steps.push({ action: 'paused while the familiar rests', familiars: resting.s.summons.familiars, blockedId: resting.s.summons.lastBlockedId });
+    await h.shot('guardian-resting');
+    await h.shot('guardian-resting-closeup', around(resting.s.player, 140, 150));
+    await h.game('resume');
+    await underBoss('the familiar ready again', (s) => s.summons.familiars[0]?.state === 'ready', guardStats.guardianRestMs + 2000);
+    await sleep(500);
+    const guardRun = await stopRecord();
+    const blocks = guardRun.pairs
+      .filter(({ a, b }) => b.blockedId !== null && b.blockedId !== a.blockedId)
+      .map(({ a, b }) => {
+        const before = a.shots.find(([id]) => id === b.blockedId);
+        const reach = before && Math.min(...a.familiars.map((m) => Math.hypot(before[1] - m.x, before[2] - m.y)));
+        const gone = guardRun.frames.filter((f) => f.ms >= b.ms).every((f) => !f.shots.some(([id]) => id === b.blockedId));
+        return { ms: b.ms, id: b.blockedId, reach: reach && Math.round(reach), gone, wasReady: a.familiars[0].state === 'ready', now: b.familiars[0] };
+      });
+    const proved = blocks.filter((x) => x.gone && x.wasReady && x.reach !== undefined && x.reach <= FAMILIAR.radius + bulletRadius + 12 && x.now.state === 'resting' && x.now.msLeft > guardStats.guardianRestMs - 60);
+    h.check('Guardian: a ready familiar touched by an enemy bullet erases it (its id leaves shots()) and starts resting', proved.length >= 1 && proved.length === blocks.length, { blocks });
+    const rests = [];
+    for (const [i, f] of guardRun.frames.entries()) {
+      const prev = guardRun.frames[i - 1];
+      if (prev && prev.familiars[0].state !== 'resting' && f.familiars[0].state === 'resting') rests.push({ from: f.ms });
+      if (prev && prev.familiars[0].state === 'resting' && f.familiars[0].state === 'ready' && rests.at(-1)) rests.at(-1).to = f.ms;
+    }
+    const whole = rests.filter((r) => r.to);
+    h.check(`the familiar rests ${guardStats.guardianRestMs} ms, then is ready to block again`, whole.length >= 1 && whole.every((r) => Math.abs(r.to - r.from - guardStats.guardianRestMs) < 60), { rests });
+    const restingShots = guardRun.pairs.filter(({ a, b }) => a.familiars[0].state === 'resting' && b.familiars[0].state === 'resting' && b.wisps > a.wisps).length;
+    h.check('a resting familiar keeps firing wisps', restingShots >= 1, { restingShots });
+    h.check('a resting familiar does not block', guardRun.pairs.every(({ a, b }) => !(a.familiars[0].state === 'resting' && b.blockedId !== a.blockedId)), {});
+
+    // Sacrifice, with god mode off: a real boss bullet that reaches the ship takes the familiar instead.
+    const sac = { familiar: 1, sacrifice: 2 };
+    const sacStats = await stats(sac);
+    const sacStart = await bossFight(sac, false);
+    await record();
+    const gone = h.frameWhen("s.summons.familiars[0].state === 'gone'", true, 40000);
+    let caught = null;
+    gone.then((x) => (caught = x)).catch(() => {});
+    const giveUp = Date.now() + 40000;
+    while (!caught && Date.now() < giveUp) {
+      const s = await h.state();
+      if (s.boss?.hpRatio < 0.7) await h.game('bossHp', 1);
+      if (!caught) await h.steer(s);
+      await sleep(30);
+    }
+    await h.steer(null);
+    await gone;
+    await h.game('god', true);
+    h.log.steps.push({ action: 'paused on the frame the familiar took the hit', hp: caught.s.run.hp, tally: caught.s.tally, summons: caught.s.summons, invulnMs: caught.s.invulnMs });
+    await h.shot('sacrifice');
+    await h.shot('sacrifice-closeup', around(caught.s.player, 160, 160));
+    await h.game('resume');
+    await h.waitFor('the familiar back', (x) => x.summons.familiars[0]?.state === 'ready', sacStats.sacrificeMs + 3000);
+    await sleep(300);
+    const back = await h.waitFor('no camera flash', (x) => !x.flashing);
+    await pausedShot('sacrifice-returned', around(back.player, 160, 160));
+    const sacRun = await stopRecord();
+    const took = sacRun.pairs.find(({ a, b }) => a.familiars[0].state === 'ready' && b.familiars[0].state === 'gone');
+    h.check('the ship flew at full HP with no landed hit until the familiar took one', took && sacRun.frames.filter((f) => f.ms <= took.a.ms).every((f) => f.hp === sacStart.run.hp && f.hits === sacStart.tally.hits), { maxHp: sacStart.run.hp });
+    h.check('Sacrifice: on that frame a bullet touched the ship (contacts rise) but run.hp and tally.hits hold', took && took.b.contacts > took.a.contacts && took.b.hp === took.a.hp && took.b.hits === took.a.hits, { a: took && { hp: took.a.hp, hits: took.a.hits, contacts: took.a.contacts }, b: took && { hp: took.b.hp, hits: took.b.hits, contacts: took.b.contacts } });
+    h.check('the ship still gets its full hit i-frames, and keeps its TRANS-AM gauge and graze streak', took && took.b.invulnMs >= 1300 - 1 && took.b.gauge >= took.a.gauge && took.b.streak >= took.a.streak, { invulnMs: took?.b.invulnMs, gauge: took && [took.a.gauge, took.b.gauge], streak: took && [took.a.streak, took.b.streak] });
+    const returned = sacRun.pairs.find(({ a, b }) => took && b.ms > took.b.ms && a.familiars[0].state === 'gone' && b.familiars[0].state === 'ready');
+    h.check(`the familiar returns ${sacStats.sacrificeMs} ms later`, returned && Math.abs(returned.b.ms - took.b.ms - sacStats.sacrificeMs) < 60, { goneMs: returned && returned.b.ms - took.b.ms });
+    const goneFrames = sacRun.pairs.filter(({ a, b }) => a.familiars[0].state === 'gone' && b.familiars[0].state === 'gone');
+    h.check('a gone familiar fires no wisps', goneFrames.length > 100 && goneFrames.every(({ a, b }) => b.wisps <= a.wisps), { frames: goneFrames.length });
+
+    // Haunt: per-frame gun damage on the boss, without Haunt and then with Haunt 3, from the same plain gun.
+    const gunDeltas = async (perks) => {
+      await bossFight(perks);
+      await record();
+      await underBoss('6 s under the boss', () => false, 6000).catch(() => {});
+      const run = await stopRecord();
+      return run.pairs.map(({ a, b }) => ({ d: (b.dealt.bullet ?? 0) - (a.dealt.bullet ?? 0), wisp: (b.dealt.wisp ?? 0) - (a.dealt.wisp ?? 0), a, b })).filter((x) => x.d > 0 || x.wisp > 0);
+    };
+    const plain = await stats({ familiar: 1 });
+    const hauntStats = await stats({ familiar: 1, haunt: 3 });
+    const control = (await gunDeltas({ familiar: 1 })).filter((x) => x.d > 0);
+    h.check(`without Haunt every gun hit on the boss deals ${plain.bulletDamage}`, control.length >= 5 && control.every((x) => x.d % plain.bulletDamage === 0) && control.some((x) => x.d === plain.bulletDamage), { deltas: control.map((x) => x.d) });
+    const treated = await gunDeltas({ familiar: 1, haunt: 3 });
+    const isHaunted = (f, dt) => f.haunted.some((x) => x.msLeft > dt);
+    const raised = plain.bulletDamage * (1 + hauntStats.hauntBonus);
+    const hauntedHits = treated.filter((x) => x.d > 0 && isHaunted(x.a, x.b.ms - x.a.ms) && x.b.haunted.length > 0);
+    const freshHits = treated.filter((x) => x.d > 0 && x.a.haunted.length === 0 && x.b.haunted.length === 0);
+    h.check(`Haunt 3: while the boss is haunted every gun hit deals ${raised}, and ${plain.bulletDamage} before the first wisp lands`, hauntedHits.length >= 5 && hauntedHits.every((x) => x.d % raised === 0) && hauntedHits.some((x) => x.d === raised) && freshHits.every((x) => x.d % plain.bulletDamage === 0), {
+      haunted: hauntedHits.map((x) => x.d),
+      fresh: freshHits.map((x) => x.d),
+    });
+    const marks = treated.filter((x) => x.wisp > 0);
+    h.check(`each wisp hit (re)starts the ${SUMMON.hauntMs} ms haunt on the boss`, marks.length >= 3 && marks.every((x) => x.b.haunted.some((m) => m.msLeft > SUMMON.hauntMs - 40)), { marks: marks.map((x) => x.b.haunted) });
+    const tinted = await h.frameWhen('!s.flashing && s.summons.haunted.length > 0 && !s.boss.hitFlash', true, 3000);
+    h.log.steps.push({ action: 'paused on the haunted boss', haunted: tinted.s.summons.haunted });
+    await h.shot('haunted-boss');
+    await h.shot('haunted-boss-closeup', { x: Math.max(0, tinted.s.boss.x - 90), y: Math.max(0, tinted.s.boss.y - 90), w: 180, h: 180 });
+    await h.game('resume');
+
+    // Great Spirit: every familiar dives at the boss, strikes and flies back.
+    const great = { familiar: 1, packCall: 2, greatSpirit: 2 };
+    const greatStats = await stats(great);
+    const greatStart = await bossFight(great);
+    await record();
+    const diving = await h.frameWhen(
+      "!s.flashing && s.summons.familiars.length === 3 && s.summons.familiars.every((f) => f.state === 'diving' && Math.hypot(f.x - s.player.x, f.y - s.player.y) > 140)",
+      true,
+      greatStats.greatSpiritEveryMs + 4000,
+    );
+    h.log.steps.push({ action: 'paused mid-dive', familiars: diving.s.summons.familiars, boss: diving.s.boss });
+    await h.shot('great-spirit-dive');
+    await h.game('resume');
+    await h.waitFor('every familiar back', (x) => x.summons.familiars.every((f) => f.state === 'ready'), 4000);
+    await sleep(500);
+    const greatRun = await stopRecord();
+    const launch = greatRun.pairs.find(({ a, b }) => a.familiars.every((f) => f.state === 'ready') && b.familiars.every((f) => f.state === 'diving'));
+    h.check(`Great Spirit 2 sends all three familiars diving together ${greatStats.greatSpiritEveryMs} ms into the fight`, launch && launch.b.ms <= greatStats.greatSpiritEveryMs + 200 && launch.b.spiritMs > greatStats.greatSpiritEveryMs - 60, { at: launch?.b.ms, spiritMs: launch?.b.spiritMs, fightStart: greatStart.clock.fightMs });
+    const reach = [0, 1, 2].map((i) => {
+      const dive = greatRun.frames.filter((f) => launch && f.ms >= launch.b.ms && f.familiars[i].state === 'diving');
+      return { nearestToBoss: Math.round(Math.min(...dive.map((f) => dist(f.familiars[i], f.boss)))), farthestFromShip: Math.round(Math.max(...dive.map((f) => dist(f.familiars[i], f.player)))) };
+    });
+    h.check('each familiar reaches the boss, far from the ship', reach.every((r) => r.nearestToBoss <= 12 && r.farthestFromShip >= 200), { reach });
+    const spirit = (greatRun.frames.at(-1).dealt.spirit ?? 0) - (greatRun.frames[0].dealt.spirit ?? 0);
+    h.check(`each arrival deals ${SUMMON.greatSpiritDamage} (tally.dealt.spirit)`, spirit === SUMMON.greatSpiritDamage * 3, { spirit });
+    const end = greatRun.frames.at(-1);
+    h.check('every familiar flies back to its place above the ship', end.familiars.every((f) => f.state === 'ready' && dist(f, { x: end.player.x, y: end.player.y - 50 }) < 20), { familiars: end.familiars, player: end.player });
+  },
+
   async bosses(h) {
     const b0 = await h.startAt(5);
     h.check('stage 5 is Crimson Seraph at full HP in her first form', b0.boss?.name === 'Crimson Seraph' && b0.boss.hpRatio === 1 && b0.boss.form === 0 && b0.boss.phase === 0, { boss: b0.boss });
