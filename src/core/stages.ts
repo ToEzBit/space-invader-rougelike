@@ -147,7 +147,7 @@ export const STAGES: readonly StageDef[] = [
   { kind: 'wave', cols: 8, rows: ['gunner', 'drone', 'drone'], marchSpeed: 20, fireRate: 1.2, hpMultiplier: 1, gunnerFan: 1, reward: 30 },
   { kind: 'wave', cols: 8, rows: ['gunner', 'drone', 'drone', 'drone'], marchSpeed: 24, fireRate: 1.6, hpMultiplier: 1, gunnerFan: 1, reward: 35 },
   { kind: 'wave', cols: 9, rows: ['tank', 'gunner', 'drone', 'drone'], marchSpeed: 28, fireRate: 2, hpMultiplier: 1.1, gunnerFan: 1, reward: 40 },
-  { kind: 'wave', cols: 9, rows: ['tank', 'gunner', 'gunner', 'drone', 'drone'], marchSpeed: 32, fireRate: 2.4, hpMultiplier: 1.2, gunnerFan: 3, reward: 45 },
+  { kind: 'wave', cols: 9, rows: ['tank', 'gunner', 'gunner', 'drone', 'drone'], marchSpeed: 32, fireRate: 2.4, hpMultiplier: 1.2, gunnerFan: 1, reward: 45 },
   { kind: 'boss', boss: 'crimsonSeraph', reward: 100 },
   { kind: 'wave', cols: 10, rows: ['tank', 'diver', 'gunner', 'drone', 'drone'], marchSpeed: 36, fireRate: 2.8, hpMultiplier: 1.8, gunnerFan: 3, reward: 55 },
   { kind: 'wave', cols: 10, rows: ['tank', 'tank', 'diver', 'gunner', 'drone'], marchSpeed: 40, fireRate: 3.2, hpMultiplier: 2.1, gunnerFan: 3, reward: 60 },

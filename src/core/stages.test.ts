@@ -58,8 +58,9 @@ describe('boss forms', () => {
 describe('wave stages', () => {
   const waves = STAGES.flatMap((def, i) => (def.kind === 'wave' ? [{ stage: i + 1, def }] : []));
 
-  it('give Gunner Girls single needles through stage 3 and a 3-needle fan from stage 4 on', () => {
-    expect(waves.map(({ stage, def }) => [stage, def.gunnerFan])).toEqual(waves.map(({ stage }) => [stage, stage <= 3 ? 1 : 3]));
+  it('give Gunner Girls single needles before the first boss and a 3-needle fan after it', () => {
+    const firstBoss = STAGES.findIndex((def) => def.kind === 'boss') + 1;
+    expect(waves.map(({ stage, def }) => [stage, def.gunnerFan])).toEqual(waves.map(({ stage }) => [stage, stage < firstBoss ? 1 : 3]));
   });
 
   it('fire more often stage by stage', () => {

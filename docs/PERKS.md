@@ -86,7 +86,7 @@
 | 1 | 3x8 | Gunner Girl, Pico Drone, Pico Drone | 20 | 1.2 | 1 นัด | 1 | 30 |
 | 2 | 4x8 | Gunner Girl, Pico Drone, Pico Drone, Pico Drone | 24 | 1.6 | 1 นัด | 1 | 35 |
 | 3 | 4x9 | Bulwark, Gunner Girl, Pico Drone, Pico Drone | 28 | 2 | 1 นัด | 1.1 | 40 |
-| 4 | 5x9 | Bulwark, Gunner Girl, Gunner Girl, Pico Drone, Pico Drone | 32 | 2.4 | 3 นัด | 1.2 | 45 |
+| 4 | 5x9 | Bulwark, Gunner Girl, Gunner Girl, Pico Drone, Pico Drone | 32 | 2.4 | 1 นัด | 1.2 | 45 |
 | 5 | **BOSS** | Crimson Seraph (HP 540, 2 เฟส) แปลงร่างที่ HP 50% เป็น Crimson Seraph · Ascended (2 เฟส) | - | - | - | - | 100 |
 | 6 | 5x10 | Bulwark, Kamikaze Kitsune, Gunner Girl, Pico Drone, Pico Drone | 36 | 2.8 | 3 นัด | 1.8 | 55 |
 | 7 | 5x10 | Bulwark, Bulwark, Kamikaze Kitsune, Gunner Girl, Pico Drone | 40 | 3.2 | 3 นัด | 2.1 | 60 |

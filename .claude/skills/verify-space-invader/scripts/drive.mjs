@@ -290,8 +290,9 @@ const JOURNEYS = {
 
   async 'gunner-fan'(h) {
     const SAMPLES = 6;
-    // Every needle seen until `minVolleys` frames have spawned one, with its first SAMPLES positions and the ship
-    // and foes on the frame it appeared. State and bullets are read in the same animation frame.
+    // Every needle born until `minVolleys` frames have spawned one, with its first SAMPLES positions and the ship
+    // and foes on the frame it appeared. Needles already in flight on the first frame are left out, since their first
+    // position is not their muzzle. State and bullets are read in the same animation frame.
     const recordNeedles = (minVolleys, timeoutMs) =>
       h.page.evaluate(
         ([minVolleys, timeoutMs, SAMPLES]) =>
@@ -299,13 +300,14 @@ const JOURNEYS = {
             const g = window.__game;
             const needles = new Map();
             const volleys = new Set();
+            const inFlight = new Set(g.shots().map((b) => b.id));
             const until = performance.now() + timeoutMs;
             let frame = 0;
             const tick = () => {
               const s = g.state();
               frame++;
               for (const b of g.shots()) {
-                if (b.kind !== 'needle') continue;
+                if (b.kind !== 'needle' || inFlight.has(b.id)) continue;
                 const n = needles.get(b.id);
                 if (!n) {
                   needles.set(b.id, { id: b.id, frame, lastFrame: frame, at: [{ x: b.x, y: b.y }], player: s.player, spots: s.foeSpots });
@@ -347,20 +349,25 @@ const JOURNEYS = {
       });
     };
     const near = (a, b) => Math.abs(a - b) <= 0.03;
-    // One-shot drones open the columns over the gunners sooner; the ship holds still so every needle aims at one point.
-    await h.startAt(4, { heavyCaliber: 1 });
+    // Stage 6 gunners sit behind two rows of drones. From a still ship only a few columns open and the fans can stop
+    // within 20s, so the ship first sweeps the width to thin the drones, then holds still so every needle aims at one point.
+    const six0 = await h.startAt(6, { heavyCaliber: 2 });
     await h.game('god', true);
+    const swept = await h.step('sweep left, right and back to the middle twice', async () => {
+      for (const key of ['a', 'd', 'd', 'a', 'a', 'd', 'd', 'a']) await h.hold(key, 700);
+    });
+    h.check('stage 6: the sweep killed foes with real fire', swept.foes < six0.foes, { before: six0.foes, after: swept.foes });
     const FAN_SPREAD = await h.page.evaluate(() => import('/src/game/formation.ts').then((m) => m.FAN_SPREAD));
-    const fan = await h.page.evaluate(() => import('/src/core/stages.ts').then((m) => [m.stageDef(2).gunnerFan, m.stageDef(4).gunnerFan]));
-    h.check('stage 2 gunners fire 1 needle and stage 4 gunners 3', fan[0] === 1 && fan[1] === 3, { stage2: fan[0], stage4: fan[1], FAN_SPREAD });
+    const fan = await h.page.evaluate(() => import('/src/core/stages.ts').then((m) => [m.stageDef(4).gunnerFan, m.stageDef(6).gunnerFan]));
+    h.check('stage 4 gunners fire 1 needle and stage 6 gunners 3', fan[0] === 1 && fan[1] === 3, { stage4: fan[0], stage6: fan[1], FAN_SPREAD });
 
-    const four = await recordNeedles(4, 30000);
-    const fans = volleysOf(four.needles);
-    h.log.steps.push({ action: 'stage 4: record needles live', frames: four.frames, needles: four.needles.length, volleys: fans });
-    h.check('stage 4: gunners fired at least 4 volleys', fans.length >= 4, { volleys: fans.length, frames: four.frames });
-    h.check('stage 4: every volley is 3 needles from one gunner on one frame', fans.every((v) => v.size === 3 && v.shooterPx <= 16), { volleys: fans.map(({ frame, size, shooterPx }) => ({ frame, size, shooterPx })) });
+    const six = await recordNeedles(4, 45000);
+    const fans = volleysOf(six.needles);
+    h.log.steps.push({ action: 'stage 6: record needles live', frames: six.frames, needles: six.needles.length, volleys: fans });
+    h.check('stage 6: gunners fired at least 4 volleys', fans.length >= 4, { volleys: fans.length, frames: six.frames });
+    h.check('stage 6: every volley is 3 needles from one gunner on one frame', fans.every((v) => v.size === 3 && v.shooterPx <= 16), { volleys: fans.map(({ frame, size, shooterPx }) => ({ frame, size, shooterPx })) });
     h.check(
-      'stage 4: the middle needle aims at the ship and the outer two fan out by FAN_SPREAD',
+      'stage 6: the middle needle aims at the ship and the outer two fan out by FAN_SPREAD',
       fans.every((v) => v.offsets.length === 3 && near(v.offsets[0], -FAN_SPREAD) && near(v.offsets[1], 0) && near(v.offsets[2], FAN_SPREAD)),
       { FAN_SPREAD, offsets: fans.map((v) => v.offsets) },
     );
@@ -388,20 +395,20 @@ const JOURNEYS = {
           tick();
         }),
     );
-    h.log.steps.push({ action: 'stage 4: pause with a fan 18 frames out', needles: inFlight });
-    await h.shot('stage4-fan');
+    h.log.steps.push({ action: 'stage 6: pause with a fan 18 frames out', needles: inFlight });
+    await h.shot('stage6-fan');
     const xs = inFlight.map((b) => b.x);
     const ys = inFlight.map((b) => b.y);
-    await h.shot('stage4-fan-closeup', { x: Math.max(0, Math.min(...xs) - 50), y: Math.max(0, Math.min(...ys) - 70), w: Math.max(...xs) - Math.min(...xs) + 100, h: Math.max(...ys) - Math.min(...ys) + 120 });
+    await h.shot('stage6-fan-closeup', { x: Math.max(0, Math.min(...xs) - 50), y: Math.max(0, Math.min(...ys) - 70), w: Math.max(...xs) - Math.min(...xs) + 100, h: Math.max(...ys) - Math.min(...ys) + 120 });
     await h.game('resume');
 
-    await h.startAt(2, { heavyCaliber: 1 });
+    await h.startAt(4, { heavyCaliber: 1 });
     await h.game('god', true);
-    const two = await recordNeedles(5, 40000);
-    const singles = volleysOf(two.needles);
-    h.log.steps.push({ action: 'stage 2: record needles live', frames: two.frames, needles: two.needles.length, volleys: singles });
-    h.check('stage 2: gunners fired at least 5 needles', two.needles.length >= 5, { needles: two.needles.length, frames: two.frames });
-    h.check('stage 2: every needle leaves its gunner alone, aimed at the ship', singles.every((v) => v.size === 1 && v.shooterPx <= 16 && v.offsets.length === 1 && near(v.offsets[0], 0)), {
+    const four = await recordNeedles(5, 40000);
+    const singles = volleysOf(four.needles);
+    h.log.steps.push({ action: 'stage 4: record needles live', frames: four.frames, needles: four.needles.length, volleys: singles });
+    h.check('stage 4: gunners fired at least 5 needles', four.needles.length >= 5, { needles: four.needles.length, frames: four.frames });
+    h.check('stage 4: every needle leaves its gunner alone, aimed at the ship', singles.every((v) => v.size === 1 && v.shooterPx <= 16 && v.offsets.length === 1 && near(v.offsets[0], 0)), {
       volleys: singles.map(({ frame, size, shooterPx, offsets }) => ({ frame, size, shooterPx, offsets })),
     });
   },
