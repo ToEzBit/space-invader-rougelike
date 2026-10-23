@@ -1,6 +1,6 @@
 # Title and run start
 
-The game boots to a title screen with the pixel logo, the chibi cast key art over scrolling stars, the controls panel in Thai, and a prompt. Starting a run opens the shop once as a hangar before stage 1: the player holds 20 coins (`OPENING_COINS` in `src/core/run.ts`) and sees three tier 1 perks with no prerequisite, each costing 20. The run's seed draws three distinct branches, and their cards show in branch order (`BRANCHES` in `src/core/perks.ts`). They buy one or keep the coins for the first real shop, then launch stage 1 with the one centered button, `ENTER · ออกบิน ▶` (`ออกบิน ▶` on touch). The laser branch's only starter is Prism Lance, so a drawn laser branch always shows that card.
+The game boots to a title screen with the pixel logo, the chibi cast key art over scrolling stars, the controls panel in Thai, and a prompt. Starting a run opens the shop once as a hangar before stage 1: the player holds 20 coins (`OPENING_COINS` in `src/core/run.ts`) and sees three tier 1 perks with no prerequisite, each costing 20. The run's seed draws three distinct branches, and their cards show in branch order (`BRANCHES` in `src/core/perks.ts`). They buy one or keep the coins for the first real shop, then launch stage 1 with the one centered button, `ENTER · ออกบิน ▶` (`ออกบิน ▶` on touch). Prism Lance and Close Call are the only starters of the laser and graze branches, so a drawn laser or graze branch always shows that card.
 
 ## Sub-features
 

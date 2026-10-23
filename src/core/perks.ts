@@ -1,12 +1,13 @@
 import { BASE_STATS, type ShipStats } from './stats';
 
-export type Branch = 'rapid' | 'laser' | 'ram';
+export type Branch = 'rapid' | 'laser' | 'ram' | 'graze';
 export type Tier = 1 | 2 | 3 | 4;
 
 export const BRANCH_LABEL: Record<Branch, string> = {
   rapid: 'Bullet Storm · สายยิงรัว',
   laser: 'Prism Lance · สายเลเซอร์',
   ram: 'Comet Strike · สายพุ่งชน',
+  graze: 'Close Call · สายเฉียดกระสุน',
 };
 
 // Registry order: the shop, the docs and the hangar list branches in this order.
@@ -218,6 +219,68 @@ const PERK_SPECS = {
     values: [1.8, 2.6],
     desc: (v) => `ระหว่างพุ่ง ยานใหญ่ขึ้น x${v} และดาเมจชน x${(v * 0.8).toFixed(1)}`,
     apply: (s, v) => { s.dashSizeMultiplier = v; s.dashDamageMultiplier = v * 0.8; },
+  },
+
+  // ---------- Close Call ----------
+  closeCall: {
+    branch: 'graze', tier: 1, name: 'Close Call',
+    values: [5, 7, 9],
+    desc: (v) => `ปลดล็อกสะเก็ดไฟ ทุกครั้งที่เฉียดกระสุนศัตรู ยิงสะเก็ดไฟติดตามศัตรูที่ใกล้ที่สุด (ดาเมจ ${v})`,
+    apply: (s, v) => { s.grazeSparkDamage = v; },
+  },
+  wideHalo: {
+    branch: 'graze', tier: 1, name: 'Wide Halo', requires: 'closeCall',
+    values: [6, 12, 18],
+    desc: (v) => `วงเฉียดกระสุนกว้างขึ้น +${v}px`,
+    apply: (s, v) => { s.grazeHaloPx += v; },
+  },
+  adrenaline: {
+    branch: 'graze', tier: 1, name: 'Adrenaline', requires: 'closeCall',
+    values: [0.85, 0.75, 0.65],
+    desc: (v) => `หลังเฉียดกระสุน ยิงเร็วขึ้น ช่วงห่างกระสุนเหลือ ${pct(v)} นาน ${sec(GRAZE.adrenalineMs)}`,
+    apply: (s, v) => { s.adrenalineIntervalScale = v; },
+  },
+  sparkSplit: {
+    branch: 'graze', tier: 2, name: 'Spark Split', requires: 'closeCall',
+    values: [1, 2, 3],
+    desc: (v) => `ทุกครั้งที่เฉียด ยิงสะเก็ดไฟเพิ่ม +${v} ลูก (กระจายเป็นแนวพัด)`,
+    apply: (s, v) => { s.grazeExtraSparks = v; },
+  },
+  overflow: {
+    branch: 'graze', tier: 2, name: 'Overflow', requires: 'closeCall',
+    values: [1.5, 2, 2.5],
+    desc: (v) => `เกจ TRANS-AM จากการเฉียดกระสุน x${v}`,
+    apply: (s, v) => { s.grazeGainBonus = v - 1; },
+  },
+  staticSkin: {
+    branch: 'graze', tier: 2, name: 'Static Skin', requires: 'closeCall',
+    values: [3, 2, 1],
+    desc: (v) => (v === 1 ? 'ทุกครั้งที่เฉียด ลบกระสุนลูกที่เฉียดทิ้ง' : `ทุก ${v} ครั้งที่เฉียด ลบกระสุนลูกที่เฉียดทิ้ง`),
+    apply: (s, v) => { s.staticSkinEvery = v; },
+  },
+  phaseSkin: {
+    branch: 'graze', tier: 3, name: 'Phase Skin', requires: 'closeCall',
+    values: [12, 8],
+    desc: (v) => `เฉียดกระสุนครบ ${v} ครั้งโดยไม่โดนโจมตี ได้โล่กันโจมตี 1 ครั้ง นาน ${sec(GRAZE.phaseShieldMs)}`,
+    apply: (s, v) => { s.phaseSkinEvery = v; },
+  },
+  flashpoint: {
+    branch: 'graze', tier: 3, name: 'Flashpoint', requires: 'closeCall',
+    values: [40, 56, 72],
+    desc: (v) => `ทุกการเฉียดครั้งที่ ${GRAZE.flashpointEvery} สะเก็ดไฟระเบิดเมื่อโดนเป้า รัศมี ${v}px (ดาเมจเท่าสะเก็ดไฟ)`,
+    apply: (s, v) => { s.flashpointRadius = v; },
+  },
+  lastStand: {
+    branch: 'graze', tier: 3, name: 'Last Stand', requires: 'closeCall',
+    values: [2, 3],
+    desc: (v) => `เมื่อเหลือ 1 HP สะเก็ดไฟดาเมจ x${v}`,
+    apply: (s, v) => { s.lastStandDamageScale = v; },
+  },
+  bulletTime: {
+    branch: 'graze', tier: 4, name: 'Bullet Time', requires: 'closeCall',
+    values: [600, 1000],
+    desc: (v) => `ทุกครั้งที่เฉียด กระสุนศัตรูช้าลงเหลือ ${pct(GRAZE.bulletTimeScale)} นาน ${sec(v)} (ซ้อนกับ TRANS-AM)`,
+    apply: (s, v) => { s.bulletTimeMs = v; },
   },
 } satisfies Record<string, PerkSpec>;
 

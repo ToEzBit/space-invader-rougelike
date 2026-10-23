@@ -58,6 +58,49 @@ describe('deriveStats', () => {
   });
 });
 
+describe('graze perks', () => {
+  const GRAZE_IDS = PERK_IDS.filter((id) => PERKS[id].branch === 'graze');
+
+  it('fold every graze stat from the perk table, all off without them', () => {
+    const none = deriveStats({});
+    expect([none.grazeSparkDamage, none.grazeExtraSparks, none.grazeHaloPx, none.grazeGainBonus, none.adrenalineIntervalScale, none.staticSkinEvery, none.phaseSkinEvery, none.flashpointRadius, none.lastStandDamageScale, none.bulletTimeMs]).toEqual([
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ]);
+    const s = deriveStats({ closeCall: 2, wideHalo: 3, adrenaline: 1, sparkSplit: 2, overflow: 3, staticSkin: 3, phaseSkin: 2, flashpoint: 1, lastStand: 2, bulletTime: 2 });
+    expect(s).toEqual({
+      ...BASE_STATS,
+      grazeSparkDamage: 7,
+      grazeHaloPx: 18,
+      adrenalineIntervalScale: 0.85,
+      grazeExtraSparks: 2,
+      grazeGainBonus: 1.5,
+      staticSkinEvery: 1,
+      phaseSkinEvery: 8,
+      flashpointRadius: 40,
+      lastStandDamageScale: 3,
+      bulletTimeMs: 1000,
+    });
+  });
+
+  it('never reach the shop before Close Call is owned, and all reach it after', () => {
+    for (let stage = 1; stage <= 9; stage++) {
+      for (let seed = 1; seed < 300; seed++) {
+        const offered = roll(stage, seed).flatMap((o) => (o?.kind === 'perk' && PERKS[o.id].branch === 'graze' ? [o.id] : []));
+        expect(offered.filter((id) => id !== 'closeCall')).toEqual([]);
+      }
+    }
+    const seen = new Set<PerkId>();
+    for (let seed = 1; seed < 2000; seed++) roll(9, seed, { closeCall: 1 }).forEach((o) => o?.kind === 'perk' && seen.add(o.id));
+    expect(GRAZE_IDS.filter((id) => id !== 'closeCall' && !seen.has(id))).toEqual([]);
+  });
+
+  it('start from Close Call in the hangar', () => {
+    for (let seed = 1; seed < 300; seed++) {
+      for (const o of shopOf(openRun(seed)).offers) if (o?.kind === 'perk' && PERKS[o.id].branch === 'graze') expect(o.id).toBe('closeCall');
+    }
+  });
+});
+
 describe('shop rolls', () => {
   it('after stage 1 offers only tier 1 perks with no locked prerequisites', () => {
     for (let seed = 1; seed < 200; seed++) {
