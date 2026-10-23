@@ -166,7 +166,7 @@ function homing(b: Bullet, foes: readonly Foe[], dtSec: number): void {
   let best: Foe | null = null;
   let bestD = Infinity;
   for (const f of foes) {
-    if (f.dead || f.sprite.y > b.sprite.y + 40) continue;
+    if (f.dead || b.hit.has(f) || f.sprite.y > b.sprite.y + 40) continue;
     const d = (f.sprite.x - b.sprite.x) ** 2 + (f.sprite.y - b.sprite.y) ** 2;
     if (d < bestD) [best, bestD] = [f, d];
   }
