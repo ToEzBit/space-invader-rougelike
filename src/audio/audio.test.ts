@@ -141,11 +141,11 @@ describe('the track for the moment', () => {
   ];
   const LOADS: Record<FileLoad['status'], FileLoad> = {
     idle: { status: 'idle' },
-    fetching: { status: 'fetching', url: '/music/void-empress.ogg', attempt: 1, tried: [] },
-    fetched: { status: 'fetched', url: '/music/void-empress.ogg', bytes: new ArrayBuffer(8), attempt: 1, tried: [] },
-    decoding: { status: 'decoding', url: '/music/void-empress.ogg', attempt: 1, tried: [] },
+    fetching: { status: 'fetching', url: '/music/void-empress.ogg', attempt: 1, firstOfRound: 1, tried: [] },
+    fetched: { status: 'fetched', url: '/music/void-empress.ogg', bytes: new ArrayBuffer(8), attempt: 1, firstOfRound: 1, tried: [] },
+    decoding: { status: 'decoding', url: '/music/void-empress.ogg', attempt: 1, firstOfRound: 1, tried: [] },
     ready: { status: 'ready', url: '/music/void-empress.ogg', buffer: {} as AudioBuffer, gain: 0.5 },
-    failed: { status: 'failed', attempt: 1, tried: [], retryAt: 2000 },
+    failed: { status: 'failed', attempt: 1, firstOfRound: 1, tried: [], retryAt: 2000 },
   };
   const at = (boss: BossView | null, empress: FileLoad['status'] = 'ready', moment: Partial<StageMoment> = {}) => {
     const source = sourceFor(cueFor({ stage: boss?.id === 'voidEmpress' ? 10 : boss ? 5 : 1, boss, phase: 'playing', ...moment }), () => LOADS[empress]);

@@ -1,6 +1,6 @@
 import { onAudio } from './context';
 import { sourceFor, type Cue, type Source } from './director';
-import { attemptDue, attemptFailed, decodeDue, type Attempt, type FetchedFile, type FileLoad, type ReadyFile } from './fileLoad';
+import { attemptDue, attemptFailed, decodeDue, rearmed, type Attempt, type FetchedFile, type FileLoad, type ReadyFile } from './fileLoad';
 import { gainToMatch } from './loudness';
 import { compile, playStep, type Song } from './synth';
 import { FILE_TRACKS, type FileId, type JingleId, type ScoreId, type TrackId } from './tracks';
@@ -59,6 +59,8 @@ onAudio((ctx) => {
 });
 
 export function want(cue: Cue | null, next: Cue | null = null): void {
+  const file = fileOf(cue);
+  if (file !== null && file !== fileOf(wanted)) files[file] = rearmed(files[file], performance.now());
   wanted = cue;
   upNext = next;
 }

@@ -2238,6 +2238,51 @@ const JOURNEYS = {
       healed.run?.stage === 10 && healed.boss?.stance !== 'dead' && !healed.music.fellBack && healed.music.url === '/music/void-empress.ogg' && healed.music.files.empress.status === 'ready' && healed.music.plays === onSynth.music.plays + 1 && served.at(-1) === '/music/void-empress.ogg' && served.length >= 3 && warnings.length === 1,
       { before: onSynth.music, after: healed.music, served: [...served], warnings: [...warnings] },
     );
+
+    // A round of retries takes about five minutes, so the music module's own clock is pushed ahead instead: only
+    // performance.now calls made from music.ts see the skew, and Phaser's loop keeps real time.
+    songUp = false;
+    served.length = 0;
+    warnings.length = 0;
+    await h.page.addInitScript(() => {
+      const now = performance.now.bind(performance);
+      window.__musicSkewMs = 0;
+      performance.now = () => (window.__musicSkewMs && new Error().stack?.includes('/src/audio/music.ts') ? now() + window.__musicSkewMs : now());
+    });
+    await h.page.reload();
+    await h.waitFor('Title with the song failing, music clock skewable', (x) => x.scenes.includes('Title'), 15000);
+    await h.page.keyboard.press('Shift');
+    const spent = await h.page.evaluate(async () => {
+      for (let i = 0; i < 400; i++) {
+        const f = window.__game.state().music.files.empress;
+        if (f.status === 'failed' && f.retryAt === null) return f;
+        if (f.status === 'failed') window.__musicSkewMs += 61_000;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      return window.__game.state().music.files.empress;
+    });
+    await h.page.evaluate(() => (window.__musicSkewMs += 3_600_000));
+    await sleep(500);
+    h.check(
+      'after every attempt of the round has failed the song is not requested again, an hour later on its clock',
+      spent.status === 'failed' && spent.attempt === MAX_ATTEMPTS && spent.retryAt === null && served.length === 2 * MAX_ATTEMPTS && (await h.state()).music.files.empress.attempt === MAX_ATTEMPTS,
+      { spent, served: served.length },
+    );
+    songUp = true;
+    const watching = framesUntil("s.music.playing === 'empress'", 10000);
+    await h.startAt(10);
+    await h.game('god', true);
+    const rearmed = await watching;
+    const back = await h.state();
+    h.check(
+      'stage 10 asking for the song starts a fresh round at once: Crimson Verdict stands in, then attempt 11 loads the song',
+      rearmed.some((f) => f.track === 'empress' && f.playing === 'boss1') &&
+        back.music.files.empress.status === 'ready' &&
+        served.length === 2 * MAX_ATTEMPTS + 1 &&
+        served.at(-1) === '/music/void-empress.ogg' &&
+        warnings.length === 1,
+      { playing: [...new Set(rearmed.map((f) => f.playing))], files: back.music.files, served: served.length, warnings: [...warnings] },
+    );
   },
   async mobile(h) {
     const outDir = join(ROOT, '.verify', runId, 'evidence', 'mobile');

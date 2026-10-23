@@ -10,7 +10,7 @@ ffmpeg -i void-empress.mp3 -map_metadata -1 -vn -c:a libvorbis -q:a 3 void-empre
 
 Quality 3 is a nominal 112 kbps, and this song averages 91 kbps at that setting. In Chrome both files decode to the same 13,809,664 samples, so neither codec adds a gap at the loop seam. The song itself starts with about 0.15 s and ends with about 1 s under -60 dBFS, and that quiet stretch is heard each time it loops.
 
-The game downloads the song on the first key or tap, so it is on hand long before stage 10, and decodes it in the shop after stage 9. Decoded, it takes about 120 MB of memory, so it is not held through the earlier stages. A failed download or decode is retried 2, 4, 8, 16 and 32 s later, then every minute, up to 10 tries. While the latest try has failed, the Empress fights to Crimson Verdict and Crimson Verdict II. A later try that succeeds crossfades into the song, even mid-fight.
+The game downloads the song on the first key or tap, so it is on hand long before stage 10, and decodes it in the shop after stage 9. Decoded, it takes about 120 MB of memory, so it is not held through the earlier stages. A failed download or decode is retried 2, 4, 8, 16 and 32 s later, then every minute, up to 10 tries. If all 10 fail, stage 10 starts another 10 when it begins. While the latest try has failed, the Empress fights to Crimson Verdict and Crimson Verdict II. A later try that succeeds crossfades into the song, even mid-fight.
 
 The game sets the song's level to match the other boss music, so it needs no volume editing.
 

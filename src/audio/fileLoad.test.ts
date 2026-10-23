@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { cueFor, openingCue, sourceFor, type Cue } from './director';
-import { attemptDue, attemptFailed, decodeDue, MAX_ATTEMPTS, type Attempt, type FileLoad, type ReadyFile } from './fileLoad';
+import { attemptDue, attemptFailed, decodeDue, MAX_ATTEMPTS, rearmed, type Attempt, type FileLoad, type ReadyFile } from './fileLoad';
 
 const URL = '/music/void-empress.ogg';
 const SONG: ReadyFile = { status: 'ready', url: URL, buffer: {} as AudioBuffer, gain: 0.5 };
 const EMPRESS = cueFor({ stage: 10, boss: { id: 'voidEmpress', form: 0, stanceKind: 'fighting' }, phase: 'playing' });
+const EMPRESS_2ND_FORM = cueFor({ stage: 10, boss: { id: 'voidEmpress', form: 1, stanceKind: 'fighting' }, phase: 'playing' });
 const TICK_MS = 25;
 
 // From atMs on, the scene wants `cue`, and names `next` as what follows it.
@@ -22,7 +23,8 @@ type Sim = {
 };
 
 // Runs the music tick's load loop on a fake clock: a fetch takes fetchMs and a decode decodeMs, and each succeeds or
-// fails per attempt. Returns when each fetch and decode started and what the scene's cue resolved to on every tick.
+// fails per attempt. A scene that starts asking for the song rearms it, as want() does. Returns when each fetch and
+// decode started and what the scene's cue resolved to on every tick.
 function run({ scenes, fetches = () => true, decodes = () => true, fetchMs = 100, decodeMs = 100, untilMs }: Sim) {
   let load: FileLoad = { status: 'idle' };
   let settlesAt = Infinity;
@@ -30,11 +32,14 @@ function run({ scenes, fetches = () => true, decodes = () => true, fetchMs = 100
   const decoded: number[] = [];
   const ticks: { t: number; source: string; status: FileLoad['status'] }[] = [];
   const near = (cue: Cue | null | undefined) => cue !== null && typeof cue === 'object' && cue.file === 'empress';
+  let asked = false;
   for (let t = 0; t <= untilMs; t += TICK_MS) {
     const scene = scenes.filter((s) => s.atMs <= t).at(-1)!;
+    if (near(scene.cue) && !asked) load = rearmed(load, t);
+    asked = near(scene.cue);
     if (t >= settlesAt && load.status === 'fetching') {
-      const { attempt, tried }: Attempt = load;
-      load = fetches(attempt) ? { status: 'fetched', url: URL, bytes: new ArrayBuffer(8), attempt, tried } : attemptFailed(load, [`${URL} (HTTP 404)`], t);
+      const { attempt, firstOfRound, tried }: Attempt = load;
+      load = fetches(attempt) ? { status: 'fetched', url: URL, bytes: new ArrayBuffer(8), attempt, firstOfRound, tried } : attemptFailed(load, [`${URL} (HTTP 404)`], t);
     }
     if (t >= settlesAt && load.status === 'decoding') load = decodes(load.attempt) ? SONG : attemptFailed(load, [`${URL} (EncodingError)`], t);
     const attempt = attemptDue(load, t);
@@ -45,7 +50,7 @@ function run({ scenes, fetches = () => true, decodes = () => true, fetchMs = 100
     }
     const bytes = decodeDue(load, near(scene.cue) || near(scene.next));
     if (bytes) {
-      load = { status: 'decoding', url: URL, attempt: bytes.attempt, tried: bytes.tried };
+      load = { status: 'decoding', url: URL, attempt: bytes.attempt, firstOfRound: bytes.firstOfRound, tried: bytes.tried };
       settlesAt = t + decodeMs;
       decoded.push(t);
     }
@@ -113,10 +118,39 @@ describe("loading the Empress's song", () => {
     expect(ticks.filter((s) => s.t >= 100).every((s) => s.source === 'boss1')).toBe(true);
   });
 
+  it('starts a fresh round when stage 10 asks for a song that has given up, on the fallback, and plays the song once it loads', () => {
+    const scenes = [TITLE, { atMs: 400_000, cue: EMPRESS }];
+    const { fetched, at } = run({ scenes, fetches: (attempt) => attempt === MAX_ATTEMPTS + 2, untilMs: 410_000 });
+    expect(fetched.slice(MAX_ATTEMPTS)).toEqual([400_000, 402_100]);
+    expect(at(399_975)).toBe('normal');
+    expect(at(400_000)).toBe('boss1');
+    expect(at(402_275)).toBe('boss1');
+    expect(at(402_300)).toBe('empress');
+  });
+
+  it('rearms once each time the song starts being asked for, not while it stays asked for or across her transformation', () => {
+    const scenes: Scene[] = [TITLE, { atMs: 400_000, cue: EMPRESS }, { atMs: 1_000_000, cue: EMPRESS_2ND_FORM }, { atMs: 1_100_000, cue: 'victory' }, { atMs: 1_200_000, cue: EMPRESS }];
+    const { fetched, load, ticks } = run({ scenes, fetches: () => false, untilMs: 1_200_050 });
+    expect(fetched).toHaveLength(2 * MAX_ATTEMPTS + 1);
+    expect(fetched[MAX_ATTEMPTS]).toBe(400_000);
+    expect(fetched.filter((t) => t > 800_000 && t < 1_200_000)).toEqual([]);
+    expect(fetched.at(-1)).toBe(1_200_000);
+    expect(load).toMatchObject({ status: 'fetching', attempt: 2 * MAX_ATTEMPTS + 1, firstOfRound: 2 * MAX_ATTEMPTS + 1 });
+    expect(ticks.filter((s) => s.t >= 400_000 && s.t < 1_000_000).every((s) => s.source === 'boss1')).toBe(true);
+  });
+
+  it('never rearms a load that still has retries left, is in flight or is ready', () => {
+    const failed = attemptFailed({ attempt: 3, firstOfRound: 1, tried: [] }, [], 0);
+    expect(rearmed(failed, 5)).toBe(failed);
+    expect(rearmed(SONG, 5)).toBe(SONG);
+    const fetching: FileLoad = { status: 'fetching', url: URL, attempt: 1, firstOfRound: 1, tried: [] };
+    expect(rearmed(fetching, 5)).toBe(fetching);
+  });
+
   it('never starts an attempt or a decode while one is in flight, and never again once the song is ready', () => {
-    expect(attemptDue({ status: 'fetching', url: URL, attempt: 1, tried: [] }, 1e9)).toBeNull();
-    expect(attemptDue({ status: 'decoding', url: URL, attempt: 1, tried: [] }, 1e9)).toBeNull();
-    expect(decodeDue({ status: 'decoding', url: URL, attempt: 1, tried: [] }, true)).toBeNull();
+    expect(attemptDue({ status: 'fetching', url: URL, attempt: 1, firstOfRound: 1, tried: [] }, 1e9)).toBeNull();
+    expect(attemptDue({ status: 'decoding', url: URL, attempt: 1, firstOfRound: 1, tried: [] }, 1e9)).toBeNull();
+    expect(decodeDue({ status: 'decoding', url: URL, attempt: 1, firstOfRound: 1, tried: [] }, true)).toBeNull();
     expect(attemptDue(SONG, 1e9)).toBeNull();
     const { fetched, decoded } = run({ scenes: [STAGE_10], fetchMs: 60_000, decodeMs: 60_000, untilMs: 240_000 });
     expect(fetched).toEqual([0]);
