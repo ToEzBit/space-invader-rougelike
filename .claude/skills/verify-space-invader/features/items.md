@@ -37,7 +37,7 @@ Preconditions:
 - The shop half reaches the shop with `__game.start(1, {}, 2000)` then `kill()`.
 - The stage half loads items with `__game.start(stage, perks, money, items)`. `state()` in `Stage` adds `items`, `buffs` (`{ buff, msLeft }[]`), `shieldMs` and the effective `stats` (`moveSpeed`, `bulletDamage`, `fireIntervalMs`).
 
-- **Offer and buy.** Run `drive.mjs <run-id> items`. It presses `r` until a `cards` entry has `kind: 'item'` (it stops early if money would drop under 25), then presses that card's key. `run.items[id]` rises by 1, `run.money` drops by `offerCost`, and the card is `null`.
+- **Offer and buy.** Run `drive.mjs <run-id> items`. It presses `r` until a `cards` entry has `kind: 'item'` (it stops early if money would drop under the dearest item's `offerCost`), then presses that card's key. `run.items[id]` rises by 1, `run.money` drops by `offerCost`, and the card is `null`.
 - **Repair.** Stage 4 with `{ reinforcedHull: 3 }` and `{ repairKit: 2, nitro: 2, powerCell: 1, overclock: 1, barrierCapsule: 1 }`. `z` at full HP leaves HP and `repairKit` unchanged. After `hurt()`, `z` adds 1 HP and spends one.
 - **Nitro.** `ArrowLeft` held 400ms is measured without and then with Nitro from the middle of the field. With Nitro `stats.moveSpeed` is 1.5x `deriveStats` and the ship moves about 1.5x as far, with neither end at the wall.
 - **Power Cell and Overclock.** `c` then `v` make `buffs` hold three entries, `stats.bulletDamage` 1.5x and `stats.fireIntervalMs` 0.6x.

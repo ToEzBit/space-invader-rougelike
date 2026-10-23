@@ -330,6 +330,20 @@ const JOURNEYS = {
     await h.step('press Enter', () => h.page.keyboard.press('Enter'));
     const next = await h.waitFor('stage 2 fighting', (x) => x.scenes.includes('Stage') && x.run?.stage === 2);
     h.check('Enter continues to stage 2 keeping money and what was bought', next.run.money === s3.run.money && owned(next) === 1, summarize(next).run);
+
+    await h.startAt(6, {}, 500);
+    await h.game('kill');
+    const late = await h.waitFor('Shop scene after stage 6', (x) => x.scenes.includes('Shop') && x.run.stage === 6);
+    const prices = await h.core(`${JSON.stringify(late.cards)}.map((o) => ({
+      offer: o,
+      first: o.kind === 'perk' ? perks.perkCost(perks.PERKS[o.id], 1) : items.ITEMS[o.id].cost,
+      now: run.offerCost(${JSON.stringify(late.run)}, o),
+    }))`);
+    h.check('every price after stage 6 is a multiple of 5 and above its first-shop price', prices.every((p) => p.now % 5 === 0 && p.now > p.first), { prices });
+    await sleep(300);
+    await h.shot('later-shop');
+    const lateBuy = await h.step('press 1 in the later shop', () => h.page.keyboard.press('1'));
+    h.check('1 in the later shop charges its risen price', lateBuy.run.money === late.run.money - prices[0].now, { before: late.run.money, after: lateBuy.run.money, price: prices[0].now });
   },
 
   async 'shop-tooltip'(h) {
@@ -525,10 +539,11 @@ const JOURNEYS = {
     await h.game('kill');
     let s = await h.waitFor('Shop scene', (x) => x.scenes.includes('Shop'));
     const itemSlot = (x) => x.cards.findIndex((c) => c?.kind === 'item');
+    const dearestItem = await h.core(`Math.max(...items.ITEM_IDS.map((id) => run.offerCost(${JSON.stringify(s.run)}, { kind: 'item', id })))`);
     let refreshes = 0;
     while (itemSlot(s) < 0 && refreshes < 40) {
       const cost = await h.core(`run.refreshCost(${JSON.stringify(s.run)})`);
-      if (s.run.money - cost < 25) break;
+      if (s.run.money - cost < dearestItem) break;
       s = await h.step('press R looking for an item card', () => h.page.keyboard.press('r'));
       refreshes++;
     }

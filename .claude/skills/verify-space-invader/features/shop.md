@@ -1,12 +1,13 @@
 # Perk shop
 
-After clearing a stage the player gets the stage reward plus kill coins and lands in the upgrade shop. It shows 3 random offer cards, a Refresh button whose cost rises each use, the player's owned perks and held items, HP and money, and Continue. Each card is a perk (branch, tier, level, Thai description, cost) or, with a 20% chance per slot, a consumable item (gold frame, round icon well, `ถืออยู่ n/3`, cost). Items have their own feature file, [items.md](./items.md).
+After clearing a stage the player gets the stage reward plus kill coins and lands in the upgrade shop. It shows 3 random offer cards, a Refresh button whose cost rises each use, the player's owned perks and held items, HP and money, and Continue. Each card is a perk (branch, tier, level, Thai description, cost) or, with a 20% chance per slot, a consumable item (gold frame, round icon well, `ถืออยู่ n/3`, cost). Items have their own feature file, [items.md](./items.md). `offerCost` in `src/core/run.ts` prices every card: the base price in the shop after stage 1, rising by `PRICE_RISE_PER_STAGE` (20%) for each stage cleared after that, rounded to the nearest 5.
 
 ## Sub-features
 
 - `shop-offers` shows 3 eligible offers, perks and items mixed.
 - `shop-refresh` rerolls the cards for `refreshCost`, which rises per refresh in the same visit.
 - `shop-buy` buys a card for `offerCost`, adds or levels the perk (or adds one item), and marks the card sold out.
+- `shop-prices` charges more in later shops, every price a multiple of 5.
 - `shop-sold-out` ignores a second buy of a sold-out card.
 - `shop-poor` refuses a buy or refresh the player cannot afford.
 - `shop-continue` starts the next stage with money and perks carried over.
@@ -30,7 +31,8 @@ Preconditions:
 - **Buy.** Press `1`. `run.money` drops by exactly `offerCost` for that offer, `run.perks[id]` (or `run.items[id]` for an item) becomes 1, and `cards[0]` becomes `null`.
 - **Sold out.** Press `1` again. `run.money` is unchanged.
 - **Continue.** Press `Enter`. `scenes` contains `Stage`, `run.stage` is 2, and money and what was bought match the shop's.
-- **Proof.** `shop/01-shop.png`, `02-after-refresh.png` and `03-after-buy.png` show the cards, the higher refresh price, and the SOLD OUT card with the new perk chip.
+- **Later shop.** `__game.start(6, {}, 500)` then `kill()` opens the shop after stage 6. Every card's `offerCost` is a multiple of 5 and above its base price, and pressing `1` charges exactly that `offerCost`.
+- **Proof.** `shop/01-shop.png`, `02-after-refresh.png` and `03-after-buy.png` show the cards, the higher refresh price, and the SOLD OUT card with the new perk chip. `04-later-shop.png` shows the risen prices after stage 6.
 
 Tooltips run as their own journey, `drive.mjs <run-id> shop-tooltip`, at deviceScaleFactor 2. It reaches the shop with `__game.start(1, { heavyCaliber: 2, prismLance: 3, afterburnerDash: 1 }, 0, { nitro: 2 })` then `kill()`, and hovers with `page.mouse` only.
 

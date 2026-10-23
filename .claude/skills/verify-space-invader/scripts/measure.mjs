@@ -26,17 +26,18 @@ const hitBudget = rest.includes('--hit-budget');
 const names = rest.filter((a, i) => !a.startsWith('--') && rest[i - 1] !== '--runs');
 
 // Budgets come from the stage table: entering stage 5 a run has earned at most 366 coins (every kill plus rewards),
-// entering stage 10 at most 1252. Typical spends about half, strong nearly all, using only tiers the shop offers.
+// entering stage 10 at most 1266. Loadouts are priced at the rising shop prices, each level bought in the earliest
+// shop that offers its tier: typical spends about half, strong nearly 90%.
 const CELLS = {
   's5-typical': { stage: 5, perks: { hairTrigger: 2, heavyCaliber: 1, twinCannons: 1, prismLance: 1, reinforcedHull: 1 } },
-  's5-strong': { stage: 5, perks: { hairTrigger: 3, heavyCaliber: 2, twinCannons: 2, prismLance: 1, focusLens: 1 } },
+  's5-strong': { stage: 5, perks: { hairTrigger: 3, heavyCaliber: 2, twinCannons: 1, prismLance: 1, focusLens: 1 } },
   's10-typical': {
     stage: 10,
-    perks: { hairTrigger: 3, heavyCaliber: 2, twinCannons: 2, spreadFan: 1, prismLance: 2, focusLens: 1, capacitorBank: 1, reinforcedHull: 2, luckyStar: 1, seekerMissiles: 1 },
+    perks: { hairTrigger: 3, heavyCaliber: 2, twinCannons: 1, spreadFan: 1, prismLance: 2, focusLens: 1, reinforcedHull: 2 },
   },
   's10-strong': {
     stage: 10,
-    perks: { hairTrigger: 3, heavyCaliber: 3, twinCannons: 2, luckyStar: 2, seekerMissiles: 2, optionDrones: 1, overdrive: 1, prismLance: 3, focusLens: 2, reinforcedHull: 2 },
+    perks: { hairTrigger: 3, heavyCaliber: 2, twinCannons: 2, spreadFan: 1, prismLance: 2, focusLens: 1, capacitorBank: 1, reinforcedHull: 2, luckyStar: 1, seekerMissiles: 1 },
   },
 };
 // The ship turns back once it is this far past the boss on either side, or at a wall.
