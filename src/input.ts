@@ -16,6 +16,7 @@ type InputWording = {
   music: (muted: boolean) => string;
   refresh: (cost: number) => string;
   go: string;
+  launch: string;
   cardKey: (slot: number) => string;
   itemUse: (item: ItemDef) => string;
   skillHint: Record<SkillId, string>;
@@ -38,6 +39,7 @@ const WORDING: Record<InputMode, InputWording> = {
     music: (muted) => `M · เพลง ${muted ? 'ปิด' : 'เปิด'}`,
     refresh: (cost) => `R · รีเฟรช  ${cost}`,
     go: 'ENTER · ไปต่อ ▶',
+    launch: 'ENTER · ออกบิน ▶',
     cardKey: (slot) => `[${slot + 1}]`,
     itemUse: (item) => `ไอเทมกดใช้ · ปุ่ม ${item.key} ระหว่างด่าน`,
     skillHint: { transAm: 'SPACE', dash: 'SHIFT', laser: 'AUTO', orbital: 'AUTO' },
@@ -58,6 +60,7 @@ const WORDING: Record<InputMode, InputWording> = {
     music: (muted) => `เพลง ${muted ? 'ปิด' : 'เปิด'}`,
     refresh: (cost) => `รีเฟรช  ${cost}`,
     go: 'ไปต่อ ▶',
+    launch: 'ออกบิน ▶',
     cardKey: () => '',
     itemUse: () => 'ไอเทมกดใช้ · แตะไอคอนระหว่างด่าน',
     // The tappable slots read as buttons by themselves; only the ones a tap does nothing for keep a word.

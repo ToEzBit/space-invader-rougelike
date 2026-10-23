@@ -206,9 +206,12 @@ export class ShopScene extends Phaser.Scene {
   }
 
   private drawButtons(): void {
-    const cost = refreshCost(this.run);
-    const canRefresh = refreshShop(this.run).ok;
-    this.button('refresh', VIEW.w / 2 - 110, WORDS.refresh(cost), canRefresh ? BUTTON.refresh : BUTTON.disabled, () => this.refresh());
+    const refresh = refreshShop(this.run);
+    if (!refresh.ok && refresh.reason === 'hangar') {
+      this.button('go', VIEW.w / 2, WORDS.launch, BUTTON.go, () => this.leave());
+      return;
+    }
+    this.button('refresh', VIEW.w / 2 - 110, WORDS.refresh(refreshCost(this.run)), refresh.ok ? BUTTON.refresh : BUTTON.disabled, () => this.refresh());
     this.button('go', VIEW.w / 2 + 110, WORDS.go, BUTTON.go, () => this.leave());
   }
 

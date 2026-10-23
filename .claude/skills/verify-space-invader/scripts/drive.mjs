@@ -214,6 +214,12 @@ function summarize(s) {
   };
 }
 
+function hangarButtons(s) {
+  const target = (id) => s.targets.find((t) => t.id === id);
+  const [go, card] = [target('go'), target('card0')];
+  return !target('refresh') && go && card && go.x + go.w / 2 === card.x + card.w / 2;
+}
+
 const JOURNEYS = {
   async doctor(h) {
     const s = await h.openTitle();
@@ -243,6 +249,7 @@ const JOURNEYS = {
         );
         await sleep(400);
         await h.shot('hangar');
+        h.check('the hangar draws no refresh button and centers the go button under the cards', hangarButtons(hangar), { targets: hangar.targets });
 
         const denies = hangar.sfx.played.deny ?? 0;
         await h.step('press R in the hangar', () => h.page.keyboard.press('r'));
@@ -2125,11 +2132,7 @@ const JOURNEYS = {
         atHangar: async (hangar) => {
           await sleep(400);
           await m.shot('hangar');
-          const denies = hangar.sfx.played.deny ?? 0;
-          const refresh = hangar.targets.find((t) => t.id === 'refresh');
-          await m.step('tap refresh in the hangar', () => tap(1, { x: refresh.x + refresh.w / 2, y: refresh.y + refresh.h / 2 }));
-          const refused = await m.waitFor('hangar refresh denied', (x) => (x.sfx.played.deny ?? 0) === denies + 1, 2000);
-          m.check('a tap on refresh in the hangar is refused and changes nothing', refused.run.money === hangar.run.money && JSON.stringify(refused.cards) === JSON.stringify(hangar.cards), { denies: refused.sfx.played.deny, money: refused.run.money, cards: refused.cards });
+          m.check('the hangar draws no refresh button and centers the go button under the cards', hangarButtons(hangar), { targets: hangar.targets });
         },
         go: (hangar) => {
           const go = hangar.targets.find((t) => t.id === 'go');
