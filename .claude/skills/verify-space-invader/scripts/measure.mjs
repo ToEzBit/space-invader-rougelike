@@ -25,9 +25,10 @@ const useTransAm = rest.includes('--trans-am');
 const hitBudget = rest.includes('--hit-budget');
 const names = rest.filter((a, i) => !a.startsWith('--') && rest[i - 1] !== '--runs');
 
-// Budgets come from the stage table: entering stage 5 a run has earned at most 366 coins (every kill plus rewards),
-// entering stage 10 at most 1266. Loadouts are priced at the rising shop prices, each level bought in the earliest
-// shop that offers its tier: typical spends about half, strong nearly 90%.
+// Budgets come from the stage table plus the hangar's 20 opening coins: entering stage 5 a run holds at most 386
+// coins (every kill plus rewards), entering stage 10 at most 1286. Loadouts are priced at the rising shop prices, the
+// first level in the earliest shop that offers its tier and each later level one shop after the last: typical costs
+// 170 of 386 and 465 of 1286, strong 305 and 805.
 const CELLS = {
   's5-typical': { stage: 5, perks: { hairTrigger: 2, heavyCaliber: 1, twinCannons: 1, prismLance: 1, reinforcedHull: 1 } },
   's5-strong': { stage: 5, perks: { hairTrigger: 3, heavyCaliber: 2, twinCannons: 1, prismLance: 1, focusLens: 1 } },

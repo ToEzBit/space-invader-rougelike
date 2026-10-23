@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buyOffer, clearStage, leaveShop, newRun, offerCost, type RunState } from './run';
+import { buyOffer, clearStage, leaveShop, offerCost, openRun, type RunState } from './run';
 import { ENEMIES, STAGES, type BossId } from './stages';
 
 const SEEDS = 400;
@@ -29,7 +29,7 @@ function buyCheapestUntilBroke(run: RunState): RunState {
 // Per shop (index = stage cleared - 1): money held on entering it over the price of all three offers.
 function shopCoverage(seed: number): number[] {
   const ratios: number[] = [];
-  let run = newRun(seed);
+  let run = leaveShop(buyCheapestUntilBroke(openRun(seed)));
   while (run.phase.kind === 'playing') {
     run = clearStage(run, killCoins(run.stage));
     if (run.phase.kind !== 'shop') break;
@@ -50,7 +50,7 @@ function median(values: number[]): number {
 const runs = Array.from({ length: SEEDS }, (_, seed) => shopCoverage(seed + 1));
 const medianAfterStage = (stage: number) => median(runs.map((r) => r[stage - 1]!));
 
-describe('shop economy for a run that kills everything and buys the cheapest card it can afford', () => {
+describe('shop economy for a run that kills everything and buys the cheapest card it can afford, from the hangar on', () => {
   it('visits a shop after each of stages 1 to 9', () => {
     expect(runs.every((r) => r.length === 9)).toBe(true);
   });
