@@ -1,6 +1,6 @@
 import transAm1 from '../assets/voice/transam-1.mp3';
 import transAm2 from '../assets/voice/transam-2.mp3';
-import { audioContext, onAudio } from './context';
+import { audioContext, fetchAudio, onAudio } from './context';
 import { pickLine, speechSegments, voiceGain, voiceTimeline, type Segment, type Slice } from './voiceLine';
 
 export const VOICE_URLS = [transAm1, transAm2];
@@ -53,14 +53,8 @@ export function playLine(ctx: BaseAudioContext, out: AudioNode, line: VoiceLine,
 }
 
 export async function decodeLine(ctx: BaseAudioContext, url: string): Promise<VoiceLine | string> {
-  let buffer: AudioBuffer;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return `HTTP ${res.status}`;
-    buffer = await ctx.decodeAudioData(await res.arrayBuffer());
-  } catch (e) {
-    return e instanceof Error ? e.name : String(e);
-  }
+  const buffer = await fetchAudio(ctx, url);
+  if (typeof buffer === 'string') return buffer;
   const samples = buffer.getChannelData(0);
   const segments = speechSegments(samples, buffer.sampleRate);
   const timeline = voiceTimeline(segments, buffer.duration);

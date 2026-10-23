@@ -31,6 +31,7 @@ Run `drive.mjs <run-id> sfx`. `Shift` starts the audio. A recorder in the page s
 - **Cut-in.** Prism Lance with Long Discharge III, `Space` mid-beam: the buzz stops and stays silent through the cut-in while the beam is frozen on, after it the buzz starts once more with no second zap, and stops when that beam ends.
 - **Endings.** A stage clear (`kill()`) and a defeat (`hurt()` until the run is lost), each mid-beam: the buzz stops once, nothing is live 250 ms into the outro while the beam still burns, and no buzz starts again.
 - **Orbital.** Stage 3 with Orbital Cannon: `orbital` plays once, on the frame the cannon's slot goes from aiming to cooling.
+- **Newtype flash.** After `Shift`, `state().newtypeFlash` turns `ready` with a gain. Stage 4, before the TRANS-AM check: `Space` on an empty gauge leaves `newtypeFlash.played` and the `transAm` count unchanged and the gauge charging, and `Space` on a full gauge raises `newtypeFlash.played` by one, on one frame, and plays `transAm` once, across the whole TRANS-AM. The flash is a sample, not a recipe (see [voice](./voice.md)).
 - **Casts.** For each boss form, every pattern it uses is forced with `bossPattern` (all ten across the four forms): the cast sound of its tier plays exactly once and the other two not at all. An ultimate's has already played on the first frame she is casting, with `castMsLeft` within 120 ms of the full charge.
 
 ## Listening without speakers

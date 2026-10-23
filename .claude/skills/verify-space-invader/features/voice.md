@@ -10,6 +10,7 @@ When TRANS-AM starts, the pilot says a short lead-in and then shouts "TRANS-AM!"
 - `fallback` is the silent one-second cut-in. It plays when the audio has not started yet (the first key was this `Space`), while the lines are still decoding, or when none loaded. A line that fails to load gets one `voice:` console warning naming the path and why.
 - `level` sets each line's gain so its `loud95` as played is `VOICE_LOUD95`, level with the loudest sfx and about twice the boss music on the bus. `music.mjs` renders and checks it.
 - `sweep` keeps the `transAm` sfx at the press. The line starts 100 ms later, when the sweep's loudest window has dropped from 0.039 to 0.014, about 9 dB under the line's 0.042.
+- `flash` is the Newtype flash, a 1.42 s sample in `src/assets/sfx/newtype-flash.mp3` (`src/audio/newtypeFlash.ts`). It decodes when the audio starts, like the lines, and `TransAmLook.enter('active')` plays it whole beside the sweep, so a refused press plays neither. It plays on the sfx path straight to the speakers, at a gain that makes its `loud95` `FLASH_LOUD95` (0.042, level with the line), with a 5 ms fade at each end. It is loudest 700 to 900 ms in. Over the line, from 100 ms to 1420 ms, its `loud95` matches the line's to within 0.3 dB. The shorter line's shout comes at 1360 ms, so the flash's tail, about 13 dB under the shout, fills the pause before it. Before the audio starts, while decoding or when the file failed to load, the press plays no flash, and a failed load gets one `newtypeFlash:` console warning.
 
 ## How to get to it (user POV)
 
@@ -20,15 +21,18 @@ When TRANS-AM starts, the pilot says a short lead-in and then shouts "TRANS-AM!"
 Preconditions:
 
 - `doctor.sh <run-id>` passes.
+- `state().newtypeFlash` is `{ status, played }` with `why` when `failed` and `gain` when `ready`. `played` counts flashes started.
 - `state().voice` is `{ lines, last, spoken }`. `lines` has one entry per file: `{ url, status: 'loading' }`, `{ url, status: 'failed', why }`, or `{ url, status: 'ready', segments, slices, shoutAtMs, gain }`. A segment is `{ fromSec, toSec }` in the file, and a slice adds `lineAtSec`, where it starts in the line. `last` is the index of the line spoken last, `null` before any, and `spoken` counts lines started. In `Stage`, `cutInTotalMs` is the running cut-in's length.
 
-Run `drive.mjs <run-id> voice`. It runs at device scale 2. An init script taps the game's `AudioContext` output with a 512-sample `AnalyserNode` (Phaser opens a context of its own, so the journey names the game's). Every frame from the press to 40 frames after the release records the tap's RMS on the audio clock, `life`, `cutInMs`, `cutInTotalMs`, the release (TRANS-AM's `msLeft` dropping under `activeMs`), and the bullets, foes, ship, `tally.fired` and `clock.fightMs`.
+Run `drive.mjs <run-id> voice`. It runs at device scale 2. The flash file is served as 404 until the last step, so the tap hears only the sweep and the line. An init script taps the game's `AudioContext` output with a 512-sample `AnalyserNode` (Phaser opens a context of its own, so the journey names the game's). Every frame from the press to 40 frames after the release records the tap's RMS on the audio clock, `life`, `cutInMs`, `cutInTotalMs`, the release (TRANS-AM's `msLeft` dropping under `activeMs`), and the bullets, foes, ship, `tally.fired` and `clock.fightMs`.
 
-- **Decode.** `Shift` on Title starts the audio, and both lines become `ready`, each with two or more segments. `M` mutes the music, so the tap hears only sfx and voice.
+- **Decode.** `Shift` on Title starts the audio, and both lines become `ready`, each with two or more segments, and the flash `failed`. `M` mutes the music, so the tap hears only sfx and voice.
 - **Timing.** Stage 4 in god mode, four presses of `Space` on a full gauge. For each, `cutInTotalMs` is `CUT_IN.dimMs` plus that line's `shoutAtMs` and over 1000. Everything in the stage holds from the first cut-in frame to the last. The last cut-in frame is within one frame of the end. The release fires on the frame after the one that ends the cut-in, with the camera flash running. The tapped output goes quiet in the pause before the shout and turns loud again within 50 ms of the release frame, and stays loud.
 - **Pick.** The four lines alternate and both play.
+- **Missing flash.** One `newtypeFlash:` warning names the file, its `why` is `HTTP 404`, and the four presses played no flash.
 - **Proof.** A fifth press pauses mid band for `stretched-band`, then on the release frame for `release`, then 100 ms into it for `release-ring`.
-- **Fallback.** The voice files are served as 404 and the page reloads. After `Shift` both lines are `failed` and one `voice:` warning names both paths. The cut-in is 1000 ms, nothing was spoken, and the tapped output stays under 0.001 RMS from 600 ms into the cut-in, after the sweep has faded.
+- **Fallback.** The voice files are served as 404 too and the page reloads. After `Shift` both lines are `failed` and one `voice:` warning names both paths. The cut-in is 1000 ms, nothing was spoken, and the tapped output stays under 0.001 RMS from 600 ms into the cut-in, after the sweep has faded.
+- **Flash.** The flash file is served again and the page reloads, with the voice files still missing. After `Shift` the flash is `ready`. One press plays one flash, and the tapped output stays above 0.005 RMS from 600 ms to the end of the silent cut-in, where only the flash still sounds.
 - **Proof.** `01-stretched-band` shows the band and title held mid cut-in, with the eyes partway from blue to red. `02-release` is the release's full-screen pink flash. `03-release-ring` shows the shockwave ring around the active ship.
 
 ## Listening without speakers
