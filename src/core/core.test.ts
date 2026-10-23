@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BASE_STATS } from './stats';
 import { ITEMS, ITEM_IDS, ITEM_STACK_MAX, itemForCode, withBuffs, type ItemId, type OwnedItems } from './items';
-import { PERKS, PERK_IDS, deriveStats, describePerk, perkCost, type OwnedPerks, type PerkId } from './perks';
+import { BRANCHES, PERKS, PERK_IDS, deriveStats, describePerk, perkCost, type OwnedPerks, type PerkId } from './perks';
 import { STAGES } from './stages';
 import { buyOffer, carryTransAm, clearStage, heal, leaveShop, newRun, offerCost, openRun, refreshCost, refreshShop, rollOffers, takeHit, useItem, type Offer, type RunState } from './run';
 
@@ -25,9 +25,9 @@ const ALL_PERKS_MAXED: OwnedPerks = Object.fromEntries(PERK_IDS.map((id) => [id,
 const ALL_ITEMS_FULL: OwnedItems = Object.fromEntries(ITEM_IDS.map((id) => [id, ITEM_STACK_MAX]));
 
 describe('perk registry', () => {
-  it('has 30 perks, 10 per branch, each with levels and Thai descriptions', () => {
-    expect(PERK_IDS).toHaveLength(30);
-    for (const branch of ['rapid', 'laser', 'ram'] as const) {
+  it('has 10 perks per branch, each with levels and Thai descriptions', () => {
+    expect(PERK_IDS).toHaveLength(BRANCHES.length * 10);
+    for (const branch of BRANCHES) {
       expect(PERK_IDS.filter((id) => PERKS[id].branch === branch)).toHaveLength(10);
     }
     for (const id of PERK_IDS) {
@@ -244,20 +244,27 @@ describe('run loop', () => {
 });
 
 describe('opening hangar', () => {
-  it('opens a run in the shop before stage 1 with 20 coins and one tier 1 starter perk per branch, each costing 20', () => {
+  it('opens a run in the shop before stage 1 with 20 coins and tier 1 starter perks from 3 distinct branches in branch order, each costing 20', () => {
     for (const seed of [1, 2, 3, 99]) {
       const run = openRun(seed);
       expect(run.stage).toBe(0);
       expect(run.money).toBe(20);
       const offers = shopOf(run).offers;
       const perks = offers.map((o) => (o?.kind === 'perk' ? PERKS[o.id] : null));
-      expect(perks.map((p) => p?.branch)).toEqual(['rapid', 'laser', 'ram']);
+      const branches = perks.map((p) => p!.branch);
+      expect(new Set(branches).size).toBe(3);
+      expect(branches).toEqual([...branches].sort((a, b) => BRANCHES.indexOf(a) - BRANCHES.indexOf(b)));
       for (const p of perks) {
         expect(p?.tier).toBe(1);
         expect(p?.requires).toBeUndefined();
       }
       expect(offers.map((o) => offerCost(run, o!))).toEqual([20, 20, 20]);
     }
+  });
+
+  it('draws the hangar branches with the seed, so every branch shows up across runs', () => {
+    const seen = new Set(Array.from({ length: 300 }, (_, seed) => shopOf(openRun(seed + 1)).offers.map((o) => PERKS[o!.id as PerkId].branch)).flat());
+    expect([...seen].sort()).toEqual([...BRANCHES].sort());
   });
 
   it('varies the starter offers with the seed', () => {

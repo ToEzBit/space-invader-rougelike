@@ -1,5 +1,5 @@
 import { ITEM_IDS, ITEM_OFFER_CHANCE, ITEM_STACK_MAX, ITEMS, type ItemEffect, type ItemId, type OwnedItems } from './items';
-import { BRANCH_LABEL, PERK_IDS, PERKS, deriveStats, perkCost, type Branch, type OwnedPerks, type PerkId, type Tier } from './perks';
+import { BRANCHES, PERK_IDS, PERKS, deriveStats, perkCost, type Branch, type OwnedPerks, type PerkId, type Tier } from './perks';
 import { STAGE_COUNT, stageDef } from './stages';
 
 export const OFFER_SLOTS = 3;
@@ -64,11 +64,18 @@ export function openRun(seed: number): RunState {
   return { ...run, stage: 0, money: OPENING_COINS, rng, phase: { kind: 'shop', shop: { offers, refreshes: 0 } } };
 }
 
+// OFFER_SLOTS distinct branches drawn without replacement, shown in registry order, each with one tier 1 starter.
 function openingOffers(rng: number): [Offer[], number] {
   let state = rng;
-  const offers = (Object.keys(BRANCH_LABEL) as Branch[]).map((branch): Offer => {
+  let roll: number;
+  const left = [...BRANCHES];
+  const picked: Branch[] = [];
+  while (picked.length < OFFER_SLOTS && left.length) {
+    [roll, state] = nextRandom(state);
+    picked.push(left.splice(Math.floor(roll * left.length), 1)[0]!);
+  }
+  const offers = BRANCHES.filter((branch) => picked.includes(branch)).map((branch): Offer => {
     const pool = PERK_IDS.filter((id) => PERKS[id].branch === branch && PERKS[id].tier === 1 && !PERKS[id].requires);
-    let roll: number;
     [roll, state] = nextRandom(state);
     return { kind: 'perk', id: pool[Math.floor(roll * pool.length)]! };
   });

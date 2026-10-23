@@ -241,10 +241,15 @@ const JOURNEYS = {
         await h.page.keyboard.up('Enter');
         h.check('a held Enter from Title repeats without leaving the hangar', held.scenes.includes('Shop') && held.run.stage === 0, { scenes: held.scenes, stage: held.run.stage });
         h.check('Enter on Title opens the hangar before stage 1 holding 20 coins', hangar.run.phase.kind === 'shop' && hangar.run.money === 20, summarize(hangar).run);
-        const offers = await h.core(`${JSON.stringify(hangar.cards)}.map((o) => ({ ...o, branch: perks.PERKS[o.id]?.branch, tier: perks.PERKS[o.id]?.tier, cost: run.offerCost(${JSON.stringify(hangar.run)}, o) }))`);
+        const offers = await h.core(
+          `${JSON.stringify(hangar.cards)}.map((o) => ({ ...o, branch: perks.PERKS[o.id]?.branch, order: perks.BRANCHES.indexOf(perks.PERKS[o.id]?.branch), tier: perks.PERKS[o.id]?.tier, requires: perks.PERKS[o.id]?.requires ?? null, cost: run.offerCost(${JSON.stringify(hangar.run)}, o) }))`,
+        );
         h.check(
-          'the hangar offers three tier 1 perks, rapid, laser and ram in that order, each priced 20',
-          offers.length === 3 && offers.every((o) => o.kind === 'perk' && o.tier === 1 && o.cost === 20) && offers.map((o) => o.branch).join() === 'rapid,laser,ram',
+          'the hangar offers three tier 1 perks with no prerequisite from three distinct branches in branch order, each priced 20',
+          offers.length === 3 &&
+            offers.every((o) => o.kind === 'perk' && o.tier === 1 && o.requires === null && o.cost === 20) &&
+            new Set(offers.map((o) => o.branch)).size === 3 &&
+            offers.every((o, i) => i === 0 || o.order > offers[i - 1].order),
           { offers },
         );
         await sleep(400);
@@ -258,11 +263,11 @@ const JOURNEYS = {
         const after = await h.state();
         h.check('R in the hangar is refused and leaves money and offers unchanged', after.run.money === 20 && JSON.stringify(after.cards) === JSON.stringify(hangar.cards), { denies: refused.sfx.played.deny, before: hangar.cards, after: after.cards, money: after.run.money });
 
-        const laser = hangar.cards[1].id;
-        await h.step('press 2 to buy the laser card', () => h.page.keyboard.press('2'));
-        const paid = await h.waitFor('laser card bought', (x) => x.run.perks[laser] === 1, 2000);
-        h.check('2 buys the laser card for all 20 coins', paid.run.money === 0 && paid.cards[1] === null, summarize(paid).run);
-        bought = { [laser]: 1 };
+        const second = hangar.cards[1].id;
+        await h.step('press 2 to buy the second card', () => h.page.keyboard.press('2'));
+        const paid = await h.waitFor('second card bought', (x) => x.run.perks[second] === 1, 2000);
+        h.check('2 buys the second card for all 20 coins', paid.run.money === 0 && paid.cards[1] === null, summarize(paid).run);
+        bought = { [second]: 1 };
         await sleep(1000);
         await h.shot('hangar-bought');
       },

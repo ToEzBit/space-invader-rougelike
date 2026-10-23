@@ -1,5 +1,5 @@
 import { writeFileSync } from 'node:fs';
-import { BRANCH_LABEL, PERKS, PERK_IDS, TIER_BASE_COST, describePerk, perkCost, type Branch } from '../src/core/perks';
+import { BRANCHES, BRANCH_LABEL, PERKS, PERK_IDS, TIER_BASE_COST, describePerk, perkCost } from '../src/core/perks';
 import { ITEM_IDS, ITEM_OFFER_CHANCE, ITEM_STACK_MAX, ITEMS } from '../src/core/items';
 import { BOSSES, ENEMIES, STAGES } from '../src/core/stages';
 import { PRICE_RISE_PER_STAGE, tierWeights } from '../src/core/run';
@@ -7,14 +7,14 @@ import { PRICE_RISE_PER_STAGE, tierWeights } from '../src/core/run';
 const lines: string[] = ['# Perks และด่าน', '', 'ไฟล์นี้สร้างจาก `src/core/perks.ts`, `src/core/items.ts` และ `src/core/stages.ts` ด้วย `npm run docs` ห้ามแก้ไขเอง', ''];
 
 lines.push(
-  '## Perk ทั้ง 30 แบบ',
+  `## Perk ทั้ง ${PERK_IDS.length} แบบ`,
   '',
   `ราคาต่อเลเวล = ราคาฐานของ Tier x เลเวลที่ซื้อ (Tier 1-4: ${Object.values(TIER_BASE_COST).join(' / ')} เหรียญ)`,
   '',
   `ราคาในตารางคือราคาร้านแรก ทุกราคาขึ้น ${Math.round(PRICE_RISE_PER_STAGE * 100)}% ต่อด่านที่ผ่าน ปัดเป็นหลัก 5`,
   '',
 );
-for (const branch of Object.keys(BRANCH_LABEL) as Branch[]) {
+for (const branch of BRANCHES) {
   lines.push(`### ${BRANCH_LABEL[branch]}`, '', '| Perk | Tier | ต้องมี | เลเวล 1 | เลเวลสูงสุด | ราคา |', '| --- | --- | --- | --- | --- | --- |');
   for (const id of PERK_IDS.filter((p) => PERKS[p].branch === branch)) {
     const p = PERKS[id];

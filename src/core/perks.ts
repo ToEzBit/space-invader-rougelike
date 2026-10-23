@@ -9,6 +9,9 @@ export const BRANCH_LABEL: Record<Branch, string> = {
   ram: 'Comet Strike · สายพุ่งชน',
 };
 
+// Registry order: the shop, the docs and the hangar list branches in this order.
+export const BRANCHES = Object.keys(BRANCH_LABEL) as Branch[];
+
 export const TIER_BASE_COST: Record<Tier, number> = { 1: 20, 2: 35, 3: 55, 4: 80 };
 
 export const OVERDRIVE_CALM_MS = 3000;
