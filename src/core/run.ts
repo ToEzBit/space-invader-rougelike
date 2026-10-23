@@ -1,5 +1,5 @@
 import { ITEM_IDS, ITEM_OFFER_CHANCE, ITEM_STACK_MAX, ITEMS, type ItemEffect, type ItemId, type OwnedItems } from './items';
-import { PERK_IDS, PERKS, deriveStats, perkCost, type OwnedPerks, type PerkId, type Tier } from './perks';
+import { BRANCH_LABEL, PERK_IDS, PERKS, deriveStats, perkCost, type Branch, type OwnedPerks, type PerkId, type Tier } from './perks';
 import { STAGE_COUNT, stageDef } from './stages';
 
 export const OFFER_SLOTS = 3;
@@ -19,7 +19,7 @@ export type RunPhase =
   | { kind: 'defeat' };
 
 export type RunState = {
-  // The stage being played, or in the shop the stage just cleared.
+  // The stage being played, or in the shop the stage just cleared. Stage 0 in the shop is the hangar before stage 1.
   stage: number;
   money: number;
   hp: number;
@@ -32,7 +32,7 @@ export type RunState = {
   phase: RunPhase;
 };
 
-export type ShopResult = { ok: true; run: RunState } | { ok: false; reason: 'notEnoughMoney' | 'soldOut' | 'stackFull' | 'notInShop' };
+export type ShopResult = { ok: true; run: RunState } | { ok: false; reason: 'notEnoughMoney' | 'soldOut' | 'stackFull' | 'notInShop' | 'hangar' };
 
 // Tier weights for the shop opened after clearing a given stage. Higher stages favor stronger tiers.
 const TIER_WEIGHTS_AFTER_STAGE: readonly Record<Tier, number>[] = [
@@ -48,12 +48,31 @@ const TIER_WEIGHTS_AFTER_STAGE: readonly Record<Tier, number>[] = [
 ];
 
 export function tierWeights(stageCleared: number): Record<Tier, number> {
-  return TIER_WEIGHTS_AFTER_STAGE[Math.min(stageCleared, TIER_WEIGHTS_AFTER_STAGE.length) - 1]!;
+  return TIER_WEIGHTS_AFTER_STAGE[Math.min(Math.max(stageCleared, 1), TIER_WEIGHTS_AFTER_STAGE.length) - 1]!;
 }
 
 export function newRun(seed: number): RunState {
   const perks: OwnedPerks = {};
   return { stage: 1, money: 0, hp: deriveStats(perks).maxHp, perks, items: {}, transAmGauge: 0, rng: seed >>> 0, phase: { kind: 'playing' } };
+}
+
+export const OPENING_COINS = 20;
+
+export function openRun(seed: number): RunState {
+  const run = newRun(seed);
+  const [offers, rng] = openingOffers(run.rng);
+  return { ...run, stage: 0, money: OPENING_COINS, rng, phase: { kind: 'shop', shop: { offers, refreshes: 0 } } };
+}
+
+function openingOffers(rng: number): [Offer[], number] {
+  let state = rng;
+  const offers = (Object.keys(BRANCH_LABEL) as Branch[]).map((branch): Offer => {
+    const pool = PERK_IDS.filter((id) => PERKS[id].branch === branch && PERKS[id].tier === 1 && !PERKS[id].requires);
+    let roll: number;
+    [roll, state] = nextRandom(state);
+    return { kind: 'perk', id: pool[Math.floor(roll * pool.length)]! };
+  });
+  return [offers, state];
 }
 
 export function clearStage(run: RunState, coinsEarned: number): RunState {
@@ -94,6 +113,8 @@ export function refreshCost(run: RunState): number {
 
 export function refreshShop(run: RunState): ShopResult {
   if (run.phase.kind !== 'shop') return { ok: false, reason: 'notInShop' };
+  // The opening coins buy exactly one card, so a refresh there would leave nothing affordable.
+  if (run.stage === 0) return { ok: false, reason: 'hangar' };
   const cost = refreshCost(run);
   if (run.money < cost) return { ok: false, reason: 'notEnoughMoney' };
   const [offers, rng] = rollOffers(run);

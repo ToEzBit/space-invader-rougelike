@@ -3,7 +3,7 @@ import { BASE_STATS } from './stats';
 import { ITEMS, ITEM_IDS, ITEM_STACK_MAX, itemForCode, withBuffs, type ItemId, type OwnedItems } from './items';
 import { PERKS, PERK_IDS, deriveStats, describePerk, perkCost, type OwnedPerks, type PerkId } from './perks';
 import { STAGES } from './stages';
-import { buyOffer, carryTransAm, clearStage, heal, leaveShop, newRun, offerCost, refreshCost, refreshShop, rollOffers, takeHit, useItem, type Offer, type RunState } from './run';
+import { buyOffer, carryTransAm, clearStage, heal, leaveShop, newRun, offerCost, openRun, refreshCost, refreshShop, rollOffers, takeHit, useItem, type Offer, type RunState } from './run';
 
 function shopOf(run: RunState) {
   if (run.phase.kind !== 'shop') throw new Error(`expected shop, got ${run.phase.kind}`);
@@ -240,6 +240,56 @@ describe('run loop', () => {
     const run = takeHit(newRun(3), 2);
     expect(heal(run, 1).hp).toBe(run.hp + 1);
     expect(heal(run, 99).hp).toBe(deriveStats(run.perks).maxHp);
+  });
+});
+
+describe('opening hangar', () => {
+  it('opens a run in the shop before stage 1 with 20 coins and one tier 1 starter perk per branch, each costing 20', () => {
+    for (const seed of [1, 2, 3, 99]) {
+      const run = openRun(seed);
+      expect(run.stage).toBe(0);
+      expect(run.money).toBe(20);
+      const offers = shopOf(run).offers;
+      const perks = offers.map((o) => (o?.kind === 'perk' ? PERKS[o.id] : null));
+      expect(perks.map((p) => p?.branch)).toEqual(['rapid', 'laser', 'ram']);
+      for (const p of perks) {
+        expect(p?.tier).toBe(1);
+        expect(p?.requires).toBeUndefined();
+      }
+      expect(offers.map((o) => offerCost(run, o!))).toEqual([20, 20, 20]);
+    }
+  });
+
+  it('varies the starter offers with the seed', () => {
+    const sets = new Set(Array.from({ length: 300 }, (_, seed) => JSON.stringify(shopOf(openRun(seed + 1)).offers)));
+    expect(sets.size).toBeGreaterThanOrEqual(2);
+  });
+
+  it('refuses a refresh in the hangar', () => {
+    const run = openRun(5);
+    expect(refreshShop(run)).toEqual({ ok: false, reason: 'hangar' });
+  });
+
+  it('launches stage 1 with the perk bought there and no coins left', () => {
+    const run = openRun(5);
+    const offer = shopOf(run).offers[1]!;
+    const bought = buyOffer(run, 1);
+    if (!bought.ok) throw new Error(bought.reason);
+    const launched = leaveShop(bought.run);
+    expect(launched.stage).toBe(1);
+    expect(launched.phase.kind).toBe('playing');
+    expect(launched.money).toBe(0);
+    expect(launched.perks).toEqual({ [offer.id]: 1 });
+  });
+
+  it('keeps the 20 coins for the first real shop when nothing is bought', () => {
+    const launched = leaveShop(openRun(5));
+    expect(launched).toMatchObject({ stage: 1, money: 20, phase: { kind: 'playing' }, perks: {} });
+    expect(clearStage(launched, 17).money).toBe(20 + STAGES[0]!.reward + 17);
+  });
+
+  it('leaves newRun starting straight at stage 1', () => {
+    expect(newRun(5)).toMatchObject({ stage: 1, money: 0, phase: { kind: 'playing' }, perks: {} });
   });
 });
 
