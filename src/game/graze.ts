@@ -13,7 +13,6 @@ const SPARK_FAN_DEG = 20;
 // and stays off at zero, so a ship without the branch never reaches the fx (and their Math.random) below.
 export class Graze {
   private grazes = 0;
-  // Grazes since the last landed hit.
   private streak = 0;
   private rushMs = 0;
   private slowMs = 0;
@@ -31,7 +30,6 @@ export class Graze {
     return TRANS_AM.gain.graze * (1 + this.world.stats.grazeGainBonus);
   }
 
-  // While true, World folds Adrenaline's scale into the fire interval.
   get rushing(): boolean {
     return this.rushMs > 0;
   }
@@ -45,7 +43,7 @@ export class Graze {
     return { grazes: this.grazes, streak: this.streak, rushMs: this.rushMs, slowMs: this.slowMs, pulses: this.pulses };
   }
 
-  // Dev-only: the bullet counted last, and Static Skin's last pulse.
+  // Dev-only.
   get last() {
     return { grazed: this.grazed, pulse: this.pulse };
   }
@@ -83,7 +81,6 @@ export class Graze {
     return (this.rushMs > 0 ? 1 : 0) | (this.slowMs > 0 ? 2 : 0);
   }
 
-  // The first spark flies at the nearest foe; Spark Split's extras fan out from it on alternating sides.
   private launchSparks(at: Point, blast: number): void {
     const { stats, run, playerShots, tally } = this.world;
     const target = this.world.nearestFoe(at);

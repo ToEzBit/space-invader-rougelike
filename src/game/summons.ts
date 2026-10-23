@@ -19,11 +19,8 @@ const ANYWHERE = { left: -Infinity, right: Infinity, top: -Infinity, bottom: Inf
 
 export type FamiliarState =
   | { kind: 'ready' }
-  // After a Guardian block: it keeps shooting but cannot block again until this runs out.
   | { kind: 'resting'; msLeft: number }
-  // Took a hit for the ship under Sacrifice.
   | { kind: 'gone'; msLeft: number }
-  // Great Spirit: out to strike its target, then back to its place.
   | { kind: 'diving'; target: Foe; leg: 'out' | 'back' };
 
 type Familiar = { sprite: Phaser.GameObjects.Image; cooldownMs: number; state: FamiliarState };
@@ -55,7 +52,7 @@ export class Summons {
     };
   }
 
-  // Dev-only: the enemy bullet Guardian blocked last.
+  // Dev-only.
   get lastBlocked(): Bullet | null {
     return this.blocked;
   }
@@ -73,7 +70,6 @@ export class Summons {
     });
   }
 
-  // Guardian: a ready familiar destroys the enemy bullet it touches, then rests.
   guard(): void {
     const { stats, enemyShots, fx } = this.world;
     if (stats.guardianRestMs <= 0) return;
@@ -88,7 +84,7 @@ export class Summons {
     }
   }
 
-  // Sacrifice: true when a ready familiar took the hit in the ship's place.
+  // True when a familiar took the hit in the ship's place.
   sacrifice(): boolean {
     const { stats, fx, player } = this.world;
     const f = stats.sacrificeMs > 0 && this.familiars.find((f) => f.state.kind === 'ready');
@@ -99,7 +95,7 @@ export class Summons {
     return true;
   }
 
-  // Haunt marks a foe a wisp hit, after that hit's own damage.
+  // World calls this after the wisp's own damage, so the hit that marks a foe is not raised by the mark.
   onWispHit(foe: Foe): void {
     if (this.world.stats.hauntBonus > 0) foe.hauntMs = SUMMON.hauntMs;
   }
@@ -142,7 +138,6 @@ export class Summons {
         this.world.fx.spark(home.x, home.y, 8);
         return this.become(f, { kind: 'ready' });
       case 'diving': {
-        // A target that dies on the way sends the familiar straight home.
         if (s.leg === 'out' && s.target.dead) s.leg = 'back';
         const to = s.leg === 'out' ? s.target.sprite : home;
         const next = stepToward(f.sprite, to, (DIVE_SPEED * dtMs) / 1000, ANYWHERE);
@@ -184,7 +179,6 @@ export class Summons {
     f.cooldownMs += stats.wispIntervalMs;
   }
 
-  // Great Spirit: every present familiar dives at the live foe with the most HP, waiting for one if none is up.
   private callGreatSpirit(dtMs: number): void {
     const every = this.world.stats.greatSpiritEveryMs;
     if (every <= 0 || (this.spiritMs -= dtMs) > 0) return;
