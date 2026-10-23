@@ -2,7 +2,7 @@ import { writeFileSync } from 'node:fs';
 import { BRANCHES, BRANCH_LABEL, PERKS, PERK_IDS, TIER_BASE_COST, describePerk, perkCost } from '../src/core/perks';
 import { ITEM_IDS, ITEM_OFFER_CHANCE, ITEM_STACK_MAX, ITEMS } from '../src/core/items';
 import { BOSSES, ENEMIES, STAGES } from '../src/core/stages';
-import { PRICE_RISE_PER_STAGE, tierWeights } from '../src/core/run';
+import { BRANCH_AFFINITY, PRICE_RISE_PER_STAGE, tierWeights } from '../src/core/run';
 
 const lines: string[] = ['# Perks และด่าน', '', 'ไฟล์นี้สร้างจาก `src/core/perks.ts`, `src/core/items.ts` และ `src/core/stages.ts` ด้วย `npm run docs` ห้ามแก้ไขเอง', ''];
 
@@ -30,7 +30,7 @@ for (let stage = 1; stage <= 9; stage++) {
   const w = tierWeights(stage);
   lines.push(`| ${stage} | ${w[1]} | ${w[2]} | ${w[3]} | ${w[4]} |`);
 }
-lines.push('');
+lines.push('', `Perk ของสายที่มีอยู่แล้วอย่างน้อย 1 เลเวล มีน้ำหนัก x${BRANCH_AFFINITY} จากน้ำหนักของ Tier`, '');
 
 lines.push(
   '## ไอเทมกดใช้',

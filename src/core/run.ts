@@ -182,17 +182,23 @@ export function isEligible(perks: OwnedPerks, id: PerkId, stageCleared: number):
   return tierWeights(stageCleared)[perk.tier] > 0;
 }
 
-// Each slot is an item with ITEM_OFFER_CHANCE, otherwise a tier-weighted perk, drawn without
+// With five branches a committed player would see few of their own cards, so a perk from any branch the player
+// holds a level in weighs this many times its tier weight.
+export const BRANCH_AFFINITY = 3;
+
+// Each slot is an item with ITEM_OFFER_CHANCE, otherwise a weighted perk, drawn without
 // replacement. A slot falls back to the other pool when its own is empty and stays null when both are.
 export function rollOffers(run: Pick<RunState, 'perks' | 'items' | 'stage' | 'rng'>): [(Offer | null)[], number] {
-  const weights = tierWeights(run.stage);
+  const tiers = tierWeights(run.stage);
+  const owned = new Set(PERK_IDS.filter((id) => run.perks[id]).map((id) => PERKS[id].branch));
+  const weight = (id: PerkId) => tiers[PERKS[id].tier] * (owned.has(PERKS[id].branch) ? BRANCH_AFFINITY : 1);
   const perkPool = PERK_IDS.filter((id) => isEligible(run.perks, id, run.stage));
   const itemPool = ITEM_IDS.filter((id) => (run.items[id] ?? 0) < ITEM_STACK_MAX);
   const drawPerk = (roll: number): Offer | null => {
-    const total = perkPool.reduce((sum, id) => sum + weights[PERKS[id].tier], 0);
+    const total = perkPool.reduce((sum, id) => sum + weight(id), 0);
     if (total === 0) return null;
     let pick = roll * total;
-    const index = perkPool.findIndex((id) => (pick -= weights[PERKS[id].tier]) < 0);
+    const index = perkPool.findIndex((id) => (pick -= weight(id)) < 0);
     return { kind: 'perk', id: perkPool.splice(index, 1)[0]! };
   };
   const drawItem = (roll: number): Offer | null =>

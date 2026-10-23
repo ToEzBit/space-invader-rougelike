@@ -172,6 +172,16 @@ describe('shop rolls', () => {
     expect(seen.has('hairTrigger')).toBe(false);
   });
 
+  it('favors a branch the player owns: its cards show far more often than an unowned branch with the same eligible weight', () => {
+    // After stage 4 with Close Call 1, graze offers three tier 1 and three tier 2 perks, as Bullet Storm does unowned.
+    const count = (branch: string) => {
+      let shown = 0;
+      for (let seed = 1; seed <= 2000; seed++) shown += roll(4, seed, { closeCall: 1 }).filter((o) => o?.kind === 'perk' && PERKS[o.id].branch === branch).length;
+      return shown;
+    };
+    expect(count('graze')).toBeGreaterThan(2 * count('rapid'));
+  });
+
   it('mixes items into about one slot in five, from the first shop on', () => {
     for (const stage of [1, 5, 9]) {
       const slots = [0, 0, 0];
