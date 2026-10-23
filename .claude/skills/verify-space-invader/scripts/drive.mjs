@@ -1735,7 +1735,7 @@ const JOURNEYS = {
               streak: s.graze.streak,
               invulnMs: s.invulnMs,
               player: s.player,
-              boss: s.boss && { x: s.boss.x, y: s.boss.y, hpRatio: s.boss.hpRatio },
+              boss: s.boss && { x: s.boss.x, y: s.boss.y, hpRatio: s.boss.hpRatio, stance: s.boss.stance },
               ...(shots && { shots: g.shots().map((b) => [b.id, b.x, b.y]) }),
             });
           requestAnimationFrame(tick);
@@ -1814,41 +1814,101 @@ const JOURNEYS = {
     const wispDealt = (packRun.frames.at(-1).dealt.wisp ?? 0) - (packRun.frames[0].dealt.wisp ?? 0);
     h.check('the familiars fire wisps and the wisps damage the boss (tally.dealt.wisp rises)', spawned >= 3 && wispDealt >= packStats.wispDamage * 2, { spawned, wispDealt, wispDamage: packStats.wispDamage });
 
-    // Guardian: a ready familiar touched by an enemy bullet destroys it, then rests dimmed and keeps shooting.
+    // Guardian: a ready familiar stands between the still ship and the boss, destroys an enemy bullet that touches it,
+    // then rests dimmed and keeps shooting.
+    const GUARD_WINDOW_MS = 30000;
     const guard = { familiar: 1, guardian: 1 };
     const guardStats = await stats(guard);
-    await bossFight(guard);
+    await h.startAt(5, guard);
+    await h.game('god', true);
     await record(true);
-    await underBoss('a Guardian block', (s) => s.summons.lastBlockedId !== null, 60000);
-    const resting = await h.frameWhen("!s.flashing && s.summons.familiars[0].state === 'resting'", true, guardStats.guardianRestMs);
-    h.log.steps.push({ action: 'paused while the familiar rests', familiars: resting.s.summons.familiars, blockedId: resting.s.summons.lastBlockedId });
-    await h.shot('guardian-resting');
-    await h.shot('guardian-resting-closeup', around(resting.s.player, 140, 150));
+    const fightFrom = (await h.waitFor('the boss fighting', (x) => x.boss?.stance === 'fighting', 10000)).clock.fightMs;
+    const standing = await h.frameWhen(`!s.flashing && s.clock.fightMs > ${fightFrom + 1000} && s.summons.familiars[0].state === 'ready'`, true, 8000);
+    h.log.steps.push({ action: 'paused with the ready familiar on guard', familiars: standing.s.summons.familiars, player: standing.s.player, boss: standing.s.boss && { x: standing.s.boss.x, y: standing.s.boss.y } });
+    await h.shot('guardian-on-guard');
+    await h.shot('guardian-on-guard-closeup', around(standing.s.player, 140, 150));
     await h.game('resume');
-    await underBoss('the familiar ready again', (s) => s.summons.familiars[0]?.state === 'ready', guardStats.guardianRestMs + 2000);
-    await sleep(500);
+    let restingShot = false;
+    for (let s = await h.state(); s.clock.fightMs < fightFrom + GUARD_WINDOW_MS; s = await h.state()) {
+      if (s.boss?.hpRatio < 0.7) await h.game('bossHp', 1);
+      if (!restingShot && s.summons.lastBlockedId !== null) {
+        const resting = await h.frameWhen("!s.flashing && s.summons.familiars[0].state === 'resting'", true, guardStats.guardianRestMs);
+        h.log.steps.push({ action: 'paused while the familiar rests', familiars: resting.s.summons.familiars, blockedId: resting.s.summons.lastBlockedId });
+        await h.shot('guardian-resting');
+        await h.shot('guardian-resting-closeup', around(resting.s.player, 140, 150));
+        await h.game('resume');
+        restingShot = true;
+      }
+      await sleep(50);
+    }
     const guardRun = await stopRecord();
+    const stillAt = guardRun.frames[0].player;
+    h.check('the ship holds still under the boss for the whole Guardian window', guardRun.frames.every((f) => f.player.x === stillAt.x && f.player.y === stillAt.y), { player: stillAt });
+    // A familiar whose rest runs out inside a frame step is ready, and can block, before that step ends.
+    const readyDuring = (a, b) => a.familiars[0].state === 'ready' || (a.familiars[0].state === 'resting' && a.familiars[0].msLeft <= b.ms - a.ms);
     const blocks = guardRun.pairs
       .filter(({ a, b }) => b.blockedId !== null && b.blockedId !== a.blockedId)
       .map(({ a, b }) => {
         const before = a.shots.find(([id]) => id === b.blockedId);
         const reach = before && Math.min(...a.familiars.map((m) => Math.hypot(before[1] - m.x, before[2] - m.y)));
         const gone = guardRun.frames.filter((f) => f.ms >= b.ms).every((f) => !f.shots.some(([id]) => id === b.blockedId));
-        return { ms: b.ms, id: b.blockedId, reach: reach && Math.round(reach), gone, wasReady: a.familiars[0].state === 'ready', now: b.familiars[0] };
+        return { ms: b.ms, id: b.blockedId, reach: reach && Math.round(reach), gone, wasReady: readyDuring(a, b), now: b.familiars[0] };
       });
     const proved = blocks.filter((x) => x.gone && x.wasReady && x.reach !== undefined && x.reach <= FAMILIAR.radius + bulletRadius + 12 && x.now.state === 'resting' && x.now.msLeft > guardStats.guardianRestMs - 60);
     h.check('Guardian: a ready familiar touched by an enemy bullet erases it (its id leaves shots()) and starts resting', proved.length >= 1 && proved.length === blocks.length, { blocks });
+    const fought = guardRun.frames.find((f) => f.boss?.stance === 'fighting').ms;
+    const inWindow = blocks.filter((x) => x.ms <= fought + GUARD_WINDOW_MS);
+    h.check(`with the ship still, the first block lands within 8 s of the boss starting to fight, and at least 3 land in ${GUARD_WINDOW_MS / 1000} s`, inWindow.length >= 3 && inWindow[0].ms - fought <= 8000, {
+      fought,
+      blocksAtS: inWindow.map((x) => +((x.ms - fought) / 1000).toFixed(2)),
+    });
+    const clashesIn = (frames) => frames.filter((f) => f.ms - frames[0].ms > 300).flatMap((f) =>
+      f.familiars.flatMap((m) => {
+        const drones = [-1, 1].map((side) => ({ x: f.player.x + side * DRONE.dx, y: f.player.y + DRONE.dy }));
+        const hits = [overlaps(m, FAMILIAR.w, FAMILIAR.h, f.player, SHIP.w, SHIP.h) && 'ship', ...drones.map((d, i) => overlaps(m, FAMILIAR.w, FAMILIAR.h, d, DRONE.w, DRONE.h) && `drone${i}`)].filter(Boolean);
+        return hits.length ? [{ ms: f.ms, familiar: m, player: f.player, hits }] : [];
+      }),
+    );
+    const guardClashes = clashesIn(guardRun.frames);
+    h.check('on guard and back, the familiar stays clear of the ship and both Option Drone slots', guardClashes.length === 0, { clashes: guardClashes.slice(0, 5) });
+
+    // Off to her side the boss's aimed needles come in at a slant, past where the familiar hovers without Guardian.
+    const PARK_X = 60;
+    await h.startAt(5, guard);
+    await h.game('god', true);
+    await record(true);
+    await h.page.keyboard.down('ArrowLeft');
+    await h.waitFor(`the ship at x ${PARK_X}`, (x) => x.player.x <= PARK_X, 5000);
+    await h.page.keyboard.up('ArrowLeft');
+    const parkedFrom = (await h.waitFor('the boss fighting', (x) => x.boss?.stance === 'fighting', 10000)).clock.fightMs;
+    for (let s = await h.state(); s.clock.fightMs < parkedFrom + GUARD_WINDOW_MS + 500; s = await h.state()) {
+      if (s.boss?.hpRatio < 0.7) await h.game('bossHp', 1);
+      await sleep(50);
+    }
+    const parkRun = await stopRecord();
+    const parkFought = parkRun.frames.find((f) => f.boss?.stance === 'fighting').ms;
+    const parked = parkRun.frames.filter((f) => f.ms >= parkFought);
+    const parkBlocks = parkRun.pairs.filter(({ a, b }) => b.blockedId !== null && b.blockedId !== a.blockedId && b.ms >= parkFought && b.ms <= parkFought + GUARD_WINDOW_MS).map(({ b }) => +((b.ms - parkFought) / 1000).toFixed(2));
+    const parkClashes = clashesIn(parkRun.frames);
+    h.check(`parked still at x ${PARK_X}, off to the boss's side, the first block also lands within 8 s and at least 3 land in ${GUARD_WINDOW_MS / 1000} s, clear of the ship`, parked.every((f) => f.player.x === parked[0].player.x) && parked[0].player.x <= PARK_X + 6 && parkBlocks.length >= 3 && parkBlocks[0] <= 8 && parkClashes.length === 0, {
+      player: parked[0].player,
+      blocksAtS: parkBlocks,
+      clashes: parkClashes.slice(0, 3),
+    });
+    // A rest starts when the familiar turns resting or its rest jumps back up: it came ready and blocked within one step.
     const rests = [];
     for (const [i, f] of guardRun.frames.entries()) {
       const prev = guardRun.frames[i - 1];
-      if (prev && prev.familiars[0].state !== 'resting' && f.familiars[0].state === 'resting') rests.push({ from: f.ms });
-      if (prev && prev.familiars[0].state === 'resting' && f.familiars[0].state === 'ready' && rests.at(-1)) rests.at(-1).to = f.ms;
+      const [was, now] = [prev?.familiars[0], f.familiars[0]];
+      if (prev && now.state === 'resting' && (was.state !== 'resting' || now.msLeft > was.msLeft)) rests.push({ from: f.ms });
+      if (prev && was.state === 'resting' && now.state === 'ready' && rests.at(-1)) rests.at(-1).to = f.ms;
     }
     const whole = rests.filter((r) => r.to);
-    h.check(`the familiar rests ${guardStats.guardianRestMs} ms, then is ready to block again`, whole.length >= 1 && whole.every((r) => Math.abs(r.to - r.from - guardStats.guardianRestMs) < 60), { rests });
+    const rest = guardStats.guardianRestMs;
+    h.check(`the familiar rests ${rest} ms, then is ready to block again`, whole.length >= 1 && whole.every((r) => Math.abs(r.to - r.from - rest) < 60) && rests.every((r, i) => i === 0 || r.from - rests[i - 1].from > rest - 60), { rests });
     const restingShots = guardRun.pairs.filter(({ a, b }) => a.familiars[0].state === 'resting' && b.familiars[0].state === 'resting' && b.wisps > a.wisps).length;
     h.check('a resting familiar keeps firing wisps', restingShots >= 1, { restingShots });
-    h.check('a resting familiar does not block', guardRun.pairs.every(({ a, b }) => !(a.familiars[0].state === 'resting' && b.blockedId !== a.blockedId)), {});
+    h.check('a resting familiar does not block', guardRun.pairs.every(({ a, b }) => readyDuring(a, b) || b.blockedId === a.blockedId), {});
 
     // Sacrifice, with god mode off: a real boss bullet that reaches the ship takes the familiar instead.
     const sac = { familiar: 1, sacrifice: 2 };

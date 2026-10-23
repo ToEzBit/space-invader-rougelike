@@ -314,7 +314,7 @@ const PERK_SPECS = {
   guardian: {
     branch: 'summon', tier: 2, name: 'Guardian', requires: 'familiar',
     values: [3000, 2000, 1500],
-    desc: (v) => `ภูตทำลายกระสุนศัตรูที่โดนตัว แล้วพัก ${sec(v)} ก่อนกันได้อีก (ระหว่างพักยังยิงได้)`,
+    desc: (v) => `ภูตที่พร้อมจะยืนขวางแนวยิงของศัตรูที่ใกล้ที่สุด ทำลายกระสุนศัตรูที่โดนตัว แล้วพัก ${sec(v)} ก่อนกันได้อีก (ระหว่างพักยังยิงได้)`,
     apply: (s, v) => { s.guardianRestMs = v; },
   },
   piercingSoul: {

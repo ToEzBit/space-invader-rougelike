@@ -9,6 +9,9 @@ import type { Foe, World } from './world';
 const WISP_SPEED = 300;
 // Familiars circle a point above the ship's nose, clear of the hull and of the Option Drones' slots beside it.
 const ORBIT = { dy: -50, r: 12, radPerSec: 1.4 };
+// Under Guardian a ready familiar stands on the line from the ship to the nearest foe, where that foe's aimed shots
+// pass. From 38 px out its box clears the hull at every angle, and within 60 degrees of straight up it clears the drones.
+const GUARD = { reach: 38, spacing: 20, maxRad: Math.PI / 3 };
 const FAMILIAR_RADIUS = 7;
 const DIVE_SPEED = 560;
 const RESTING_ALPHA = 0.4;
@@ -61,8 +64,11 @@ export class Summons {
     if (this.familiars.length === 0) return;
     this.orbitMs += dtMs;
     if (firing) this.callGreatSpirit(dtMs);
+    const guardAngle = this.world.stats.guardianRestMs > 0 ? this.guardAngle() : null;
+    let rank = 0;
     this.familiars.forEach((f, i) => {
-      this.move(f, this.home(i, this.familiars.length), dtMs);
+      const home = guardAngle !== null && f.state.kind === 'ready' ? this.guardSpot(guardAngle, rank++) : this.home(i, this.familiars.length);
+      this.move(f, home, dtMs);
       if (firing) this.shoot(f, dtMs);
     });
   }
@@ -106,6 +112,20 @@ export class Summons {
     const { player } = this.world;
     const angle = (this.orbitMs / 1000) * ORBIT.radPerSec + (2 * Math.PI * i) / n;
     return { x: player.x + Math.cos(angle) * ORBIT.r, y: player.y + ORBIT.dy + Math.sin(angle) * ORBIT.r };
+  }
+
+  // Radians from straight up, positive to the right.
+  private guardAngle(): number {
+    const { player } = this.world;
+    const foe = this.world.nearestFoe(player);
+    if (!foe) return 0;
+    return Phaser.Math.Clamp(Math.atan2(foe.sprite.x - player.x, player.y - foe.sprite.y), -GUARD.maxRad, GUARD.maxRad);
+  }
+
+  private guardSpot(angle: number, rank: number): Point {
+    const { player } = this.world;
+    const d = GUARD.reach + rank * GUARD.spacing;
+    return { x: player.x + Math.sin(angle) * d, y: player.y - Math.cos(angle) * d };
   }
 
   private move(f: Familiar, home: Point, dtMs: number): void {
