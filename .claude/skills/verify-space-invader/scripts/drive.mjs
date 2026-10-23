@@ -2042,6 +2042,21 @@ const JOURNEYS = {
     const end = greatRun.frames.at(-1);
     h.check('every familiar flies back to its place above the ship', end.familiars.every((f) => f.state === 'ready' && dist(f, { x: end.player.x, y: end.player.y - 50 }) < 20), { familiars: end.familiars, player: end.player });
 
+    // Crowd: in a wave a wisp goes on from its first foe through more of the formation.
+    const crowd = await stats({ familiar: 1 });
+    await h.startAt(6, { familiar: 1 });
+    await h.game('god', true);
+    await h.waitFor('stage 6 fighting', (x) => x.life === 'fighting', 8000);
+    await h.recordRounds('summons', 'wisps');
+    const through = await h.frameWhen('s.summons.wisps.some((w) => w.hits >= 2)', true, 30000);
+    h.log.steps.push({ action: 'paused with a wisp that has gone through two foes', wisps: through.s.summons.wisps });
+    await h.shot('wisp-through-formation');
+    await h.game('resume');
+    const wisps = await h.recordRounds(null);
+    h.check(`Spirit Familiar's wisps go on through up to ${crowd.wispPierce} more foes after their first`, wisps.some((w) => w.hits >= 2) && wisps.every((w) => w.hits <= 1 + crowd.wispPierce), {
+      most: Math.max(...wisps.map((w) => w.hits)),
+      samples: wisps.length,
+    });
   },
 
   async bosses(h) {

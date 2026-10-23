@@ -114,9 +114,9 @@ describe('summon perks', () => {
     expect(s).toEqual({
       ...BASE_STATS,
       familiars: 3,
-      wispIntervalMs: 1100 * 0.85,
+      wispIntervalMs: 1250 * 0.85,
       wispDamage: 10,
-      wispPierce: 1,
+      wispPierce: 3,
       guardianRestMs: 2000,
       sacrificeMs: 7000,
       soulBurstRadius: 24,

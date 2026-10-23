@@ -122,7 +122,7 @@ export class StageScene extends Phaser.Scene {
         summons: {
           ...this.world.summons.debug,
           lastBlockedId: this.world.summons.lastBlocked && shotId(this.world.summons.lastBlocked),
-          wisps: this.world.playerShots.list.filter((b) => b.alive && b.kind === 'wisp').map((b) => ({ x: b.sprite.x, y: b.sprite.y })),
+          wisps: this.world.playerShots.list.filter((b) => b.alive && b.kind === 'wisp').map((b) => ({ x: b.sprite.x, y: b.sprite.y, hits: b.hit.size })),
           haunted: this.world.foes.filter((foe) => !foe.dead && foe.hauntMs > 0).map((foe) => ({ id: foeId(foe), x: foe.sprite.x, y: foe.sprite.y, msLeft: foe.hauntMs })),
         },
         boss: this.encounter.boss && {

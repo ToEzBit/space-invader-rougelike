@@ -1,18 +1,19 @@
 # Spirit Call summon perks
 
-The summon branch, `Spirit Call · สาย Summoner`, gives the ship familiars: small cornflower spirits that hover above its nose and act on their own. It is passive, with no key and no tray slot. Spirit Familiar, the branch's unlock and only starter, brings one familiar that fires a homing cornflower wisp at the nearest foe on its own timer. Option Drones from Bullet Storm only copy the gun. Familiars pick their own targets, block bullets, take hits and dive. Every other summon perk requires Spirit Familiar, so a player without it never sees them in the shop. None of them touches coins.
+The summon branch, `Spirit Call · สาย Summoner`, gives the ship familiars: small cornflower spirits that hover above its nose and act on their own. It is passive, with no key and no tray slot. Spirit Familiar, the branch's unlock and only starter, brings one familiar that fires a homing cornflower wisp at the nearest foe on its own timer. After its first hit a wisp goes on through up to 2 more small foes (Piercing Soul adds more), never into a boss. Option Drones from Bullet Storm only copy the gun. Familiars pick their own targets, block bullets, take hits and dive. Every other summon perk requires Spirit Familiar, so a player without it never sees them in the shop. None of them touches coins.
 
 The perks and their numbers live in `src/core/perks.ts` (`docs/PERKS.md` lists them, `SUMMON` holds the shared constants). The live rules are the `Summons` subsystem in `src/game/summons.ts`. `World` owns it and calls it each frame, once per wisp hit, before enemy bullets meet the ship, and when a hit would land. Each familiar is in one state: `ready`, `resting` after a Guardian block, `gone` after a Sacrifice, or `diving` during Great Spirit.
 
 ## Sub-features
 
 - `summon-familiars` brings one familiar with Spirit Familiar and one more per Pack Call level, up to 3. Without Guardian they circle a point 50 px above the ship, clear of the hull and of the Option Drones' slots at x plus or minus 36.
-- `summon-wisps` fires a wisp from each `ready` or `resting` familiar every interval, staggered across the pack, at the nearest live foe. Wisps home with the missile steer and deal `tally.dealt.wisp`.
+- `summon-wisps` fires a wisp from each `ready` or `resting` familiar every interval, staggered across the pack, at the nearest live foe. Wisps home with the missile steer, skipping foes they already hit, and deal `tally.dealt.wisp`.
+- `summon-crowd` sends a wisp on from its first foe through up to `SUMMON.wispPierce` (2) more, plus Piercing Soul's levels. After its first hit a wisp hits, homes on and bursts on small foes only, so a wisp that first hits a minion never carries on into the boss.
 - `summon-guardian` lets a `ready` familiar destroy an enemy bullet it touches. It then rests, drawn dimmed, back in the circle above the ship, and cannot block until the rest runs out, but it keeps firing. While Guardian is owned, each `ready` familiar stands on the line from the ship to the nearest foe, 38 px out and 20 px further per familiar ahead of it, turned at most 60 degrees from straight up. That foe's aimed shots fly down that line. From 38 px out a familiar's box clears the hull at every angle, and within 60 degrees it clears the drone slots.
 - `summon-sacrifice` makes a hit that would land take a `ready` familiar instead. The ship keeps its HP. The hit is not counted in `tally.hits`, costs no TRANS-AM gauge and keeps the graze streak, like a shield block. The ship still gets the full 1.3 s of hit i-frames. The familiar is `gone` for 10 s (7 s at level 2), then returns. `hurt()` is forced past it, as it is past shields.
 - `summon-haunt` marks a foe a wisp hits, after that hit's own damage, for 2 s. Every hit on a marked foe from any source deals `1 + hauntBonus` times its damage, and the foe is tinted lavender.
 - `summon-great-spirit` sends every familiar that is not `gone` diving at the live foe with the most HP every 12 s (9 s at level 2) of fighting. Each one deals 30 as `tally.dealt.spirit` when it reaches her, then flies back and is `ready` again.
-- `summon-kinship`, `summon-swift-wings`, `summon-piercing-soul` and `summon-soul-burst` have no journey yet. Soul Burst's wisps burst like Flashpoint's sparks, for half the wisp's damage as `blast`, under a cornflower ring.
+- `summon-kinship`, `summon-swift-wings`, `summon-piercing-soul` and `summon-soul-burst` have no journey yet. Piercing Soul adds its level to the base pierce. Soul Burst's wisps burst like Flashpoint's sparks, for half the wisp's damage as `blast`, under a cornflower ring.
 
 ## How to get to it (user POV)
 
@@ -36,6 +37,8 @@ Steps. Run `drive.mjs <run-id> summon`:
 - **Haunt.** Under the boss, per-frame `tally.dealt.bullet` reads 2 per gun hit with Spirit Familiar alone. With Haunt 3 it reads 3 on every frame the boss was haunted at both ends. Each wisp hit sets the boss's `haunted` time to 2000 ms.
 - **Great Spirit.** Spirit Familiar, Pack Call 2 and Great Spirit 2. All three familiars turn `diving` together 9000 ms into the fight, each reaches the boss over 200 px from the ship, `tally.dealt.spirit` rises by 90, and all three are back `ready` above the ship.
 
+- **Crowd.** Stage 6 with Spirit Familiar 1, the ship held still under the formation in god mode. A recorder reads `summons.wisps` (`hits`) every frame. Some wisp has hit 2 or more foes and none more than 1 + 2.
+
 Proof. These screenshots are taken paused, with no camera flash running:
 
 - `01-shop-pack-call-card.png` shows the cornflower Pack Call card with the branch label `Spirit Call · สาย Summoner` and the `Spirit Familiar 1` chip.
@@ -45,6 +48,7 @@ Proof. These screenshots are taken paused, with no camera flash running:
 - `08-sacrifice.png` shows the cornflower `SACRIFICE` float with no familiar left above the ship. `10-sacrifice-returned.png` shows it back.
 - `12-haunted-boss.png` shows the lavender-tinted boss.
 - `14-great-spirit-dive.png` shows the three familiars on their way to the boss.
+- `15-wisp-through-formation.png` is paused on the first frame a wisp has gone through two foes.
 
 ## Gotchas
 

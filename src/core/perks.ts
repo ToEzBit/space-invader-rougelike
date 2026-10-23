@@ -20,7 +20,7 @@ export const OVERDRIVE_CALM_MS = 3000;
 
 export const GRAZE = { sparkPierce: 4, adrenalineMs: 1200, phaseShieldMs: 4000, flashpointEvery: 5, bulletTimeScale: 0.5, staticPulsePx: 48 } as const;
 
-export const SUMMON = { maxFamiliars: 3, wispDamage: 4, soulBurstShare: 0.5, hauntMs: 2000, greatSpiritDamage: 30 } as const;
+export const SUMMON = { maxFamiliars: 3, wispDamage: 4, wispPierce: 2, soulBurstShare: 0.5, hauntMs: 2000, greatSpiritDamage: 30 } as const;
 
 type PerkSpec = {
   branch: Branch;
@@ -289,9 +289,9 @@ const PERK_SPECS = {
   // ---------- Spirit Call ----------
   familiar: {
     branch: 'summon', tier: 1, name: 'Spirit Familiar',
-    values: [1200, 1100, 800],
-    desc: (v) => `ปลดล็อกภูตผู้ติดตาม 1 ตัว ยิงวิญญาณติดตามศัตรูที่ใกล้ที่สุดทุก ${sec(v)} (ดาเมจ ${SUMMON.wispDamage})`,
-    apply: (s, v) => { s.familiars = 1; s.wispIntervalMs = v; s.wispDamage = SUMMON.wispDamage; },
+    values: [1400, 1250, 900],
+    desc: (v) => `ปลดล็อกภูตผู้ติดตาม 1 ตัว ยิงวิญญาณติดตามศัตรูที่ใกล้ที่สุดทุก ${sec(v)} (ดาเมจ ${SUMMON.wispDamage}) แล้วทะลุต่อไปยังศัตรูที่ไม่ใช่บอสได้อีก ${SUMMON.wispPierce} ตัว`,
+    apply: (s, v) => { s.familiars = 1; s.wispIntervalMs = v; s.wispDamage = SUMMON.wispDamage; s.wispPierce = SUMMON.wispPierce; },
   },
   kinship: {
     branch: 'summon', tier: 1, name: 'Kinship', requires: 'familiar',
@@ -320,8 +320,8 @@ const PERK_SPECS = {
   piercingSoul: {
     branch: 'summon', tier: 2, name: 'Piercing Soul', requires: 'familiar',
     values: [1, 2, 3],
-    desc: (v) => `วิญญาณทะลุศัตรูที่ไม่ใช่บอสได้ ${v} ตัว`,
-    apply: (s, v) => { s.wispPierce = v; },
+    desc: (v) => `วิญญาณทะลุศัตรูที่ไม่ใช่บอสได้เพิ่ม +${v} ตัว`,
+    apply: (s, v) => { s.wispPierce += v; },
   },
   sacrifice: {
     branch: 'summon', tier: 3, name: 'Sacrifice', requires: 'familiar',
