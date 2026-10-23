@@ -108,6 +108,11 @@ export class StageScene extends Phaser.Scene {
           }),
         stats: { moveSpeed: this.world.stats.moveSpeed, bulletDamage: this.world.stats.bulletDamage, fireIntervalMs: this.world.stats.fireIntervalMs, pierce: this.world.stats.pierce },
         transAm: this.world.transAm,
+        graze: {
+          ...this.world.graze.debug,
+          lastErasedId: this.world.graze.lastErased && shotId(this.world.graze.lastErased),
+          sparks: this.world.playerShots.list.filter((b) => b.alive && b.kind === 'spark').map((b) => ({ x: b.sprite.x, y: b.sprite.y, blast: b.blast })),
+        },
         boss: this.encounter.boss && {
           name: this.encounter.boss.name,
           form: this.encounter.boss.form,

@@ -38,6 +38,7 @@ This directory is the maintained source for verifying what a player can do in th
 - [Sound effects](./sfx.md) covers the layered sound recipes, the gun shot once per volley and its silence under TRANS-AM, the laser zap and the buzz held for the beam and stopped on every way out, the orbital strike, one boss cast sound per move by its tier, and the offline render.
 - [Skill cooldown tray](./skill-hud.md) covers the bottom-left skill icons, the clockwise cooldown sweep and countdown, dash charges and the laser cycle.
 - [Enemy HP bars](./enemy-hp.md) covers the bar over a damaged foe, its color, the white chip, the fade after the last hit and no bar on the boss.
+- [Close Call graze perks](./graze.md) covers the graze branch in the shop and, under the stage 5 boss with real movement, sparks launched and landing on a graze, Static Skin erasing the grazed bullet, Wide Halo's wider ring, Phase Skin's shield after a streak and a hit breaking it, Adrenaline's fire rate and Bullet Time's slow.
 - [Boss fights](./bosses.md) covers Crimson Seraph and Void Empress, damage, phases and reaching the second form.
 - [Boss forms](./boss-forms.md) covers the transformation (immunity, shockwave, heal, new name and sprite, minions) and each second form's charged special attacks.
 - [Boss skill motion](./boss-moves.md) covers the pose each boss strikes for each of her ten patterns by tier, the casting pose of the four ultimates, the freeze under the TRANS-AM cut-in, and the proof that the motion never changes gameplay.

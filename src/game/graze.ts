@@ -40,7 +40,12 @@ export class Graze {
 
   // Dev-only.
   get debug() {
-    return { grazes: this.grazes, streak: this.streak, rushMs: this.rushMs, slowMs: this.slowMs, lastErased: this.erased };
+    return { grazes: this.grazes, streak: this.streak, rushMs: this.rushMs, slowMs: this.slowMs };
+  }
+
+  // Dev-only: the bullet Static Skin erased last.
+  get lastErased(): Bullet | null {
+    return this.erased;
   }
 
   onGraze(b: Bullet): void {

@@ -1468,6 +1468,196 @@ const JOURNEYS = {
     }
   },
 
+  async graze(h) {
+    const SPARK_SPLIT = 3;
+    const PHASE_EVERY = 8;
+    const loadout = { closeCall: 3, wideHalo: 3, adrenaline: 3, sparkSplit: SPARK_SPLIT, staticSkin: 3, phaseSkin: 2, bulletTime: 2 };
+    const pausedShot = async (name, region) => {
+      await h.game('pause');
+      await h.shot(name);
+      if (region) await h.shot(`${name}-closeup`, region);
+      await h.game('resume');
+    };
+    const around = (p) => ({ x: Math.max(0, p.x - 120), y: p.y - 200, w: 240, h: 250 });
+
+    await h.startAt(4, { closeCall: 1 }, 2000);
+    await h.game('kill');
+    let shop = await h.waitFor('the shop after stage 4', (x) => x.scenes.includes('Shop') && x.run.stage === 4);
+    const grazeCards = (s) => h.core(`${JSON.stringify(s.cards)}.filter((o) => o?.kind === 'perk' && perks.PERKS[o.id].branch === 'graze').map((o) => o.id)`);
+    for (let i = 0; i < 15 && (await grazeCards(shop)).length === 0; i++) shop = await h.step('press R for a graze card', () => h.page.keyboard.press('r'));
+    const offered = await grazeCards(shop);
+    h.check('with Close Call owned, the shop offers the graze branch', offered.length > 0, { cards: shop.cards });
+    await sleep(800);
+    await h.shot('shop-graze-card');
+
+    const base = await h.core(`perks.deriveStats(${JSON.stringify(loadout)})`);
+    const GRAZE = await h.core('perks.GRAZE');
+    const core = await h.page.evaluate(() => import('/src/game/hitbox.ts').then((m) => m.PLAYER_RADIUS.core));
+    const TA = await h.page.evaluate(() => import('/src/core/transAm.ts').then((m) => m.TRANS_AM));
+    await h.startAt(5, loadout);
+    await h.game('god', true);
+    await h.waitFor('the boss fighting', (x) => x.boss?.stance === 'fighting', 10000);
+
+    // Every frame's graze state and live enemy bullets, read in one animation frame.
+    await h.page.evaluate(() => {
+      const g = window.__game;
+      const rec = (window.__grazeRec = { on: true, frames: [] });
+      const tick = () => {
+        if (!rec.on) return;
+        const s = g.state();
+        if (s?.graze && s.life === 'fighting')
+          rec.frames.push({
+            ms: s.clock.fightMs,
+            grazes: s.tally.grazes,
+            hits: s.tally.hits,
+            spark: s.tally.dealt.spark ?? 0,
+            streak: s.graze.streak,
+            slowMs: s.graze.slowMs,
+            rushMs: s.graze.rushMs,
+            erasedId: s.graze.lastErasedId,
+            sparks: s.graze.sparks.length,
+            shieldMs: s.shieldMs,
+            fireMs: s.stats.fireIntervalMs,
+            transAm: s.transAm.kind,
+            player: s.player,
+            shots: g.shots().map((b) => [b.id, b.x, b.y]),
+          });
+        requestAnimationFrame(tick);
+      };
+      tick();
+    });
+
+    // Real arrow keys weave left and right under the boss, first sidestepping any bullet on course for the core, so
+    // grazes run up a streak, then without the sidestep until a bullet lands. Her HP is held above her transformation
+    // so she keeps firing her first form's patterns.
+    const snap = () => h.page.evaluate(() => ({ s: window.__game.state(), shots: window.__game.shots() }));
+    let held = null;
+    const hold = async (k) => {
+      if (k === held) return;
+      if (held) await h.page.keyboard.up(held);
+      if (k) await h.page.keyboard.down(k);
+      held = k;
+    };
+    const threat = (s, shots, prev) => {
+      const dt = s.clock.fightMs - prev.ms;
+      let near = null;
+      for (const b of dt > 0 ? shots : []) {
+        const p = prev.at.get(b.id);
+        if (!p) continue;
+        const [vx, vy, rx, ry] = [(b.x - p.x) / dt, (b.y - p.y) / dt, b.x - s.player.x, b.y - s.player.y];
+        const t = Math.min(Math.max(-(rx * vx + ry * vy) / (vx * vx + vy * vy || 1), 0), 400);
+        if (Math.hypot(rx + vx * t, ry + vy * t) < core + 10 && (!near || t < near.t)) near = { t, side: Math.sign(rx + vx * t) };
+      }
+      return near;
+    };
+    let weave = 'ArrowRight';
+    const seen = { sparkShot: false, shieldShot: false, streakHit: false };
+    let { s, shots } = await snap();
+    const first = s;
+    let prev = { ms: s.clock.fightMs, at: new Map() };
+    const end = Date.now() + 60000;
+    while (Date.now() < end && !(seen.sparkShot && seen.shieldShot && seen.streakHit && s.tally.grazes - first.tally.grazes >= 15)) {
+      if (s.boss.hpRatio < 0.7) await h.game('bossHp', 1);
+      if (!seen.sparkShot && s.graze.sparks.length >= SPARK_SPLIT + 1) {
+        // Sparks launch under the ship, so the shot waits until a whole fan has flown clear of it.
+        const clear = `s.graze.sparks.length >= ${SPARK_SPLIT + 1} && s.graze.sparks.every((p) => Math.hypot(p.x - s.player.x, p.y - s.player.y) > 60)`;
+        const flying = await h.frameWhen(clear, true, 1500).catch(() => null);
+        if (flying) {
+          seen.sparkShot = true;
+          h.log.steps.push({ action: 'paused with a fan of sparks clear of the ship', sparks: flying.s.graze.sparks, player: flying.s.player });
+          await h.shot('sparks-in-flight');
+          await h.shot('sparks-in-flight-closeup', around(flying.s.player));
+          await h.game('resume');
+        }
+      }
+      if (!seen.shieldShot && s.shieldMs > GRAZE.phaseShieldMs - 300 && s.graze.streak > 0 && s.graze.streak % PHASE_EVERY === 0) {
+        seen.shieldShot = true;
+        await pausedShot('phase-shield', around(s.player));
+      }
+      if (weave === 'ArrowRight' ? s.player.x > Math.min(s.boss.x + 110, 430) : s.player.x < Math.max(s.boss.x - 110, 50)) weave = weave === 'ArrowRight' ? 'ArrowLeft' : 'ArrowRight';
+      const danger = !seen.shieldShot && threat(s, shots, prev);
+      const away = danger && (danger.side > 0 ? 'ArrowLeft' : 'ArrowRight');
+      await hold(away && (away === 'ArrowLeft' ? s.player.x > 40 : s.player.x < 440) ? away : weave);
+      prev = { ms: s.clock.fightMs, at: new Map(shots.map((b) => [b.id, b])) };
+      await sleep(15);
+      const next = await snap();
+      if (next.s.tally.hits > s.tally.hits && s.graze.streak > 0) seen.streakHit = true;
+      ({ s, shots } = next);
+    }
+    await hold(null);
+    const frames = await h.page.evaluate(() => {
+      window.__grazeRec.on = false;
+      return window.__grazeRec.frames;
+    });
+    const pairs = frames.slice(1).map((b, i) => ({ a: frames[i], b })).filter(({ a, b }) => b.ms > a.ms);
+    const grazed = pairs.filter(({ a, b }) => b.grazes > a.grazes);
+    h.log.steps.push({ action: 'weave under the boss with real arrow keys', from: summarize(first), to: summarize(s), frames: frames.length, grazes: s.tally.grazes - first.tally.grazes, hits: s.tally.hits - first.tally.hits });
+    h.check('weaving under the boss grazes bullets', grazed.length >= 10, { grazeFrames: grazed.length });
+    h.check('TRANS-AM stays charging, so every slow and fire rate change below is the graze branch', frames.every((f) => f.transAm === 'charging'), { kinds: [...new Set(frames.map((f) => f.transAm))] });
+
+    const launches = grazed.filter(({ a, b }) => b.sparks >= a.sparks + SPARK_SPLIT + 1);
+    const landed = pairs.filter(({ a, b }) => b.spark > a.spark);
+    h.check(`a counted graze launches ${SPARK_SPLIT + 1} sparks (Close Call plus Spark Split ${SPARK_SPLIT})`, launches.length >= grazed.length * 0.8, { grazeFrames: grazed.length, launches: launches.length });
+    h.check('sparks damage the boss: tally.dealt.spark rises after the first graze', landed.length > 0 && landed[0].b.ms > grazed[0].a.ms && frames[0].spark === 0, {
+      firstGrazeMs: grazed[0].b.ms,
+      firstSparkHitMs: landed[0]?.b.ms,
+      dealt: frames.at(-1).spark,
+    });
+
+    const ring = core + TA.grazePadPx + base.grazeHaloPx;
+    const erasures = grazed.map(({ a, b }) => {
+      const id = b.erasedId;
+      const before = a.shots.find(([sid]) => sid === id);
+      const gone = id !== a.erasedId && before && frames.filter((f) => f.ms >= b.ms).every((f) => !f.shots.some(([sid]) => sid === id));
+      const d = before && Math.hypot(before[1] - a.player.x, before[2] - a.player.y);
+      return { id, gone: Boolean(gone), distance: d && Math.round(d), onScreen: Boolean(before && before[1] > 0 && before[1] < 480 && before[2] > 0 && before[2] < 640) };
+    });
+    const proved = erasures.filter((e) => e.gone && e.onScreen && e.distance <= ring + 20);
+    h.check('Static Skin 3 erases the grazed bullet on every graze: its id leaves shots() on that frame, on screen and beside the ship', proved.length >= grazed.length * 0.9, { ring, grazeFrames: grazed.length, proved: proved.length, erasures: erasures.slice(0, 8) });
+    // A counted bullet sat inside the ring a frame before, so past the base ring plus a bullet radius and a frame of
+    // travel only the wider ring could have counted it.
+    const outside = proved.filter((e) => e.distance > core + TA.grazePadPx + 12);
+    h.check('Wide Halo 3 counts grazes outside the base ring', outside.length >= proved.length / 2, { baseRing: core + TA.grazePadPx, ring, distances: proved.map((e) => e.distance) });
+
+    const shields = pairs.filter(({ a, b }) => b.streak > a.streak && b.streak % PHASE_EVERY === 0 && b.shieldMs > a.shieldMs && b.shieldMs >= GRAZE.phaseShieldMs - 50);
+    const unshielded = pairs.filter(({ a, b }) => b.shieldMs > a.shieldMs && !(b.streak > a.streak && b.streak % PHASE_EVERY === 0));
+    h.check(`Phase Skin 2 raises the shield on the ${PHASE_EVERY}th graze in a row without a hit`, shields.length >= 1, { at: shields.map(({ a, b }) => ({ streak: [a.streak, b.streak], shieldMs: [a.shieldMs, b.shieldMs] })), maxStreak: Math.max(...frames.map((f) => f.streak)) });
+    h.check('the shield never rises any other way', unshielded.length === 0, { unshielded: unshielded.slice(0, 3).map(({ a, b }) => ({ streak: [a.streak, b.streak], shieldMs: [a.shieldMs, b.shieldMs] })) });
+    const broken = pairs.filter(({ a, b }) => b.hits > a.hits && a.streak > 0);
+    h.check('a landed hit breaks the streak back to the grazes after it in that frame', broken.length > 0 && broken.every(({ a, b }) => b.streak <= b.grazes - a.grazes), {
+      broken: broken.map(({ a, b }) => ({ streak: [a.streak, b.streak], hits: [a.hits, b.hits], grazes: [a.grazes, b.grazes] })),
+    });
+
+    const rushed = frames.filter((f) => f.rushMs > 0);
+    const calm = frames.filter((f) => f.rushMs === 0);
+    const close = (x, y) => Math.abs(x - y) < 1e-9;
+    h.check('Adrenaline 3 fires at 65% of the interval while it runs after a graze, and at the base interval otherwise', rushed.length > 0 && rushed.every((f) => close(f.fireMs, base.fireIntervalMs * base.adrenalineIntervalScale)) && calm.every((f) => close(f.fireMs, base.fireIntervalMs)), {
+      base: base.fireIntervalMs,
+      rushedFireMs: [...new Set(rushed.map((f) => f.fireMs))],
+      calmFireMs: [...new Set(calm.map((f) => f.fireMs))],
+    });
+
+    // A frame moved slowed when the slow outlasted the whole step, and at full speed when no slow ran at either end.
+    const speeds = new Map();
+    for (const { a, b } of pairs) {
+      const dt = b.ms - a.ms;
+      const kind = a.slowMs > dt + 1 ? 'slow' : a.slowMs === 0 && b.slowMs === 0 ? 'full' : null;
+      if (!kind) continue;
+      for (const [id, x, y] of b.shots) {
+        const prev = a.shots.find(([pid]) => pid === id);
+        if (!prev) continue;
+        const v = Math.hypot(x - prev[1], y - prev[2]) / dt;
+        const entry = speeds.get(id) ?? { slow: [], full: [] };
+        entry[kind].push(v);
+        speeds.set(id, entry);
+      }
+    }
+    const median = (xs) => [...xs].sort((p, q) => p - q)[Math.floor(xs.length / 2)];
+    const ratios = [...speeds.entries()].filter(([, e]) => e.slow.length >= 3 && e.full.length >= 3).map(([id, e]) => ({ id, ratio: median(e.slow) / median(e.full), full: median(e.full) * 1000 }));
+    const mid = ratios.length && median(ratios.map((r) => r.ratio));
+    h.check(`Bullet Time 2 slows a bullet in flight to ${GRAZE.bulletTimeScale * 100}% of its speed after a graze`, ratios.length >= 5 && Math.abs(mid - GRAZE.bulletTimeScale) < 0.03, { bullets: ratios.length, medianRatio: mid, sample: ratios.slice(0, 6) });
+  },
+
   async bosses(h) {
     const b0 = await h.startAt(5);
     h.check('stage 5 is Crimson Seraph at full HP in her first form', b0.boss?.name === 'Crimson Seraph' && b0.boss.hpRatio === 1 && b0.boss.form === 0 && b0.boss.phase === 0, { boss: b0.boss });
