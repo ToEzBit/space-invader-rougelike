@@ -27,6 +27,7 @@ Preconditions:
 Every journey that starts a run from Title goes through the harness's `throughHangar({ title, go, atHangar })`. It presses Enter on Title (or calls `title`), waits for `Shop` at `run.stage` 0, runs `atHangar(hangar)`, presses Enter (or calls `go(hangar)`, which `mobile` uses to tap the `go` target), and returns the state once stage 1 is fighting.
 
 - **Boot.** Run `drive.mjs <run-id> doctor`. `log.json` shows `scenes` contains `Title`, and `01-title.png` shows the logo and controls panel.
+- **Held Enter.** The journey holds Enter down on Title and sends a repeat once the hangar is up. The run stays in `Shop` at `run.stage` 0.
 - **Hangar.** Run `drive.mjs <run-id> title-start`. Enter on Title reaches `scenes: ["Shop"]` with `run.stage: 0`, `run.money: 20`, and three perk `cards` whose branches read rapid, laser, ram, each tier 1 and priced 20 by the game's own `run.offerCost`.
 - **No refresh.** `r` raises `sfx.played.deny` by 1 and leaves `run.money` at 20 and `cards` unchanged.
 - **Buy.** `2` buys the laser card: `run.money` 0, the perk at level 1, card 2 sold out.

@@ -227,7 +227,13 @@ const JOURNEYS = {
     await h.shot('title');
     let bought;
     const playing = await h.throughHangar({
+      title: () => h.page.keyboard.down('Enter'),
       atHangar: async (hangar) => {
+        await h.step('keep Enter held into the hangar so it repeats', () => h.page.keyboard.down('Enter'));
+        await sleep(300);
+        const held = await h.state();
+        await h.page.keyboard.up('Enter');
+        h.check('a held Enter from Title repeats without leaving the hangar', held.scenes.includes('Shop') && held.run.stage === 0, { scenes: held.scenes, stage: held.run.stage });
         h.check('Enter on Title opens the hangar before stage 1 holding 20 coins', hangar.run.phase.kind === 'shop' && hangar.run.money === 20, summarize(hangar).run);
         const offers = await h.core(`${JSON.stringify(hangar.cards)}.map((o) => ({ ...o, branch: perks.PERKS[o.id]?.branch, tier: perks.PERKS[o.id]?.tier, cost: run.offerCost(${JSON.stringify(hangar.run)}, o) }))`);
         h.check(
@@ -2116,9 +2122,14 @@ const JOURNEYS = {
       await m.shot('title');
       const s1 = await m.throughHangar({
         title: () => tap(1, { x: 240, y: 330 }),
-        atHangar: async () => {
+        atHangar: async (hangar) => {
           await sleep(400);
           await m.shot('hangar');
+          const denies = hangar.sfx.played.deny ?? 0;
+          const refresh = hangar.targets.find((t) => t.id === 'refresh');
+          await m.step('tap refresh in the hangar', () => tap(1, { x: refresh.x + refresh.w / 2, y: refresh.y + refresh.h / 2 }));
+          const refused = await m.waitFor('hangar refresh denied', (x) => (x.sfx.played.deny ?? 0) === denies + 1, 2000);
+          m.check('a tap on refresh in the hangar is refused and changes nothing', refused.run.money === hangar.run.money && JSON.stringify(refused.cards) === JSON.stringify(hangar.cards), { denies: refused.sfx.played.deny, money: refused.run.money, cards: refused.cards });
         },
         go: (hangar) => {
           const go = hangar.targets.find((t) => t.id === 'go');
