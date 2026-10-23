@@ -18,7 +18,7 @@ export const TIER_BASE_COST: Record<Tier, number> = { 1: 20, 2: 35, 3: 55, 4: 80
 
 export const OVERDRIVE_CALM_MS = 3000;
 
-export const GRAZE = { adrenalineMs: 1200, phaseShieldMs: 4000, flashpointEvery: 5, bulletTimeScale: 0.5, staticPulsePx: 48 } as const;
+export const GRAZE = { sparkPierce: 4, adrenalineMs: 1200, phaseShieldMs: 4000, flashpointEvery: 5, bulletTimeScale: 0.5, staticPulsePx: 48 } as const;
 
 export const SUMMON = { maxFamiliars: 3, wispDamage: 4, soulBurstShare: 0.5, hauntMs: 2000, greatSpiritDamage: 30 } as const;
 
@@ -228,8 +228,8 @@ const PERK_SPECS = {
   closeCall: {
     branch: 'graze', tier: 1, name: 'Close Call',
     values: [5, 7, 9],
-    desc: (v) => `ปลดล็อกสะเก็ดไฟ ทุกครั้งที่เฉียดกระสุนศัตรู ยิงสะเก็ดไฟติดตามศัตรูที่ใกล้ที่สุด (ดาเมจ ${v})`,
-    apply: (s, v) => { s.grazeSparkDamage = v; },
+    desc: (v) => `ปลดล็อกสะเก็ดไฟ ทุกครั้งที่เฉียดกระสุน ยิงสะเก็ดไฟติดตามศัตรู (ดาเมจ ${v}) ทะลุต่อศัตรูที่ไม่ใช่บอสได้อีก ${GRAZE.sparkPierce} ตัว ถ้าฆ่าได้จะกระโดดไปตัวถัดไป`,
+    apply: (s, v) => { s.grazeSparkDamage = v; s.grazeSparkPierce = GRAZE.sparkPierce; },
   },
   wideHalo: {
     branch: 'graze', tier: 1, name: 'Wide Halo', requires: 'closeCall',
@@ -320,7 +320,7 @@ const PERK_SPECS = {
   piercingSoul: {
     branch: 'summon', tier: 2, name: 'Piercing Soul', requires: 'familiar',
     values: [1, 2, 3],
-    desc: (v) => `วิญญาณทะลุศัตรูได้ ${v} ตัว`,
+    desc: (v) => `วิญญาณทะลุศัตรูที่ไม่ใช่บอสได้ ${v} ตัว`,
     apply: (s, v) => { s.wispPierce = v; },
   },
   sacrifice: {

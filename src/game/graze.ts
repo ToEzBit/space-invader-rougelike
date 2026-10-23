@@ -20,7 +20,11 @@ export class Graze {
   private grazed: Bullet | null = null;
   private pulse: { at: Point; erased: { bullet: Bullet; at: Point }[] } | null = null;
 
-  constructor(private readonly world: World) {}
+  constructor(private readonly world: World) {
+    if (world.stats.grazeSparkDamage > 0) world.onKill.spark = (foe) => {
+      if (foe.size === 'small') this.leap(foe.sprite);
+    };
+  }
 
   get ringPx(): number {
     return TRANS_AM.grazePadPx + this.world.stats.grazeHaloPx;
@@ -82,15 +86,27 @@ export class Graze {
   }
 
   private launchSparks(at: Point, blast: number): void {
-    const { stats, run, playerShots, tally } = this.world;
+    const { stats } = this.world;
     const target = this.world.nearestFoe(at);
     const aim = target ? Math.atan2(target.sprite.y - at.y, target.sprite.x - at.x) : -Math.PI / 2;
-    const damage = stats.grazeSparkDamage * (stats.lastStandDamageScale > 0 && run.hp === 1 ? stats.lastStandDamageScale : 1);
     for (let i = 0; i <= stats.grazeExtraSparks; i++) {
       const angle = aim + (((i % 2 ? 1 : -1) * Math.ceil(i / 2) * SPARK_FAN_DEG) * Math.PI) / 180;
-      tally.fired += damage;
-      playerShots.spawn({ kind: 'spark', x: at.x, y: at.y, vx: Math.cos(angle) * SPARK_SPEED, vy: Math.sin(angle) * SPARK_SPEED, damage, source: 'spark', blast });
+      this.spark(at, angle, { pierce: stats.grazeSparkPierce, blast });
     }
+  }
+
+  // A spark that kills a small foe leaps on from it to the nearest small foe. A leap neither pierces nor bursts, so a
+  // chain runs foe to foe and ends at the first one it fails to kill.
+  private leap(from: Point): void {
+    const target = this.world.nearestFoe(from, true);
+    if (target) this.spark(from, Math.atan2(target.sprite.y - from.y, target.sprite.x - from.x), { crowdOnly: true });
+  }
+
+  private spark(at: Point, angle: number, round: { pierce?: number; blast?: number; crowdOnly?: boolean }): void {
+    const { stats, run, playerShots, tally } = this.world;
+    const damage = stats.grazeSparkDamage * (stats.lastStandDamageScale > 0 && run.hp === 1 ? stats.lastStandDamageScale : 1);
+    tally.fired += damage;
+    playerShots.spawn({ kind: 'spark', x: at.x, y: at.y, vx: Math.cos(angle) * SPARK_SPEED, vy: Math.sin(angle) * SPARK_SPEED, damage, source: 'spark', ...round });
   }
 
   // No particles, so the pulse draws nothing from Math.random.

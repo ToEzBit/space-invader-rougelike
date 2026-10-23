@@ -40,6 +40,7 @@ export type ShipStats = {
   dashDamageMultiplier: number;
 
   grazeSparkDamage: number;
+  grazeSparkPierce: number;
   grazeExtraSparks: number;
   grazeHaloPx: number;
   grazeGainBonus: number;
@@ -101,6 +102,7 @@ export const BASE_STATS: Readonly<ShipStats> = {
   dashDamageMultiplier: 1,
 
   grazeSparkDamage: 0,
+  grazeSparkPierce: 0,
   grazeExtraSparks: 0,
   grazeHaloPx: 0,
   grazeGainBonus: 0,

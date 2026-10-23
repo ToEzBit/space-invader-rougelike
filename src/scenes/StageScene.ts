@@ -117,7 +117,7 @@ export class StageScene extends Phaser.Scene {
             y: this.world.graze.last.pulse.at.y,
             erased: this.world.graze.last.pulse.erased.map(({ bullet, at }) => ({ id: shotId(bullet), ...at })),
           },
-          sparks: this.world.playerShots.list.filter((b) => b.alive && b.kind === 'spark').map((b) => ({ x: b.sprite.x, y: b.sprite.y, blast: b.blast })),
+          sparks: this.world.playerShots.list.filter((b) => b.alive && b.kind === 'spark').map((b) => ({ x: b.sprite.x, y: b.sprite.y, blast: b.blast, hits: b.hit.size, crowdOnly: b.crowdOnly })),
         },
         summons: {
           ...this.world.summons.debug,

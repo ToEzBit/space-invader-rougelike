@@ -153,7 +153,27 @@ function harness(page, outDir) {
       [pred, pause, timeoutMs],
     );
 
-  return { log, state, game, core, waitFor, frameWhen, check, step, shot, hold, startAt, throughHangar, openTitle, steer, track, serve404, page };
+  // Collects every frame's state()[system][list] rounds (sparks or wisps) until called with null, which returns them.
+  const recordRounds = (system, list) =>
+    page.evaluate(
+      ([system, list]) => {
+        if (!system) {
+          window.__rounds.on = false;
+          return window.__rounds.seen;
+        }
+        const rec = (window.__rounds = { on: true, seen: [] });
+        const tick = () => {
+          if (!rec.on) return;
+          const s = window.__game.state();
+          if (s?.[system]) rec.seen.push(...s[system][list]);
+          requestAnimationFrame(tick);
+        };
+        tick();
+      },
+      [system, list],
+    );
+
+  return { log, state, game, core, waitFor, frameWhen, check, step, shot, hold, startAt, throughHangar, openTitle, steer, track, serve404, recordRounds, page };
 }
 
 const VOICE_FILES = '**/transam-*.mp3';
@@ -1691,6 +1711,25 @@ const JOURNEYS = {
     const ratios = [...speeds.entries()].filter(([, e]) => e.slow.length >= 3 && e.full.length >= 3).map(([id, e]) => ({ id, ratio: median(e.slow) / median(e.full), full: median(e.full) * 1000 }));
     const mid = ratios.length && median(ratios.map((r) => r.ratio));
     h.check(`Bullet Time 2 slows a bullet in flight to ${GRAZE.bulletTimeScale * 100}% of its speed after a graze`, ratios.length >= 5 && Math.abs(mid - GRAZE.bulletTimeScale) < 0.03, { bullets: ratios.length, medianRatio: mid, sample: ratios.slice(0, 6) });
+
+    // Crowd: in a wave a spark goes on from its first foe through more of the formation, and one that kills a foe
+    // leaps on from it as a fresh spark that only small foes can take.
+    const crowd = await h.core('perks.deriveStats({ closeCall: 1 })');
+    await h.startAt(6, { closeCall: 1 });
+    await h.game('god', true);
+    await h.waitFor('stage 6 fighting', (x) => x.life === 'fighting', 8000);
+    await h.recordRounds('graze', 'sparks');
+    const pierced = await h.frameWhen('s.graze.sparks.some((p) => p.hits >= 2)', true, 30000);
+    h.log.steps.push({ action: 'paused with a spark that has gone through two foes', sparks: pierced.s.graze.sparks });
+    await h.shot('spark-through-formation');
+    await h.game('resume');
+    await h.frameWhen('s.graze.sparks.some((p) => p.crowdOnly && p.hits === 0)', false, 30000);
+    const sparks = await h.recordRounds(null);
+    h.check(`in a wave a spark goes on through up to ${crowd.grazeSparkPierce} more foes after its first`, sparks.some((p) => p.hits >= 2) && sparks.every((p) => p.hits <= 1 + crowd.grazeSparkPierce), {
+      most: Math.max(...sparks.map((p) => p.hits)),
+      samples: sparks.length,
+    });
+    h.check('a spark that kills a foe leaps on from it as a fresh spark for small foes only', sparks.some((p) => p.crowdOnly && p.hits === 0), { leaps: sparks.filter((p) => p.crowdOnly && p.hits === 0).length });
   },
 
   async summon(h) {
@@ -2002,6 +2041,7 @@ const JOURNEYS = {
     h.check(`each arrival deals ${SUMMON.greatSpiritDamage} (tally.dealt.spirit)`, spirit === SUMMON.greatSpiritDamage * 3, { spirit });
     const end = greatRun.frames.at(-1);
     h.check('every familiar flies back to its place above the ship', end.familiars.every((f) => f.state === 'ready' && dist(f, { x: end.player.x, y: end.player.y - 50 }) < 20), { familiars: end.familiars, player: end.player });
+
   },
 
   async bosses(h) {

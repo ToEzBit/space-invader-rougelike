@@ -361,11 +361,12 @@ export class World {
     for (const b of this.playerShots.list) {
       if (!b.alive) continue;
       for (const foe of this.foes) {
-        if (foe.dead || b.hit.has(foe)) continue;
+        if (foe.dead || b.hit.has(foe) || (b.crowdOnly && foe.size === 'big')) continue;
         if (!circlesOverlap(b.sprite, this.playerShots.radius(b), foe.sprite, foe.radius)) continue;
         this.damage(foe, b.damage, b.source);
         if (b.blast > 0) this.burst(b, foe);
         if (b.kind === 'wisp') this.summons.onWispHit(foe);
+        if (BULLETS[b.kind].crowd) b.crowdOnly = true;
         this.fx.spark(b.sprite.x, b.sprite.y - 4, b.kind === 'crit' ? 8 : 3);
         if (b.kind === 'crit') this.fx.float(b.sprite.x, b.sprite.y - 10, `${Math.round(b.damage)}!`);
         if (b.pierceLeft-- <= 0) {
@@ -396,12 +397,12 @@ export class World {
     }
   }
 
-  nearestFoe(at: Point): Foe | null {
+  nearestFoe(at: Point, smallOnly = false): Foe | null {
     let best: Foe | null = null;
     let bestD = Infinity;
     for (const f of this.foes) {
       const d = (f.sprite.x - at.x) ** 2 + (f.sprite.y - at.y) ** 2;
-      if (!f.dead && d < bestD) [best, bestD] = [f, d];
+      if (!f.dead && !(smallOnly && f.size === 'big') && d < bestD) [best, bestD] = [f, d];
     }
     return best;
   }
@@ -412,7 +413,7 @@ export class World {
     if (!look) return;
     const at = b.sprite;
     for (const foe of this.foes) {
-      if (foe !== struck && !foe.dead && circlesOverlap(at, b.blast, foe.sprite, foe.radius)) this.damage(foe, b.damage * look.share, 'blast');
+      if (foe !== struck && !foe.dead && !(b.crowdOnly && foe.size === 'big') && circlesOverlap(at, b.blast, foe.sprite, foe.radius)) this.damage(foe, b.damage * look.share, 'blast');
     }
     const ring = this.scene.add.circle(at.x, at.y, b.blast, look.color, 0.18).setStrokeStyle(3, look.color, 0.9).setDepth(DEPTH.fx);
     ring.setScale(0.3);

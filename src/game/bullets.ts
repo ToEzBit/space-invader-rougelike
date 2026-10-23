@@ -17,6 +17,9 @@ type BulletDef = {
   tint?: Tint;
   // A spawn with a blast radius also hits every other foe in it for this share of its damage, under a ring of this color.
   burst?: { share: number; color: number };
+  // After its first hit the round goes on only through small foes, so pierce and kill chains thin a formation
+  // without adding hits on a boss.
+  crowd?: true;
 };
 
 type Tint = { color: number; mode: Phaser.TintModes };
@@ -28,7 +31,7 @@ export const BULLETS: Record<BulletKind, BulletDef> = {
   crit: { texture: 'critShot', radius: 4, facing: 'velocity' },
   droneShot: { texture: 'shot', radius: 3, facing: 'velocity' },
   missile: { texture: 'missile', radius: 5, facing: 'velocity', steer: homing },
-  spark: { texture: 'shot', radius: 4, facing: 'velocity', steer: homing, tint: { color: COLORS.lime, mode: Phaser.TintModes.FILL }, burst: { share: 1, color: COLORS.lime } },
+  spark: { texture: 'shot', radius: 4, facing: 'velocity', steer: homing, tint: { color: COLORS.lime, mode: Phaser.TintModes.FILL }, burst: { share: 1, color: COLORS.lime }, crowd: true },
   wisp: {
     texture: 'orb',
     radius: 4,
@@ -36,6 +39,7 @@ export const BULLETS: Record<BulletKind, BulletDef> = {
     steer: homing,
     tint: { color: COLORS.cornflower, mode: Phaser.TintModes.FILL },
     burst: { share: SUMMON.soulBurstShare, color: COLORS.cornflower },
+    crowd: true,
   },
   pellet: { texture: 'pellet', radius: 4, facing: 'spin' },
   needle: { texture: 'needle', radius: 3, facing: 'velocity' },
@@ -55,6 +59,8 @@ export type Bullet = {
   hit: Set<Foe>;
   // A hit also bursts on every other foe within this radius; 0 for none.
   blast: number;
+  // Hits, bursts on and homes in on small foes only.
+  crowdOnly: boolean;
   // An enemy bullet's pass by the ship: near inside the graze ring, counted once it leaves without touching the core.
   graze: 'far' | 'near' | 'counted';
   alive: boolean;
@@ -70,6 +76,7 @@ export type BulletSpawn = {
   source?: DamageSource;
   pierce?: number;
   blast?: number;
+  crowdOnly?: boolean;
 };
 
 export class Bullets {
@@ -104,6 +111,7 @@ export class Bullets {
       pierceLeft: s.pierce ?? 0,
       hit: new Set(),
       blast: s.blast ?? 0,
+      crowdOnly: s.crowdOnly ?? false,
       graze: 'far',
       alive: true,
     };
@@ -166,7 +174,7 @@ function homing(b: Bullet, foes: readonly Foe[], dtSec: number): void {
   let best: Foe | null = null;
   let bestD = Infinity;
   for (const f of foes) {
-    if (f.dead || b.hit.has(f) || f.sprite.y > b.sprite.y + 40) continue;
+    if (f.dead || b.hit.has(f) || (b.crowdOnly && f.size === 'big') || f.sprite.y > b.sprite.y + 40) continue;
     const d = (f.sprite.x - b.sprite.x) ** 2 + (f.sprite.y - b.sprite.y) ** 2;
     if (d < bestD) [best, bestD] = [f, d];
   }

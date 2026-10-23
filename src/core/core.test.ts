@@ -63,13 +63,14 @@ describe('graze perks', () => {
 
   it('fold every graze stat from the perk table, all off without them', () => {
     const none = deriveStats({});
-    expect([none.grazeSparkDamage, none.grazeExtraSparks, none.grazeHaloPx, none.grazeGainBonus, none.adrenalineIntervalScale, none.staticSkinEvery, none.phaseSkinEvery, none.flashpointRadius, none.lastStandDamageScale, none.bulletTimeMs]).toEqual([
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    expect([none.grazeSparkDamage, none.grazeSparkPierce, none.grazeExtraSparks, none.grazeHaloPx, none.grazeGainBonus, none.adrenalineIntervalScale, none.staticSkinEvery, none.phaseSkinEvery, none.flashpointRadius, none.lastStandDamageScale, none.bulletTimeMs]).toEqual([
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     ]);
     const s = deriveStats({ closeCall: 2, wideHalo: 3, adrenaline: 1, sparkSplit: 2, overflow: 3, staticSkin: 3, phaseSkin: 2, flashpoint: 1, lastStand: 2, bulletTime: 2 });
     expect(s).toEqual({
       ...BASE_STATS,
       grazeSparkDamage: 7,
+      grazeSparkPierce: 4,
       grazeHaloPx: 18,
       adrenalineIntervalScale: 0.85,
       grazeExtraSparks: 2,
