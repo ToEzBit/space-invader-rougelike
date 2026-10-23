@@ -14,6 +14,7 @@ const SHEETS = join(DIR, 'sheets');
 export const CHARACTERS = [
   { key: 'player', raw: 'player-v1', box: [42, 48], scale: 1, colors: 20, mirror: true, textureKeys: ['player'] },
   { key: 'optionDrone', raw: 'optionDrone-v1', box: [14, 12], scale: 1, colors: 8, darkWeight: 1, textureKeys: ['optionDrone'] },
+  { key: 'familiar', raw: 'familiar-v1', box: [15, 15], scale: 1, colors: 8, darkWeight: 1.5, mirror: true, textureKeys: ['familiar'] },
   { key: 'drone', raw: 'drone-v1', box: [26, 24], scale: 1, colors: 20, textureKeys: ['drone0', 'drone1'] },
   { key: 'gunner', raw: 'gunner-v1', box: [30, 26], scale: 1, colors: 20, darkWeight: 1.5, textureKeys: ['gunner0', 'gunner1'] },
   { key: 'tank', raw: 'tank-v1', box: [30, 28], scale: 1, colors: 20, textureKeys: ['tank0', 'tank1'] },

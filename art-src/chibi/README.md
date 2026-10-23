@@ -1,6 +1,6 @@
 # Chibi character art
 
-This folder holds the sources for the ten character sprites in `src/assets/characters/`: player, optionDrone, drone, gunner, tank, diver, the two bosses crimsonSeraph and voidEmpress, and their second forms crimsonSeraphAscended and voidEmpressEclipse. Each PNG has one art pixel per world unit and uses only fully opaque or fully transparent pixels.
+This folder holds the sources for the thirteen character sprites in `src/assets/characters/`: player, optionDrone, the summon branch's familiar, drone, gunner, tank, diver, the two bosses crimsonSeraph and voidEmpress, their second forms crimsonSeraphAscended and voidEmpressEclipse, and those forms' casting poses. Each PNG has one art pixel per world unit and uses only fully opaque or fully transparent pixels.
 
 The art is made in two steps.
 
@@ -29,7 +29,7 @@ node pipeline.mjs           # raw/ -> out/, manifest.json, sheets/
 Then copy the finals into the game.
 
 ```bash
-for k in player optionDrone drone gunner tank diver crimsonSeraph voidEmpress crimsonSeraphAscended voidEmpressEclipse crimsonSeraphAscendedCast voidEmpressEclipseCast; do
+for k in player optionDrone familiar drone gunner tank diver crimsonSeraph voidEmpress crimsonSeraphAscended voidEmpressEclipse crimsonSeraphAscendedCast voidEmpressEclipseCast; do
   cp out/$k.png ../../src/assets/characters/
 done
 ```

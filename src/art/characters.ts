@@ -6,6 +6,7 @@ import crimsonSeraphAscended from '../assets/characters/crimsonSeraphAscended.pn
 import crimsonSeraphAscendedCast from '../assets/characters/crimsonSeraphAscendedCast.png';
 import diver from '../assets/characters/diver.png';
 import drone from '../assets/characters/drone.png';
+import familiar from '../assets/characters/familiar.png';
 import gunner from '../assets/characters/gunner.png';
 import optionDrone from '../assets/characters/optionDrone.png';
 import player from '../assets/characters/player.png';
@@ -18,6 +19,7 @@ import type { BossId, EnemyKind } from '../core/stages';
 export const CHARACTER_ART = {
   player,
   optionDrone,
+  familiar,
   drone,
   gunner,
   tank,
@@ -28,6 +30,6 @@ export const CHARACTER_ART = {
   voidEmpress,
   voidEmpressEclipse,
   voidEmpressEclipseCast,
-} satisfies Record<EnemyKind | BossId | 'crimsonSeraphAscended' | 'crimsonSeraphAscendedCast' | 'voidEmpressEclipse' | 'voidEmpressEclipseCast' | 'player' | 'optionDrone', string>;
+} satisfies Record<EnemyKind | BossId | 'crimsonSeraphAscended' | 'crimsonSeraphAscendedCast' | 'voidEmpressEclipse' | 'voidEmpressEclipseCast' | 'player' | 'optionDrone' | 'familiar', string>;
 
 export type CharacterKey = keyof typeof CHARACTER_ART;
