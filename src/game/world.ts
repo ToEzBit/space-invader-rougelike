@@ -11,6 +11,7 @@ import { Bullets, type Bullet } from './bullets';
 import { Dash } from './dash';
 import { Fx } from './fx';
 import { circlesOverlap } from './geometry';
+import { Graze } from './graze';
 import { Gun } from './gun';
 import { HIDDEN, hitBar, hpRatio, tickBar, type HpBar } from './hpBar';
 import { Laser } from './laser';
@@ -20,7 +21,7 @@ import { Player } from './player';
 import { READY, transAmMeter, type SkillMeter } from './skills';
 import { TransAmLook } from './transAmLook';
 
-export type DamageSource = 'bullet' | 'missile' | 'laser' | 'burn' | 'orbital' | 'dash' | 'shock' | 'collision';
+export type DamageSource = 'bullet' | 'missile' | 'laser' | 'burn' | 'orbital' | 'dash' | 'shock' | 'collision' | 'spark' | 'blast';
 
 export type Foe = {
   sprite: Phaser.GameObjects.Image;
@@ -53,6 +54,8 @@ const DISCRETE: Record<DamageSource, boolean> = {
   dash: true,
   shock: true,
   collision: true,
+  spark: true,
+  blast: true,
 };
 const BURN_MS = 2000;
 const SLOWED_SHOT_TINT = 0x6fa8ff;
@@ -79,6 +82,7 @@ export class World {
   readonly gun: Gun;
   readonly laser: Laser;
   readonly dash: Dash;
+  readonly graze: Graze;
   // Coins earned this stage; paid out by clearStage.
   coins = 0;
   // Source-specific perks hook kills here (laser refunds, dash lifesteal).
@@ -104,6 +108,7 @@ export class World {
     this.gun = new Gun(this);
     this.laser = new Laser(this);
     this.dash = new Dash(this);
+    this.graze = new Graze(this);
     this.trans = charging(run.transAmGauge);
     this.look = new TransAmLook(this);
   }
@@ -123,7 +128,7 @@ export class World {
 
   // Enemy bullets, boss beams and the well's pull on bullets run on this clock; everything else keeps real time.
   get enemyTimeScale(): number {
-    return enemyTimeScale(this.trans);
+    return enemyTimeScale(this.trans) * this.graze.enemyTimeScale;
   }
 
   transAmMeter(): SkillMeter {
@@ -154,9 +159,7 @@ export class World {
     this.trans = next;
     this.run = carryTransAm(this.run, carriedGauge(next));
     if (next.kind === prev.kind) return;
-    this.recomputeStats();
-    if (next.kind === 'active') this.enemyShots.tintAll(SLOWED_SHOT_TINT, Phaser.TintModes.SCREEN);
-    else this.enemyShots.tintAll(0xffffff);
+    this.restat();
     this.look.enter(next.kind);
   }
 
@@ -166,9 +169,18 @@ export class World {
     this.laser.endStage();
   }
 
-  // Item buffs first, then the TRANS-AM phase.
+  // Re-folds the stats and recolors enemy shots to match the enemy clock, after the TRANS-AM phase or a graze timer changes.
+  restat(): void {
+    this.recomputeStats();
+    if (this.enemyTimeScale < 1) this.enemyShots.tintAll(SLOWED_SHOT_TINT, Phaser.TintModes.SCREEN);
+    else this.enemyShots.tintAll(0xffffff);
+  }
+
+  // Item buffs first, then Adrenaline, then the TRANS-AM phase.
   private recomputeStats(): void {
-    this.effectiveStats = withTransAm(withBuffs(this.baseStats, this.buffs.map((b) => b.buff)), this.trans);
+    const stats = withBuffs(this.baseStats, this.buffs.map((b) => b.buff));
+    if (this.graze.rushing) stats.fireIntervalMs *= stats.adrenalineIntervalScale;
+    this.effectiveStats = withTransAm(stats, this.trans);
   }
 
   // False when the run refuses the use (none held, or a heal at full HP).
@@ -273,6 +285,7 @@ export class World {
     if (!force && (p.invulnMs > 0 || this.dash.active)) return;
     if (!force && p.shieldMs > 0) return p.breakShield();
     this.tally.hits++;
+    this.graze.onHit();
     this.setTransAm(loseOnHit(this.trans));
     if (this.god || godMode()) return p.onHit();
     this.run = takeHit(this.run, 1);
@@ -293,6 +306,7 @@ export class World {
     this.touchedLastFrame = this.touchedThisFrame;
     this.touchedThisFrame = false;
     this.tickBuffs(dtMs);
+    this.graze.update(dtMs);
     // No tick has touched an active time activated during the frozen cut-in, so its release starts on this frame.
     if (releaseProgress(this.trans) === 0) this.look.release();
     this.setTransAm(tick(this.trans, dtMs));
@@ -325,9 +339,10 @@ export class World {
     if (near || b.graze !== 'near') return;
     b.graze = 'counted';
     this.tally.grazes++;
-    this.gainTransAm(TRANS_AM.gain.graze);
+    this.gainTransAm(this.graze.gaugeGain);
     const p = this.player;
     this.fx.spark((p.x + b.sprite.x) / 2, (p.y + b.sprite.y) / 2, 3);
+    this.graze.onGraze(b);
   }
 
   resolveCollisions(): void {
@@ -337,6 +352,7 @@ export class World {
         if (foe.dead || b.hit.has(foe)) continue;
         if (!circlesOverlap(b.sprite, this.playerShots.radius(b), foe.sprite, foe.radius)) continue;
         this.damage(foe, b.damage, b.source);
+        if (b.blast > 0) this.graze.burst(b.sprite, b.blast, b.damage, foe);
         this.fx.spark(b.sprite.x, b.sprite.y - 4, b.kind === 'crit' ? 8 : 3);
         if (b.kind === 'crit') this.fx.float(b.sprite.x, b.sprite.y - 10, `${Math.round(b.damage)}!`);
         if (b.pierceLeft-- <= 0) {
@@ -347,7 +363,7 @@ export class World {
       }
     }
     const p = this.player;
-    const grazeRadius = p.coreRadius + TRANS_AM.grazePadPx;
+    const grazeRadius = p.coreRadius + this.graze.ringPx;
     for (const b of this.enemyShots.list) {
       if (!b.alive) continue;
       const r = this.enemyShots.radius(b);

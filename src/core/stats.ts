@@ -38,6 +38,17 @@ export type ShipStats = {
   dashHealEveryKills: number;
   dashSizeMultiplier: number;
   dashDamageMultiplier: number;
+
+  grazeSparkDamage: number;
+  grazeExtraSparks: number;
+  grazeHaloPx: number;
+  grazeGainBonus: number;
+  adrenalineIntervalScale: number;
+  staticSkinEvery: number;
+  phaseSkinEvery: number;
+  flashpointRadius: number;
+  lastStandDamageScale: number;
+  bulletTimeMs: number;
 };
 
 export const BASE_STATS: Readonly<ShipStats> = {
@@ -78,4 +89,15 @@ export const BASE_STATS: Readonly<ShipStats> = {
   dashHealEveryKills: 0,
   dashSizeMultiplier: 1,
   dashDamageMultiplier: 1,
+
+  grazeSparkDamage: 0,
+  grazeExtraSparks: 0,
+  grazeHaloPx: 0,
+  grazeGainBonus: 0,
+  adrenalineIntervalScale: 0,
+  staticSkinEvery: 0,
+  phaseSkinEvery: 0,
+  flashpointRadius: 0,
+  lastStandDamageScale: 0,
+  bulletTimeMs: 0,
 };

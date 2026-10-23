@@ -31,6 +31,7 @@ export const COLORS = {
   yellow: 0xffe84a,
   gold: 0xffb31a,
   green: 0x5dff9b,
+  lime: 0xa6ff4d,
   violet: 0xa66bff,
   purple: 0x5a22b0,
   steel: 0x8a96c8,

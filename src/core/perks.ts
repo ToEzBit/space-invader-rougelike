@@ -16,6 +16,8 @@ export const TIER_BASE_COST: Record<Tier, number> = { 1: 20, 2: 35, 3: 55, 4: 80
 
 export const OVERDRIVE_CALM_MS = 3000;
 
+export const GRAZE = { adrenalineMs: 1200, phaseShieldMs: 4000, flashpointEvery: 5, bulletTimeScale: 0.5 } as const;
+
 type PerkSpec = {
   branch: Branch;
   tier: Tier;

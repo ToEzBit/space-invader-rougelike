@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
+import { COLORS } from '../art/palette';
 import type { SpriteKey } from '../art/sprites';
 import { VIEW } from '../view';
 import type { DamageSource, Foe } from './world';
 
-export type BulletKind = 'shot' | 'crit' | 'droneShot' | 'missile' | 'pellet' | 'needle' | 'orb' | 'voidOrb';
+export type BulletKind = 'shot' | 'crit' | 'droneShot' | 'missile' | 'spark' | 'pellet' | 'needle' | 'orb' | 'voidOrb';
 
 type BulletDef = {
   texture: SpriteKey;
@@ -11,7 +12,11 @@ type BulletDef = {
   // Rotated to face their velocity; round bullets spin instead.
   facing: 'velocity' | 'spin';
   steer?: (b: Bullet, foes: readonly Foe[], dtSec: number) => void;
+  // Overrides the pool's tint, for a kind drawn as a recolored sprite of another.
+  tint?: Tint;
 };
+
+type Tint = { color: number; mode: Phaser.TintModes };
 
 const MISSILE_TURN_RATE = 7;
 
@@ -20,6 +25,7 @@ export const BULLETS: Record<BulletKind, BulletDef> = {
   crit: { texture: 'critShot', radius: 4, facing: 'velocity' },
   droneShot: { texture: 'shot', radius: 3, facing: 'velocity' },
   missile: { texture: 'missile', radius: 5, facing: 'velocity', steer: homing },
+  spark: { texture: 'shot', radius: 4, facing: 'velocity', steer: homing, tint: { color: COLORS.lime, mode: Phaser.TintModes.FILL } },
   pellet: { texture: 'pellet', radius: 4, facing: 'spin' },
   needle: { texture: 'needle', radius: 3, facing: 'velocity' },
   orb: { texture: 'orb', radius: 6, facing: 'spin' },
@@ -36,6 +42,8 @@ export type Bullet = {
   pierceLeft: number;
   // Foes this bullet already hit, so a piercing round damages each one once.
   hit: Set<Foe>;
+  // A hit also bursts on every other foe within this radius; 0 for none.
+  blast: number;
   // An enemy bullet's pass by the ship: near inside the graze ring, counted once it leaves without touching the core.
   graze: 'far' | 'near' | 'counted';
   alive: boolean;
@@ -50,13 +58,14 @@ export type BulletSpawn = {
   damage?: number;
   source?: DamageSource;
   pierce?: number;
+  blast?: number;
 };
 
 export class Bullets {
   readonly list: Bullet[] = [];
   private readonly spare: Phaser.GameObjects.Image[] = [];
   // Spare sprites keep their last tint, so every spawn sets this one.
-  private tint = { color: 0xffffff, mode: Phaser.TintModes.MULTIPLY as Phaser.TintModes };
+  private tint: Tint = { color: 0xffffff, mode: Phaser.TintModes.MULTIPLY };
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -65,12 +74,13 @@ export class Bullets {
 
   spawn(s: BulletSpawn): Bullet {
     const def = BULLETS[s.kind];
+    const tint = def.tint ?? this.tint;
     const sprite = (this.spare.pop() ?? this.scene.add.image(0, 0, def.texture))
       .setTexture(def.texture)
       .setPosition(s.x, s.y)
       .setDepth(this.depth)
-      .setTint(this.tint.color)
-      .setTintMode(this.tint.mode)
+      .setTint(tint.color)
+      .setTintMode(tint.mode)
       .setVisible(true)
       .setActive(true);
     const bullet: Bullet = {
@@ -82,6 +92,7 @@ export class Bullets {
       source: s.source ?? 'bullet',
       pierceLeft: s.pierce ?? 0,
       hit: new Set(),
+      blast: s.blast ?? 0,
       graze: 'far',
       alive: true,
     };
@@ -92,7 +103,10 @@ export class Bullets {
 
   tintAll(color: number, mode: Phaser.TintModes = Phaser.TintModes.MULTIPLY): void {
     this.tint = { color, mode };
-    for (const b of this.list) b.sprite.setTint(color).setTintMode(mode);
+    for (const b of this.list) {
+      const tint = BULLETS[b.kind].tint ?? this.tint;
+      b.sprite.setTint(tint.color).setTintMode(tint.mode);
+    }
   }
 
   kill(b: Bullet): void {
