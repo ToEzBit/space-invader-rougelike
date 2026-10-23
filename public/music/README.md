@@ -4,4 +4,4 @@ Drop the Void Empress's song here as `void-empress.ogg` or `void-empress.mp3`. I
 
 The game sets the song's level to match the other boss music, so it needs no volume editing. Until a file is here, or if it cannot be decoded, she fights to Crimson Verdict and Crimson Verdict II.
 
-`.gitignore` keeps `*.ogg` and `*.mp3` in this folder out of git. Do not commit audio you do not have the rights to share.
+The song is committed so that a deploy built from git, such as the Netlify site, plays it too. Without it in git the deployed game fell back to Crimson Verdict.
