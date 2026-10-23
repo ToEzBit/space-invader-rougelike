@@ -225,6 +225,11 @@ function loud95(data, rate) {
   return windows[Math.floor(0.95 * windows.length)];
 }
 
+// A 120 px square around a round in flight, kept inside the 480 x 800 world.
+function roundCloseup(p) {
+  return { x: Math.min(Math.max(0, p.x - 60), 360), y: Math.min(Math.max(0, p.y - 60), 680), w: 120, h: 120 };
+}
+
 function summarize(s) {
   if (!s) return null;
   const { run, ...restState } = s;
@@ -1722,6 +1727,7 @@ const JOURNEYS = {
     const pierced = await h.frameWhen('s.graze.sparks.some((p) => p.hits >= 2)', true, 30000);
     h.log.steps.push({ action: 'paused with a spark that has gone through two foes', sparks: pierced.s.graze.sparks });
     await h.shot('spark-through-formation');
+    await h.shot('spark-through-formation-closeup', roundCloseup(pierced.s.graze.sparks.find((p) => p.hits >= 2)));
     await h.game('resume');
     await h.frameWhen('s.graze.sparks.some((p) => p.crowdOnly && p.hits === 0)', false, 30000);
     const sparks = await h.recordRounds(null);
@@ -2051,6 +2057,7 @@ const JOURNEYS = {
     const through = await h.frameWhen('s.summons.wisps.some((w) => w.hits >= 2)', true, 30000);
     h.log.steps.push({ action: 'paused with a wisp that has gone through two foes', wisps: through.s.summons.wisps });
     await h.shot('wisp-through-formation');
+    await h.shot('wisp-through-formation-closeup', roundCloseup(through.s.summons.wisps.find((w) => w.hits >= 2)));
     await h.game('resume');
     const wisps = await h.recordRounds(null);
     h.check(`Spirit Familiar's wisps go on through up to ${crowd.wispPierce} more foes after their first`, wisps.some((w) => w.hits >= 2) && wisps.every((w) => w.hits <= 1 + crowd.wispPierce), {

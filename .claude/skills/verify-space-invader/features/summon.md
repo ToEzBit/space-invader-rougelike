@@ -48,7 +48,7 @@ Proof. These screenshots are taken paused, with no camera flash running:
 - `08-sacrifice.png` shows the cornflower `SACRIFICE` float with no familiar left above the ship. `10-sacrifice-returned.png` shows it back.
 - `12-haunted-boss.png` shows the lavender-tinted boss.
 - `14-great-spirit-dive.png` shows the three familiars on their way to the boss.
-- `15-wisp-through-formation.png` is paused on the first frame a wisp has gone through two foes.
+- `15-wisp-through-formation.png` is paused on the first frame a wisp has gone through two foes, and its close-up is centred on that wisp.
 
 ## Gotchas
 

@@ -41,7 +41,7 @@ Preconditions:
   - Every frame where `tally.hits` rises leaves `graze.streak` no higher than the grazes counted in that same frame.
   - `stats.fireIntervalMs` is the base times 0.65 exactly while `graze.rushMs` is above 0, and the base otherwise.
   - Each bullet's speed between frames is compared across frames where Bullet Time ran through the whole step and frames where it ran at neither end. The median ratio over bullets is 0.5.
-- **Crowd.** Stage 6 with Close Call 1, the ship held still under the formation in god mode. A recorder reads `graze.sparks` (`hits`, `crowdOnly`) every frame. Some spark has hit 2 or more foes and none more than 1 + 4. A leap shows, a spark with `crowdOnly` and no hits yet. `08-spark-through-formation.png` is paused on the first frame a spark has gone through two foes.
+- **Crowd.** Stage 6 with Close Call 1, the ship held still under the formation in god mode. A recorder reads `graze.sparks` (`hits`, `crowdOnly`) every frame. Some spark has hit 2 or more foes and none more than 1 + 4. A leap shows, a spark with `crowdOnly` and no hits yet. `08-spark-through-formation.png` is paused on the first frame a spark has gone through two foes, and its close-up is centred on that spark.
 - **Proof.** `01-shop-graze-card.png` shows a graze card in lime with the branch label `Close Call · สายเฉียดกระสุน` and the `Close Call 1` chip. `02-sparks-in-flight.png` and its close-up are paused once a full fan of sparks has flown 60 px clear of the ship, and show the lime sparks. `04-static-pulse.png` and its close-up are paused on the frame of a pulse and show the lime ring around the ship. `06-phase-shield.png` and its close-up show the cyan shield ring around the ship and the lime `PHASE` float.
 
 ## Gotchas
