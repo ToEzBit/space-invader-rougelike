@@ -1,4 +1,5 @@
 let ctx: AudioContext | null = null;
+let held = false;
 const ready: ((ctx: AudioContext) => void)[] = [];
 
 // Browsers refuse audio before a user gesture, so the one context sfx and music share is created on the first one.
@@ -9,8 +10,15 @@ for (const event of ['keydown', 'pointerdown', 'pointerup', 'touchend'] as const
       ctx = new AudioContext();
       for (const fn of ready) fn(ctx);
     }
-    if (ctx.state === 'suspended') void ctx.resume();
+    if (held) void ctx.suspend();
+    else if (ctx.state === 'suspended') void ctx.resume();
   });
+
+// A held context stays suspended through taps, so every sound, the laser buzz included, freezes with the game.
+export function holdAudio(on: boolean): void {
+  held = on;
+  if (ctx) void (on ? ctx.suspend() : ctx.resume());
+}
 
 export function audioContext(): AudioContext | null {
   return ctx;

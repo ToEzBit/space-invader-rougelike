@@ -2100,6 +2100,31 @@ const JOURNEYS = {
       const parked = await recorded();
       m.check('lifting the finger stops the ship', parked.every((s) => s.x === parked[0].x && s.y === parked[0].y), { at: lifted.player, frames: parked.length });
 
+      const turnShown = () => m.page.locator('#turn').isVisible();
+      await m.step('turn the phone sideways', () => m.page.setViewportSize({ width: 844, height: 390 }));
+      await sleep(300);
+      const side0 = await m.state();
+      await m.step('tap the hint with a finger', async () => {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ id: 9, x: 422, y: 195 }] });
+        await sleep(50);
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [{ id: 9, x: 422, y: 195 }] });
+      });
+      await sleep(500);
+      const side1 = await m.state();
+      m.check('a phone held sideways covers the game with the turn-upright hint', await turnShown(), {});
+      m.check('the fight holds still while sideways, even through a tap', side1.clock.fightMs === side0.clock.fightMs && side1.life === 'fighting', { before: side0.clock, after: side1.clock });
+      m.check('the sound holds still while sideways, even through a tap', side1.music.ctx === 'suspended', { ctx: side1.music.ctx });
+      await m.shot('sideways');
+      await m.step('turn the phone back upright', () => m.page.setViewportSize({ width: 390, height: 844 }));
+      const upright = await m.waitFor('fight running again', (x) => x.clock.fightMs > side1.clock.fightMs + 200 && x.music.ctx === 'running', 3000);
+      m.check('turning back upright hides the hint and resumes the fight and the sound', !(await turnShown()) && upright.life === 'fighting', { clock: upright.clock, ctx: upright.music.ctx });
+      await m.step('hold a tablet sideways', () => m.page.setViewportSize({ width: 1180, height: 820 }));
+      await sleep(300);
+      const tabletFrom = (await m.state()).clock.fightMs;
+      await sleep(300);
+      m.check('a tablet held sideways plays on with no hint', !(await turnShown()) && (await m.state()).clock.fightMs > tabletFrom, {});
+      await m.page.setViewportSize({ width: 390, height: 844 });
+
       const s3 = await m.startAt(3, { afterburnerDash: 1 }, 0, { nitro: 2 });
       const box = await m.page.locator('canvas').boundingBox();
       const cssPerWorld = box.width / s3.view.world.width;

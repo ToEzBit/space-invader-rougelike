@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { holdAudio } from './audio/context';
 import { toggleMute } from './audio/music';
 import { toggleGodMode } from './godMode';
 import { BootScene } from './scenes/BootScene';
@@ -38,6 +39,19 @@ game.events.once(Phaser.Core.Events.READY, () => {
     if (e.code === 'KeyM' && !e.repeat) toggleMute();
     if (e.code === 'KeyG' && !e.repeat) toggleGodMode();
   });
+
+  // A phone held sideways shows the tall world as a thin strip, so the game holds still behind a hint to turn it
+  // upright. Tablets are tall enough sideways to play as they are.
+  const sideways = window.matchMedia('(pointer: coarse) and (orientation: landscape) and (max-height: 600px)');
+  const turn = document.getElementById('turn')!;
+  const hold = () => {
+    turn.hidden = !sideways.matches;
+    if (sideways.matches) game.pause();
+    else game.resume();
+    holdAudio(sideways.matches);
+  };
+  hold();
+  sideways.addEventListener('change', hold);
 });
 
 installDebug(game);

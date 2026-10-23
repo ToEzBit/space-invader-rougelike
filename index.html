@@ -23,10 +23,30 @@
       }
       #game { position: fixed; inset: 0; }
       #game canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+      #turn {
+        position: fixed; inset: 0; z-index: 1;
+        flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+        background: #07061a; color: #ffffff; text-align: center;
+        font-family: Tahoma, 'Noto Sans Thai', Thonburi, 'Leelawadee UI', sans-serif;
+        touch-action: none; user-select: none; -webkit-user-select: none;
+      }
+      #turn:not([hidden]) { display: flex; }
+      #turn svg { width: 72px; height: 72px; animation: turn 2.4s ease-in-out infinite; }
+      #turn b { font-size: 20px; color: #46f0ff; }
+      #turn span { font-size: 14px; color: #8a96c8; }
+      @keyframes turn { 0%, 25% { transform: rotate(-90deg); } 55%, 100% { transform: rotate(0deg); } }
     </style>
   </head>
   <body>
     <div id="game"></div>
+    <div id="turn" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="#46f0ff" stroke-width="1.6" aria-hidden="true">
+        <rect x="7" y="2" width="10" height="20" rx="2" />
+        <line x1="10.5" y1="18.5" x2="13.5" y2="18.5" />
+      </svg>
+      <b>หมุนมือถือเป็นแนวตั้ง</b>
+      <span>เกมหยุดไว้ก่อน จะเล่นต่อเมื่อหมุนกลับ</span>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
