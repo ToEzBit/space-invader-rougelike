@@ -7,4 +7,5 @@ export const BRANCH_LOOK: Record<Branch, { color: number; icon: IconKey; card: F
   laser: { color: COLORS.cyan, icon: 'iconLaser', card: 'perkCardLaser', chip: 'chipLaser' },
   ram: { color: COLORS.pink, icon: 'iconRam', card: 'perkCard', chip: 'chipRam' },
   graze: { color: COLORS.lime, icon: 'iconGraze', card: 'perkCardGraze', chip: 'chipGraze' },
+  summon: { color: COLORS.cornflower, icon: 'iconSummon', card: 'perkCardSummon', chip: 'chipSummon' },
 };

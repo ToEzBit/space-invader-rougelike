@@ -101,6 +101,55 @@ describe('graze perks', () => {
   });
 });
 
+describe('summon perks', () => {
+  const SUMMON_IDS = PERK_IDS.filter((id) => PERKS[id].branch === 'summon');
+
+  it('fold every summon stat from the perk table, all off without them', () => {
+    const none = deriveStats({});
+    expect([none.familiars, none.wispIntervalMs, none.wispDamage, none.wispPierce, none.guardianRestMs, none.sacrificeMs, none.soulBurstRadius, none.hauntBonus, none.greatSpiritEveryMs]).toEqual([
+      0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ]);
+    const s = deriveStats({ familiar: 2, kinship: 3, swiftWings: 1, packCall: 2, guardian: 2, piercingSoul: 1, sacrifice: 2, soulBurst: 1, haunt: 3, greatSpirit: 1 });
+    expect(s).toEqual({
+      ...BASE_STATS,
+      familiars: 3,
+      wispIntervalMs: 1000 * 0.85,
+      wispDamage: 10,
+      wispPierce: 1,
+      guardianRestMs: 2000,
+      sacrificeMs: 7000,
+      soulBurstRadius: 24,
+      hauntBonus: 0.5,
+      greatSpiritEveryMs: 12000,
+    });
+    expect(deriveStats({ familiar: 1, packCall: 1 }).familiars).toBe(2);
+  });
+
+  it('never reach the shop before Spirit Familiar is owned, and all reach it after', () => {
+    for (let stage = 1; stage <= 9; stage++) {
+      for (let seed = 1; seed < 300; seed++) {
+        const offered = roll(stage, seed).flatMap((o) => (o?.kind === 'perk' && PERKS[o.id].branch === 'summon' ? [o.id] : []));
+        expect(offered.filter((id) => id !== 'familiar')).toEqual([]);
+      }
+    }
+    const seen = new Set<PerkId>();
+    for (let seed = 1; seed < 2000; seed++) roll(9, seed, { familiar: 1 }).forEach((o) => o?.kind === 'perk' && seen.add(o.id));
+    expect(SUMMON_IDS.filter((id) => id !== 'familiar' && !seen.has(id))).toEqual([]);
+  });
+
+  it('start from Spirit Familiar in the hangar', () => {
+    let summonShown = 0;
+    for (let seed = 1; seed < 300; seed++) {
+      for (const o of shopOf(openRun(seed)).offers) {
+        if (o?.kind !== 'perk' || PERKS[o.id].branch !== 'summon') continue;
+        expect(o.id).toBe('familiar');
+        summonShown++;
+      }
+    }
+    expect(summonShown).toBeGreaterThan(0);
+  });
+});
+
 describe('shop rolls', () => {
   it('after stage 1 offers only tier 1 perks with no locked prerequisites', () => {
     for (let seed = 1; seed < 200; seed++) {

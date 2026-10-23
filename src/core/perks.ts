@@ -1,6 +1,6 @@
 import { BASE_STATS, type ShipStats } from './stats';
 
-export type Branch = 'rapid' | 'laser' | 'ram' | 'graze';
+export type Branch = 'rapid' | 'laser' | 'ram' | 'graze' | 'summon';
 export type Tier = 1 | 2 | 3 | 4;
 
 export const BRANCH_LABEL: Record<Branch, string> = {
@@ -8,6 +8,7 @@ export const BRANCH_LABEL: Record<Branch, string> = {
   laser: 'Prism Lance · สายเลเซอร์',
   ram: 'Comet Strike · สายพุ่งชน',
   graze: 'Close Call · สายเฉียดกระสุน',
+  summon: 'Spirit Call · สาย Summoner',
 };
 
 // Registry order: the shop, the docs and the hangar list branches in this order.
@@ -283,6 +284,68 @@ const PERK_SPECS = {
     values: [600, 1000],
     desc: (v) => `ทุกครั้งที่เฉียด กระสุนศัตรูช้าลงเหลือ ${pct(GRAZE.bulletTimeScale)} นาน ${sec(v)} (ซ้อนกับ TRANS-AM)`,
     apply: (s, v) => { s.bulletTimeMs = v; },
+  },
+
+  // ---------- Spirit Call ----------
+  familiar: {
+    branch: 'summon', tier: 1, name: 'Spirit Familiar',
+    values: [1200, 1000, 800],
+    desc: (v) => `ปลดล็อกภูตผู้ติดตาม 1 ตัว ยิงวิญญาณติดตามศัตรูที่ใกล้ที่สุดทุก ${sec(v)} (ดาเมจ ${SUMMON.wispDamage})`,
+    apply: (s, v) => { s.familiars = 1; s.wispIntervalMs = v; s.wispDamage = SUMMON.wispDamage; },
+  },
+  kinship: {
+    branch: 'summon', tier: 1, name: 'Kinship', requires: 'familiar',
+    values: [2, 4, 6],
+    desc: (v) => `ดาเมจวิญญาณ +${v}`,
+    apply: (s, v) => { s.wispDamage += v; },
+  },
+  swiftWings: {
+    branch: 'summon', tier: 1, name: 'Swift Wings', requires: 'familiar',
+    values: [0.85, 0.72, 0.6],
+    desc: (v) => `ภูตยิงเร็วขึ้น ช่วงห่างการยิงเหลือ ${pct(v)}`,
+    apply: (s, v) => { s.wispIntervalMs *= v; },
+  },
+  packCall: {
+    branch: 'summon', tier: 2, name: 'Pack Call', requires: 'familiar',
+    values: [1, 2],
+    desc: (v) => `ภูตเพิ่ม +${v} ตัว (สูงสุด ${SUMMON.maxFamiliars} ตัว)`,
+    apply: (s, v) => { s.familiars = Math.min(SUMMON.maxFamiliars, s.familiars + v); },
+  },
+  guardian: {
+    branch: 'summon', tier: 2, name: 'Guardian', requires: 'familiar',
+    values: [3000, 2000, 1500],
+    desc: (v) => `ภูตทำลายกระสุนศัตรูที่โดนตัว แล้วพัก ${sec(v)} ก่อนกันได้อีก (ระหว่างพักยังยิงได้)`,
+    apply: (s, v) => { s.guardianRestMs = v; },
+  },
+  piercingSoul: {
+    branch: 'summon', tier: 2, name: 'Piercing Soul', requires: 'familiar',
+    values: [1, 2, 3],
+    desc: (v) => `วิญญาณทะลุศัตรูได้ ${v} ตัว`,
+    apply: (s, v) => { s.wispPierce = v; },
+  },
+  sacrifice: {
+    branch: 'summon', tier: 3, name: 'Sacrifice', requires: 'familiar',
+    values: [10000, 7000],
+    desc: (v) => `เมื่อยานจะโดนโจมตี ภูต 1 ตัวรับแทน แล้วหายไป ${sec(v)} ก่อนกลับมา`,
+    apply: (s, v) => { s.sacrificeMs = v; },
+  },
+  soulBurst: {
+    branch: 'summon', tier: 3, name: 'Soul Burst', requires: 'familiar',
+    values: [24, 36],
+    desc: (v) => `วิญญาณระเบิดเมื่อโดนเป้า รัศมี ${v}px (ดาเมจ ${pct(SUMMON.soulBurstShare)} ของวิญญาณ)`,
+    apply: (s, v) => { s.soulBurstRadius = v; },
+  },
+  haunt: {
+    branch: 'summon', tier: 3, name: 'Haunt', requires: 'familiar',
+    values: [0.2, 0.35, 0.5],
+    desc: (v) => `ศัตรูที่โดนวิญญาณ รับดาเมจจากทุกแหล่ง +${pct(v)} นาน ${sec(SUMMON.hauntMs)}`,
+    apply: (s, v) => { s.hauntBonus = v; },
+  },
+  greatSpirit: {
+    branch: 'summon', tier: 4, name: 'Great Spirit', requires: 'familiar',
+    values: [12000, 9000],
+    desc: (v) => `ทุก ${sec(v)} ภูตทุกตัวพุ่งชนศัตรูที่ HP มากที่สุด (ดาเมจ ${SUMMON.greatSpiritDamage}) แล้วบินกลับ`,
+    apply: (s, v) => { s.greatSpiritEveryMs = v; },
   },
 } satisfies Record<string, PerkSpec>;
 
