@@ -127,9 +127,11 @@ export type WaveStage = {
   // Top row first.
   rows: readonly EnemyKind[];
   marchSpeed: number;
-  // Expected enemy shots per second across the whole formation.
+  // Expected enemy shots per second across the whole formation. A Gunner Girl's shot can be a fan of needles.
   fireRate: number;
   hpMultiplier: number;
+  // Needles in each Gunner Girl shot, fanned around her aim at the ship.
+  gunnerFan: number;
   reward: number;
 };
 
@@ -142,15 +144,15 @@ export type BossStage = {
 export type StageDef = WaveStage | BossStage;
 
 export const STAGES: readonly StageDef[] = [
-  { kind: 'wave', cols: 8, rows: ['gunner', 'drone', 'drone'], marchSpeed: 20, fireRate: 0.6, hpMultiplier: 1, reward: 30 },
-  { kind: 'wave', cols: 8, rows: ['gunner', 'drone', 'drone', 'drone'], marchSpeed: 24, fireRate: 0.8, hpMultiplier: 1, reward: 35 },
-  { kind: 'wave', cols: 9, rows: ['tank', 'gunner', 'drone', 'drone'], marchSpeed: 28, fireRate: 1.0, hpMultiplier: 1.1, reward: 40 },
-  { kind: 'wave', cols: 9, rows: ['tank', 'gunner', 'gunner', 'drone', 'drone'], marchSpeed: 32, fireRate: 1.2, hpMultiplier: 1.2, reward: 45 },
+  { kind: 'wave', cols: 8, rows: ['gunner', 'drone', 'drone'], marchSpeed: 20, fireRate: 1.2, hpMultiplier: 1, gunnerFan: 1, reward: 30 },
+  { kind: 'wave', cols: 8, rows: ['gunner', 'drone', 'drone', 'drone'], marchSpeed: 24, fireRate: 1.6, hpMultiplier: 1, gunnerFan: 1, reward: 35 },
+  { kind: 'wave', cols: 9, rows: ['tank', 'gunner', 'drone', 'drone'], marchSpeed: 28, fireRate: 2, hpMultiplier: 1.1, gunnerFan: 1, reward: 40 },
+  { kind: 'wave', cols: 9, rows: ['tank', 'gunner', 'gunner', 'drone', 'drone'], marchSpeed: 32, fireRate: 2.4, hpMultiplier: 1.2, gunnerFan: 3, reward: 45 },
   { kind: 'boss', boss: 'crimsonSeraph', reward: 100 },
-  { kind: 'wave', cols: 10, rows: ['tank', 'diver', 'gunner', 'drone', 'drone'], marchSpeed: 36, fireRate: 1.4, hpMultiplier: 1.4, reward: 55 },
-  { kind: 'wave', cols: 10, rows: ['tank', 'tank', 'diver', 'gunner', 'drone'], marchSpeed: 40, fireRate: 1.6, hpMultiplier: 1.6, reward: 60 },
-  { kind: 'wave', cols: 10, rows: ['tank', 'diver', 'gunner', 'gunner', 'diver', 'drone'], marchSpeed: 44, fireRate: 1.8, hpMultiplier: 1.8, reward: 65 },
-  { kind: 'wave', cols: 11, rows: ['tank', 'tank', 'diver', 'gunner', 'gunner', 'diver'], marchSpeed: 48, fireRate: 2.0, hpMultiplier: 2.0, reward: 70 },
+  { kind: 'wave', cols: 10, rows: ['tank', 'diver', 'gunner', 'drone', 'drone'], marchSpeed: 36, fireRate: 2.8, hpMultiplier: 1.8, gunnerFan: 3, reward: 55 },
+  { kind: 'wave', cols: 10, rows: ['tank', 'tank', 'diver', 'gunner', 'drone'], marchSpeed: 40, fireRate: 3.2, hpMultiplier: 2.1, gunnerFan: 3, reward: 60 },
+  { kind: 'wave', cols: 10, rows: ['tank', 'diver', 'gunner', 'gunner', 'diver', 'drone'], marchSpeed: 44, fireRate: 3.6, hpMultiplier: 2.4, gunnerFan: 3, reward: 65 },
+  { kind: 'wave', cols: 11, rows: ['tank', 'tank', 'diver', 'gunner', 'gunner', 'diver'], marchSpeed: 48, fireRate: 4, hpMultiplier: 2.7, gunnerFan: 3, reward: 70 },
   { kind: 'boss', boss: 'voidEmpress', reward: 0 },
 ];
 

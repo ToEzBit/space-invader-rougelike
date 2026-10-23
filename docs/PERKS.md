@@ -81,15 +81,15 @@
 
 ## ด่านทั้ง 10
 
-| ด่าน | ประเภท | ศัตรู | ความเร็ว | ยิง/วิ | HP x | รางวัล |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | 3x8 | Gunner Girl, Pico Drone, Pico Drone | 20 | 0.6 | 1 | 30 |
-| 2 | 4x8 | Gunner Girl, Pico Drone, Pico Drone, Pico Drone | 24 | 0.8 | 1 | 35 |
-| 3 | 4x9 | Bulwark, Gunner Girl, Pico Drone, Pico Drone | 28 | 1 | 1.1 | 40 |
-| 4 | 5x9 | Bulwark, Gunner Girl, Gunner Girl, Pico Drone, Pico Drone | 32 | 1.2 | 1.2 | 45 |
-| 5 | **BOSS** | Crimson Seraph (HP 540, 2 เฟส) แปลงร่างที่ HP 50% เป็น Crimson Seraph · Ascended (2 เฟส) | - | - | - | 100 |
-| 6 | 5x10 | Bulwark, Kamikaze Kitsune, Gunner Girl, Pico Drone, Pico Drone | 36 | 1.4 | 1.4 | 55 |
-| 7 | 5x10 | Bulwark, Bulwark, Kamikaze Kitsune, Gunner Girl, Pico Drone | 40 | 1.6 | 1.6 | 60 |
-| 8 | 6x10 | Bulwark, Kamikaze Kitsune, Gunner Girl, Gunner Girl, Kamikaze Kitsune, Pico Drone | 44 | 1.8 | 1.8 | 65 |
-| 9 | 6x11 | Bulwark, Bulwark, Kamikaze Kitsune, Gunner Girl, Gunner Girl, Kamikaze Kitsune | 48 | 2 | 2 | 70 |
-| 10 | **BOSS** | Void Empress (HP 2900, 2 เฟส) แปลงร่างที่ HP 50% เป็น Void Empress · Eclipse (2 เฟส) | - | - | - | 0 |
+| ด่าน | ประเภท | ศัตรู | ความเร็ว | ยิง/วิ | Gunner ยิง | HP x | รางวัล |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 3x8 | Gunner Girl, Pico Drone, Pico Drone | 20 | 1.2 | 1 นัด | 1 | 30 |
+| 2 | 4x8 | Gunner Girl, Pico Drone, Pico Drone, Pico Drone | 24 | 1.6 | 1 นัด | 1 | 35 |
+| 3 | 4x9 | Bulwark, Gunner Girl, Pico Drone, Pico Drone | 28 | 2 | 1 นัด | 1.1 | 40 |
+| 4 | 5x9 | Bulwark, Gunner Girl, Gunner Girl, Pico Drone, Pico Drone | 32 | 2.4 | 3 นัด | 1.2 | 45 |
+| 5 | **BOSS** | Crimson Seraph (HP 540, 2 เฟส) แปลงร่างที่ HP 50% เป็น Crimson Seraph · Ascended (2 เฟส) | - | - | - | - | 100 |
+| 6 | 5x10 | Bulwark, Kamikaze Kitsune, Gunner Girl, Pico Drone, Pico Drone | 36 | 2.8 | 3 นัด | 1.8 | 55 |
+| 7 | 5x10 | Bulwark, Bulwark, Kamikaze Kitsune, Gunner Girl, Pico Drone | 40 | 3.2 | 3 นัด | 2.1 | 60 |
+| 8 | 6x10 | Bulwark, Kamikaze Kitsune, Gunner Girl, Gunner Girl, Kamikaze Kitsune, Pico Drone | 44 | 3.6 | 3 นัด | 2.4 | 65 |
+| 9 | 6x11 | Bulwark, Bulwark, Kamikaze Kitsune, Gunner Girl, Gunner Girl, Kamikaze Kitsune | 48 | 4 | 3 นัด | 2.7 | 70 |
+| 10 | **BOSS** | Void Empress (HP 2900, 2 เฟส) แปลงร่างที่ HP 50% เป็น Void Empress · Eclipse (2 เฟส) | - | - | - | - | 0 |

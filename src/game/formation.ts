@@ -17,6 +17,8 @@ const DIVE_SPEED = 230;
 const RETURN_SPEED = 260;
 // Late formations march many steps a second; hopping on every one would buzz, so hops are at least this far apart.
 const BEAT_MS = 150;
+// Radians between neighbouring needles in a Gunner Girl's fan.
+export const FAN_SPREAD = 0.24;
 
 export type EnemyShot = { bullet: BulletKind; speed: number; aimed: boolean };
 
@@ -149,7 +151,18 @@ export class Formation implements Encounter {
     if (!shooters.length) return;
     const perShooter = (this.def.fireRate / shooters.length) * dt;
     for (const m of shooters) {
-      if (Math.random() < perShooter * ENEMIES[m.kind].fireWeight) enemyFire(this.world, m.kind, m.foe.sprite.x, m.foe.sprite.y + 10);
+      if (Math.random() < perShooter * ENEMIES[m.kind].fireWeight) this.shoot(m.kind, m.foe.sprite.x, m.foe.sprite.y + 10);
+    }
+  }
+
+  private shoot(kind: EnemyKind, x: number, y: number): void {
+    if (kind !== 'gunner') return enemyFire(this.world, kind, x, y);
+    const { bullet, speed } = ENEMY_SHOT.gunner;
+    const aim = Math.atan2(this.world.player.y - y, this.world.player.x - x);
+    const needles = this.def.gunnerFan;
+    for (let i = 0; i < needles; i++) {
+      const angle = aim + (i - (needles - 1) / 2) * FAN_SPREAD;
+      this.world.enemyShots.spawn({ kind: bullet, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed });
     }
   }
 }

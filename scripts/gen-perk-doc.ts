@@ -46,16 +46,16 @@ for (const id of ITEM_IDS) {
 }
 lines.push('');
 
-lines.push('## ด่านทั้ง 10', '', '| ด่าน | ประเภท | ศัตรู | ความเร็ว | ยิง/วิ | HP x | รางวัล |', '| --- | --- | --- | --- | --- | --- | --- |');
+lines.push('## ด่านทั้ง 10', '', '| ด่าน | ประเภท | ศัตรู | ความเร็ว | ยิง/วิ | Gunner ยิง | HP x | รางวัล |', '| --- | --- | --- | --- | --- | --- | --- | --- |');
 STAGES.forEach((s, i) => {
   if (s.kind === 'boss') {
     const b = BOSSES[s.boss];
     const [one, two] = b.forms;
     const form = `${one.name} (HP ${b.hp}, ${one.phases.length} เฟส) แปลงร่างที่ HP ${Math.round(b.transform.atHpRatio * 100)}% เป็น ${two.name} (${two.phases.length} เฟส)`;
-    lines.push(`| ${i + 1} | **BOSS** | ${form} | - | - | - | ${s.reward} |`);
+    lines.push(`| ${i + 1} | **BOSS** | ${form} | - | - | - | - | ${s.reward} |`);
   } else {
     const rows = s.rows.map((r) => ENEMIES[r].name).join(', ');
-    lines.push(`| ${i + 1} | ${s.rows.length}x${s.cols} | ${rows} | ${s.marchSpeed} | ${s.fireRate} | ${s.hpMultiplier} | ${s.reward} |`);
+    lines.push(`| ${i + 1} | ${s.rows.length}x${s.cols} | ${rows} | ${s.marchSpeed} | ${s.fireRate} | ${s.gunnerFan} นัด | ${s.hpMultiplier} | ${s.reward} |`);
   }
 });
 lines.push('');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BOSSES, bossPhaseAt, healedHp, transformDue, type FormIndex } from './stages';
+import { BOSSES, STAGES, bossPhaseAt, healedHp, transformDue, type FormIndex } from './stages';
 
 const empress = BOSSES.voidEmpress;
 
@@ -52,5 +52,18 @@ describe('boss forms', () => {
       expect(forms[1].texture).not.toBe(forms[0].texture);
       expect(forms[1].name).not.toBe(forms[0].name);
     }
+  });
+});
+
+describe('wave stages', () => {
+  const waves = STAGES.flatMap((def, i) => (def.kind === 'wave' ? [{ stage: i + 1, def }] : []));
+
+  it('give Gunner Girls single needles through stage 3 and a 3-needle fan from stage 4 on', () => {
+    expect(waves.map(({ stage, def }) => [stage, def.gunnerFan])).toEqual(waves.map(({ stage }) => [stage, stage <= 3 ? 1 : 3]));
+  });
+
+  it('fire more often stage by stage', () => {
+    const rates = waves.map(({ def }) => def.fireRate);
+    rates.slice(1).forEach((rate, i) => expect(rate).toBeGreaterThan(rates[i]!));
   });
 });
