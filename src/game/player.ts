@@ -91,6 +91,11 @@ export class Player {
     this.shieldFullMs = ms;
   }
 
+  // The hit i-frames alone, for a hit something else took: no explosion, and Overdrive's calm keeps counting.
+  brace(): void {
+    this.invulnMs = HIT_INVULN_MS;
+  }
+
   breakShield(): void {
     this.shieldMs = 0;
     this.invulnMs = 400;

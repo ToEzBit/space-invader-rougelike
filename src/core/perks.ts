@@ -19,6 +19,8 @@ export const OVERDRIVE_CALM_MS = 3000;
 
 export const GRAZE = { adrenalineMs: 1200, phaseShieldMs: 4000, flashpointEvery: 5, bulletTimeScale: 0.5 } as const;
 
+export const SUMMON = { maxFamiliars: 3, wispDamage: 4, soulBurstShare: 0.5, hauntMs: 2000, greatSpiritDamage: 30 } as const;
+
 type PerkSpec = {
   branch: Branch;
   tier: Tier;

@@ -113,6 +113,12 @@ export class StageScene extends Phaser.Scene {
           lastErasedId: this.world.graze.lastErased && shotId(this.world.graze.lastErased),
           sparks: this.world.playerShots.list.filter((b) => b.alive && b.kind === 'spark').map((b) => ({ x: b.sprite.x, y: b.sprite.y, blast: b.blast })),
         },
+        summons: {
+          ...this.world.summons.debug,
+          lastBlockedId: this.world.summons.lastBlocked && shotId(this.world.summons.lastBlocked),
+          wisps: this.world.playerShots.list.filter((b) => b.alive && b.kind === 'wisp').map((b) => ({ x: b.sprite.x, y: b.sprite.y })),
+          haunted: this.world.foes.filter((foe) => !foe.dead && foe.hauntMs > 0).map((foe) => ({ id: foeId(foe), x: foe.sprite.x, y: foe.sprite.y, msLeft: foe.hauntMs })),
+        },
         boss: this.encounter.boss && {
           name: this.encounter.boss.name,
           form: this.encounter.boss.form,
@@ -232,6 +238,7 @@ export class StageScene extends Phaser.Scene {
       this.world.fx.explode(this.world.player.x, this.world.player.y, 'big');
       this.world.player.vanish();
       for (const drone of this.world.gun.drones) drone.setVisible(false);
+      this.world.summons.vanish();
       banner(this, 'SHIP DOWN', 'ยานของคุณถูกทำลาย', css(COLORS.red), OUTRO_MS - 600);
       return;
     }

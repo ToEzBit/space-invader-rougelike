@@ -2,9 +2,8 @@ import { COLORS } from '../art/palette';
 import { GRAZE } from '../core/perks';
 import { TRANS_AM } from '../core/transAm';
 import type { Bullet } from './bullets';
-import { circlesOverlap, type Point } from './geometry';
-import { DEPTH } from './layout';
-import type { Foe, World } from './world';
+import type { Point } from './geometry';
+import type { World } from './world';
 
 const SPARK_SPEED = 380;
 const SPARK_FAN_DEG = 20;
@@ -80,21 +79,10 @@ export class Graze {
     return (this.rushMs > 0 ? 1 : 0) | (this.slowMs > 0 ? 2 : 0);
   }
 
-  // Flashpoint: a bursting spark's hit also lands on every other foe within the radius.
-  burst(at: Point, radius: number, damage: number, struck: Foe): void {
-    const { world } = this;
-    for (const foe of world.foes) {
-      if (foe !== struck && !foe.dead && circlesOverlap(at, radius, foe.sprite, foe.radius)) world.damage(foe, damage, 'blast');
-    }
-    const ring = world.scene.add.circle(at.x, at.y, radius, COLORS.lime, 0.18).setStrokeStyle(3, COLORS.lime, 0.9).setDepth(DEPTH.fx);
-    ring.setScale(0.3);
-    world.scene.tweens.add({ targets: ring, scale: 1, alpha: 0, duration: 260, onComplete: () => ring.destroy() });
-  }
-
   // The first spark flies at the nearest foe; Spark Split's extras fan out from it on alternating sides.
   private launchSparks(at: Point, blast: number): void {
     const { stats, run, playerShots, tally } = this.world;
-    const target = this.nearestFoe(at);
+    const target = this.world.nearestFoe(at);
     const aim = target ? Math.atan2(target.sprite.y - at.y, target.sprite.x - at.x) : -Math.PI / 2;
     const damage = stats.grazeSparkDamage * (stats.lastStandDamageScale > 0 && run.hp === 1 ? stats.lastStandDamageScale : 1);
     for (let i = 0; i <= stats.grazeExtraSparks; i++) {
@@ -102,16 +90,6 @@ export class Graze {
       tally.fired += damage;
       playerShots.spawn({ kind: 'spark', x: at.x, y: at.y, vx: Math.cos(angle) * SPARK_SPEED, vy: Math.sin(angle) * SPARK_SPEED, damage, source: 'spark', blast });
     }
-  }
-
-  private nearestFoe(at: Point): Foe | null {
-    let best: Foe | null = null;
-    let bestD = Infinity;
-    for (const f of this.world.foes) {
-      const d = (f.sprite.x - at.x) ** 2 + (f.sprite.y - at.y) ** 2;
-      if (!f.dead && d < bestD) [best, bestD] = [f, d];
-    }
-    return best;
   }
 
   private erase(b: Bullet): void {

@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { COLORS } from '../art/palette';
 import type { SpriteKey } from '../art/sprites';
+import { SUMMON } from '../core/perks';
 import { VIEW } from '../view';
 import type { DamageSource, Foe } from './world';
 
-export type BulletKind = 'shot' | 'crit' | 'droneShot' | 'missile' | 'spark' | 'pellet' | 'needle' | 'orb' | 'voidOrb';
+export type BulletKind = 'shot' | 'crit' | 'droneShot' | 'missile' | 'spark' | 'wisp' | 'pellet' | 'needle' | 'orb' | 'voidOrb';
 
 type BulletDef = {
   texture: SpriteKey;
@@ -14,6 +15,8 @@ type BulletDef = {
   steer?: (b: Bullet, foes: readonly Foe[], dtSec: number) => void;
   // Overrides the pool's tint, for a kind drawn as a recolored sprite of another.
   tint?: Tint;
+  // A spawn with a blast radius also hits every other foe in it for this share of its damage, under a ring of this color.
+  burst?: { share: number; color: number };
 };
 
 type Tint = { color: number; mode: Phaser.TintModes };
@@ -25,7 +28,15 @@ export const BULLETS: Record<BulletKind, BulletDef> = {
   crit: { texture: 'critShot', radius: 4, facing: 'velocity' },
   droneShot: { texture: 'shot', radius: 3, facing: 'velocity' },
   missile: { texture: 'missile', radius: 5, facing: 'velocity', steer: homing },
-  spark: { texture: 'shot', radius: 4, facing: 'velocity', steer: homing, tint: { color: COLORS.lime, mode: Phaser.TintModes.FILL } },
+  spark: { texture: 'shot', radius: 4, facing: 'velocity', steer: homing, tint: { color: COLORS.lime, mode: Phaser.TintModes.FILL }, burst: { share: 1, color: COLORS.lime } },
+  wisp: {
+    texture: 'pellet',
+    radius: 4,
+    facing: 'spin',
+    steer: homing,
+    tint: { color: COLORS.cornflower, mode: Phaser.TintModes.FILL },
+    burst: { share: SUMMON.soulBurstShare, color: COLORS.cornflower },
+  },
   pellet: { texture: 'pellet', radius: 4, facing: 'spin' },
   needle: { texture: 'needle', radius: 3, facing: 'velocity' },
   orb: { texture: 'orb', radius: 6, facing: 'spin' },

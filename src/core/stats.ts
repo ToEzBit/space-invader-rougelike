@@ -49,6 +49,16 @@ export type ShipStats = {
   flashpointRadius: number;
   lastStandDamageScale: number;
   bulletTimeMs: number;
+
+  familiars: number;
+  wispIntervalMs: number;
+  wispDamage: number;
+  wispPierce: number;
+  guardianRestMs: number;
+  sacrificeMs: number;
+  soulBurstRadius: number;
+  hauntBonus: number;
+  greatSpiritEveryMs: number;
 };
 
 export const BASE_STATS: Readonly<ShipStats> = {
@@ -100,4 +110,14 @@ export const BASE_STATS: Readonly<ShipStats> = {
   flashpointRadius: 0,
   lastStandDamageScale: 0,
   bulletTimeMs: 0,
+
+  familiars: 0,
+  wispIntervalMs: 0,
+  wispDamage: 0,
+  wispPierce: 0,
+  guardianRestMs: 0,
+  sacrificeMs: 0,
+  soulBurstRadius: 0,
+  hauntBonus: 0,
+  greatSpiritEveryMs: 0,
 };

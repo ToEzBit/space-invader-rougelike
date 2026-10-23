@@ -7,10 +7,10 @@ import { carryTransAm, heal, takeHit, useItem, type RunState } from '../core/run
 import type { ShipStats } from '../core/stats';
 import { activate, carriedGauge, charging, enemyTimeScale, gain, loseOnHit, releaseProgress, tick, TRANS_AM, withTransAm, type TransAm } from '../core/transAm';
 import type { CharacterKey } from '../art/characters';
-import { Bullets, type Bullet } from './bullets';
+import { BULLETS, Bullets, type Bullet } from './bullets';
 import { Dash } from './dash';
 import { Fx } from './fx';
-import { circlesOverlap } from './geometry';
+import { circlesOverlap, type Point } from './geometry';
 import { Graze } from './graze';
 import { Gun } from './gun';
 import { HIDDEN, hitBar, hpRatio, tickBar, type HpBar } from './hpBar';
@@ -19,9 +19,10 @@ import { DEPTH } from './layout';
 import type { Controls } from './controls';
 import { Player } from './player';
 import { READY, transAmMeter, type SkillMeter } from './skills';
+import { Summons } from './summons';
 import { TransAmLook } from './transAmLook';
 
-export type DamageSource = 'bullet' | 'missile' | 'laser' | 'burn' | 'orbital' | 'dash' | 'shock' | 'collision' | 'spark' | 'blast';
+export type DamageSource = 'bullet' | 'missile' | 'laser' | 'burn' | 'orbital' | 'dash' | 'shock' | 'collision' | 'spark' | 'blast' | 'wisp' | 'spirit';
 
 export type Foe = {
   sprite: Phaser.GameObjects.Image;
@@ -31,6 +32,8 @@ export type Foe = {
   readonly radius: number;
   size: 'small' | 'big';
   burn: { dps: number; msLeft: number } | null;
+  // Haunt's time left; until it runs out every hit on this foe lands harder.
+  hauntMs: number;
   // Counts down a white hit flash, then on below zero through the gap before the next one may start.
   flashMs: number;
   hpBar: HpBar;
@@ -43,6 +46,7 @@ const FLASH_MS = 70;
 // A foe under steady fire, such as a boss holding still to cast, would otherwise stay solid white.
 const FLASH_GAP_MS = 110;
 const BURN_TINT = 0xffa070;
+const HAUNT_TINT = 0x9db4ff;
 // Continuous damage lands every frame: flashing on it would keep a foe solid white and would pin the HP bar's
 // chip in place, so only discrete hits flash and hold the chip.
 const DISCRETE: Record<DamageSource, boolean> = {
@@ -56,6 +60,8 @@ const DISCRETE: Record<DamageSource, boolean> = {
   collision: true,
   spark: true,
   blast: true,
+  wisp: true,
+  spirit: true,
 };
 const BURN_MS = 2000;
 const SLOWED_SHOT_TINT = 0x6fa8ff;
@@ -83,6 +89,7 @@ export class World {
   readonly laser: Laser;
   readonly dash: Dash;
   readonly graze: Graze;
+  readonly summons: Summons;
   // Coins earned this stage; paid out by clearStage.
   coins = 0;
   // Source-specific perks hook kills here (laser refunds, dash lifesteal).
@@ -109,6 +116,7 @@ export class World {
     this.laser = new Laser(this);
     this.dash = new Dash(this);
     this.graze = new Graze(this);
+    this.summons = new Summons(this);
     this.trans = charging(run.transAmGauge);
     this.look = new TransAmLook(this);
   }
@@ -237,7 +245,7 @@ export class World {
 
   addFoe(texture: CharacterKey, x: number, y: number, hp: number, coin: number, radius: number, size: Foe['size'] = 'small'): Foe {
     const sprite = this.scene.add.image(x, y, texture).setDepth(DEPTH.foe);
-    const foe: Foe = { sprite, hp, maxHp: hp, coin, radius, size, burn: null, flashMs: -FLASH_GAP_MS, hpBar: HIDDEN, dead: false };
+    const foe: Foe = { sprite, hp, maxHp: hp, coin, radius, size, burn: null, hauntMs: 0, flashMs: -FLASH_GAP_MS, hpBar: HIDDEN, dead: false };
     this.foes.push(foe);
     return foe;
   }
@@ -245,6 +253,7 @@ export class World {
   // Returns true when this hit killed the foe.
   damage(foe: Foe, amount: number, source: DamageSource): boolean {
     if (foe.dead || amount <= 0 || foe.ward?.(source)) return false;
+    if (foe.hauntMs > 0) amount *= 1 + this.stats.hauntBonus;
     const ratioBefore = hpRatio(foe);
     const removed = Math.min(amount, foe.hp);
     foe.hp -= amount;
@@ -284,6 +293,8 @@ export class World {
     this.touchedThisFrame = true;
     if (!force && (p.invulnMs > 0 || this.dash.active)) return;
     if (!force && p.shieldMs > 0) return p.breakShield();
+    // Like a shield block, a hit a familiar takes is no landed hit: no HP, gauge or streak lost.
+    if (!force && this.summons.sacrifice()) return p.brace();
     this.tally.hits++;
     this.graze.onHit();
     this.setTransAm(loseOnHit(this.trans));
@@ -313,6 +324,7 @@ export class World {
     if (!this.dash.active) this.player.steer(input, dt);
     this.player.update(dtMs);
     this.gun.update(dtMs, firing);
+    this.summons.update(dtMs, firing);
     this.laser.update(dtMs, firing);
     this.dash.update(dtMs, input.dash);
     this.playerShots.update(dt, this.foes);
@@ -352,7 +364,8 @@ export class World {
         if (foe.dead || b.hit.has(foe)) continue;
         if (!circlesOverlap(b.sprite, this.playerShots.radius(b), foe.sprite, foe.radius)) continue;
         this.damage(foe, b.damage, b.source);
-        if (b.blast > 0) this.graze.burst(b.sprite, b.blast, b.damage, foe);
+        if (b.blast > 0) this.burst(b, foe);
+        if (b.kind === 'wisp') this.summons.onWispHit(foe);
         this.fx.spark(b.sprite.x, b.sprite.y - 4, b.kind === 'crit' ? 8 : 3);
         if (b.kind === 'crit') this.fx.float(b.sprite.x, b.sprite.y - 10, `${Math.round(b.damage)}!`);
         if (b.pierceLeft-- <= 0) {
@@ -362,6 +375,7 @@ export class World {
         b.hit.add(foe);
       }
     }
+    this.summons.guard();
     const p = this.player;
     const grazeRadius = p.coreRadius + this.graze.ringPx;
     for (const b of this.enemyShots.list) {
@@ -382,6 +396,29 @@ export class World {
     }
   }
 
+  nearestFoe(at: Point): Foe | null {
+    let best: Foe | null = null;
+    let bestD = Infinity;
+    for (const f of this.foes) {
+      const d = (f.sprite.x - at.x) ** 2 + (f.sprite.y - at.y) ** 2;
+      if (!f.dead && d < bestD) [best, bestD] = [f, d];
+    }
+    return best;
+  }
+
+  // A bursting round's hit also lands, at its kind's share of the damage, on every other foe within its blast radius.
+  private burst(b: Bullet, struck: Foe): void {
+    const look = BULLETS[b.kind].burst;
+    if (!look) return;
+    const at = b.sprite;
+    for (const foe of this.foes) {
+      if (foe !== struck && !foe.dead && circlesOverlap(at, b.blast, foe.sprite, foe.radius)) this.damage(foe, b.damage * look.share, 'blast');
+    }
+    const ring = this.scene.add.circle(at.x, at.y, b.blast, look.color, 0.18).setStrokeStyle(3, look.color, 0.9).setDepth(DEPTH.fx);
+    ring.setScale(0.3);
+    this.scene.tweens.add({ targets: ring, scale: 1, alpha: 0, duration: 260, onComplete: () => ring.destroy() });
+  }
+
   killAll(): void {
     for (const foe of this.foes) this.damage(foe, foe.hp, 'bullet');
   }
@@ -394,9 +431,10 @@ export class World {
         foe.burn.msLeft -= dtMs;
         if (foe.burn.msLeft <= 0) foe.burn = null;
       }
+      if (foe.hauntMs > 0) foe.hauntMs = Math.max(0, foe.hauntMs - dtMs);
       if (foe.flashMs > -FLASH_GAP_MS) foe.flashMs -= dtMs;
       if (foe.flashMs > 0) continue;
-      foe.sprite.setTintMode(Phaser.TintModes.MULTIPLY).setTint(foe.burn ? BURN_TINT : 0xffffff);
+      foe.sprite.setTintMode(Phaser.TintModes.MULTIPLY).setTint(foe.burn ? BURN_TINT : foe.hauntMs > 0 ? HAUNT_TINT : 0xffffff);
     }
     for (let i = this.foes.length - 1; i >= 0; i--) {
       const foe = this.foes[i]!;
