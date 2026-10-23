@@ -80,7 +80,8 @@ export class ShopScene extends Phaser.Scene {
     this.leaving = false;
     this.backdrop = new Backdrop(this);
     label(this, VIEW.w / 2, 12, 'UPGRADE SHOP', { size: 26, bold: true, color: css(COLORS.yellow), align: 'center', stroke: '#5a22b0' });
-    label(this, VIEW.w / 2, 54, `ร้านอัปเกรด · ผ่านด่าน ${this.run.stage} แล้ว`, { size: 13, color: '#e3c6ff', align: 'center' });
+    const subtitle = this.run.stage === 0 ? 'โรงเก็บยาน · เลือกอัปเกรดแรกก่อนออกบิน' : `ร้านอัปเกรด · ผ่านด่าน ${this.run.stage} แล้ว`;
+    label(this, VIEW.w / 2, 54, subtitle, { size: 13, color: '#e3c6ff', align: 'center' });
     this.layer = this.add.container(0, 0);
     this.tooltip = new Tooltip(this);
     this.render();
@@ -88,7 +89,8 @@ export class ShopScene extends Phaser.Scene {
     const kb = this.input.keyboard;
     (['ONE', 'TWO', 'THREE'] as const).forEach((key, slot) => kb?.on(`keydown-${key}`, () => this.buy(slot)));
     kb?.on('keydown-R', () => this.refresh());
-    kb?.on('keydown-ENTER', () => this.leave());
+    // An Enter held from Title would otherwise repeat straight through the hangar.
+    kb?.on('keydown-ENTER', (event: KeyboardEvent) => !event.repeat && this.leave());
     // A finger has no hover, so a tooltip a tap opened closes on a tap anywhere else; a tap on a chip stops here.
     this.input.on(Phaser.Input.Events.POINTER_DOWN, (p: Phaser.Input.Pointer) => {
       if (p.wasTouch) this.tooltip.hide();
@@ -205,7 +207,7 @@ export class ShopScene extends Phaser.Scene {
 
   private drawButtons(): void {
     const cost = refreshCost(this.run);
-    const canRefresh = this.run.money >= cost;
+    const canRefresh = refreshShop(this.run).ok;
     this.button('refresh', VIEW.w / 2 - 110, WORDS.refresh(cost), canRefresh ? BUTTON.refresh : BUTTON.disabled, () => this.refresh());
     this.button('go', VIEW.w / 2 + 110, WORDS.go, BUTTON.go, () => this.leave());
   }

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { isMuted, toggleMute, want } from '../audio/music';
-import { newRun } from '../core/run';
+import { openRun } from '../core/run';
 import { css, COLORS } from '../art/palette';
 import { setDebugHooks } from '../debug';
 import { WORDS } from '../input';
@@ -81,6 +81,6 @@ export class TitleScene extends Phaser.Scene {
   private begin(): void {
     if (this.starting) return;
     this.starting = true;
-    goTo(this, newRun(Date.now()));
+    goTo(this, openRun(Date.now()));
   }
 }
