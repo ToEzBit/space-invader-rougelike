@@ -257,6 +257,73 @@
       "raw": "defeat-v2",
       "edit": "defeat-v1",
       "request": "Use case: image edit of a pixel art game illustration.\nEdit target: the attached pixel art of a crying pilot in a broken jet and a giggling pink twin-tail girl beside it.\nChange only the pink twin-tail girl's outfit so it is fully modest: give her a closed pink and black jacket over her top and a knee-length pleated pink skirt over dark full-length leggings, so no skin shows on her torso, hips or legs; only her face and hands show skin.\nKeep everything else exactly unchanged: same pose, same faces and expressions, hair, crown, accessories, colors, pixel size, framing and position on the canvas, and the same flat solid pure green #00FF00 background edge to edge.\nAvoid: any new elements, text, glow, shadow, or background change."
+    },
+    {
+      "key": "iconsBranch",
+      "raw": "icons-branch-v1",
+      "common": "icon",
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png",
+        "raw/icons-skill-v1.png",
+        "../chibi/raw/familiar-v1.png"
+      ],
+      "request": "Primary request: exactly two ability icons in one horizontal row, far apart from each other, left to right. The third attached image shows the game's existing ability icons: match their pixel size, outline thickness, chunkiness and level of detail exactly. (1) GRAZE: a small white arrowhead jet pointing straight up, filling the lower left of its cell, and one long glowing golden-yellow bullet streak shooting diagonally down past it from the upper right, just missing the jet's right wing tip, with one chunky four-point golden-yellow spark with a white center exactly where the streak skims past the wing. Only these two bold shapes and the one spark. (2) SUMMON: the small cute spirit familiar from the fourth attached image, redrawn as an icon: a plump periwinkle blue ghost-flame wisp with a pale white-blue core, two small flame-tip ears, two big dark navy eyes with white glints, tiny pink blush cheeks and one short pointed wisp tail at the bottom.",
+      "palette": "Color palette: jet white #ffffff and pale silver #c9d4ff with a small cyan canopy #46f0ff; bullet streak and spark golden yellow #ffe84a with amber shade #ffb31a and a white core; spirit periwinkle #7094ff, pale blue #c9d8ff, deep blue #3a4fc0, pink blush #ff8fd0, white; dark navy outline #0d0b26.",
+      "overrides": {
+        "avoid": "Avoid: text, letters, numbers, labels, watermark, grid lines, extra icons beyond those requested, any character or face other than the spirit's own two eyes."
+      }
+    },
+    {
+      "key": "iconGraze",
+      "raw": "icons-graze-v1",
+      "common": "icon",
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png",
+        "raw/icons-skill-v1.png"
+      ],
+      "request": "Primary request: exactly one ability icon, centered on the canvas, filling about half the canvas height. The third attached image shows the game's existing ability icons: match their pixel size, outline thickness, chunkiness and level of detail exactly. GRAZE, a near miss: in the lower left, a small white chibi jet pointing straight up, white and pale silver with small pink wing tips and a pale lavender canopy, no cyan. From the upper right, one round golden-yellow enemy bullet orb with a short thick tapering comet tail behind it flies down and to the left, passing just beside the jet's right wing tip without touching it. Right where the bullet skims past the wing tip sits one big chunky golden-yellow four-point spark burst with a white center, about one third of the icon's height, with two tiny golden pixel chips flying off it. The spark is the biggest, brightest focal point. Every shape, including the comet tail, has the same thick dark navy outline. The bullet, its tail and the spark together look like one compact cluster beside the jet.",
+      "palette": "Color palette: jet white #ffffff, pale silver #c9d4ff, pale lavender canopy #e3c6ff, pink wing tips #ff6ec7; bullet, tail and spark golden yellow #ffe84a with amber shade #ffb31a and a white core; dark navy outline #0d0b26."
+    },
+    {
+      "key": "iconGraze",
+      "raw": "icons-graze-v2",
+      "common": "icon",
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png",
+        "raw/icons-skill-v1.png",
+        "raw/icons-graze-v1.png"
+      ],
+      "request": "Primary request: exactly one ability icon, centered on the canvas. It is a very low resolution pixel icon: the whole icon is only about 26 by 26 of its own big chunky pixels, each pixel as large as the pixels of the icons in the third attached image, and the icon fills only about one third of the canvas width. GRAZE, a near miss, the same idea as the fourth attached image but simpler and chunkier: in the lower left, a small chunky white jet pointing straight up, a simple solid arrowhead silhouette with a pale lavender canopy and pink wing tips. From the upper right, one round golden-yellow bullet orb with a short thick comet tail flies down and to the left, passing just beside the jet's right wing tip. Where it skims the wing sits one chunky golden-yellow four-point spark with a white center. No other pieces: no loose chips, no dots, no speed lines. Every shape is solid, with one continuous thick dark navy outline.",
+      "palette": "Color palette: jet white #ffffff, pale silver #c9d4ff, pale lavender canopy #e3c6ff, pink wing tips #ff6ec7; bullet, tail and spark golden yellow #ffe84a with amber shade #ffb31a and a white core; dark navy outline #0d0b26."
+    },
+    {
+      "key": "iconGraze",
+      "raw": "icons-graze-v3",
+      "common": "icon",
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png",
+        "raw/icons-skill-v1.png",
+        "raw/icons-graze-v2.png"
+      ],
+      "request": "Primary request: exactly one ability icon, centered on the canvas, with the same big chunky pixel size, outline and jet as the fourth attached image, and the icon filling only about one third of the canvas width. The only change from the fourth image is the bullet's direction: it is an enemy bullet diving DOWN past the jet, not a shot fired by the jet. GRAZE, a near miss: in the lower left, the small chunky white jet pointing straight up, a simple solid arrowhead with a pale lavender canopy and pink wing tips. Just to the right of the jet's right wing tip, the round golden-yellow bullet orb, its head lowest and nearest the wing, with its short thick comet tail streaming up behind it toward the upper right corner of the icon. Between the orb and the wing tip, one chunky golden-yellow four-point spark with a white center. No other pieces: no loose chips, no dots, no speed lines. Every shape is solid, with one continuous thick dark navy outline.",
+      "palette": "Color palette: jet white #ffffff, pale silver #c9d4ff, pale lavender canopy #e3c6ff, pink wing tips #ff6ec7; bullet, tail and spark golden yellow #ffe84a with amber shade #ffb31a and a white core; dark navy outline #0d0b26."
+    },
+    {
+      "key": "iconGraze",
+      "raw": "icons-graze-v4",
+      "common": "icon",
+      "refs": [
+        "ref/style.png",
+        "ref/cast.png",
+        "raw/icons-skill-v1.png",
+        "raw/icons-graze-v3.png"
+      ],
+      "request": "Primary request: exactly one ability icon, centered on the canvas, with the same big chunky pixel size, outline, jet and layout as the fourth attached image, filling only about one third of the canvas width. Change only the balance between the spark and the bullet: the spark becomes the star of the icon. GRAZE, a near miss: in the lower left, the small chunky white jet pointing straight up, a simple solid arrowhead with a pale lavender canopy and pink wing tips. Right beside the jet's right wing tip, one BIG chunky golden-yellow four-point spark star with a bright white center, its four points long and sharp, about as tall as the jet's whole wing. Just past the spark, a SMALL round golden-yellow enemy bullet orb diving down, with a short comet tail streaming up behind it toward the upper right corner; the orb and tail together are smaller than the spark. No other pieces: no loose chips, no dots, no speed lines. Every shape is solid, with one continuous thick dark navy outline.",
+      "palette": "Color palette: jet white #ffffff, pale silver #c9d4ff, pale lavender canopy #e3c6ff, pink wing tips #ff6ec7; spark golden yellow #ffe84a with a large white center; bullet and tail golden yellow #ffe84a with amber shade #ffb31a; dark navy outline #0d0b26."
     }
   ]
 }

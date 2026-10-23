@@ -86,6 +86,47 @@
       ]
     },
     {
+      "key": "familiar",
+      "textureKeys": [
+        "familiar"
+      ],
+      "file": "out/familiar.png",
+      "displayFile": "out/familiar@display.png",
+      "raw": "raw/familiar-v1.png",
+      "artW": 12,
+      "artH": 15,
+      "displayScale": 1,
+      "suggestedDisplayW": 12,
+      "suggestedDisplayH": 15,
+      "currentFootprint": [
+        15,
+        15
+      ],
+      "colors": 5,
+      "hitRadius": {
+        "now": 6.8,
+        "withThisSprite": 5.4,
+        "rule": "min(frame w, h) * 0.45"
+      },
+      "keying": {
+        "background": [
+          4,
+          248,
+          4
+        ],
+        "fringePixels": 0,
+        "parts": 1,
+        "partsKept": 1,
+        "trimmed": [
+          554,
+          705
+        ]
+      },
+      "notes": [
+        "Scale 1 means finer pixels than bullets, icons and HUD, which stay baked at ART_SCALE 2."
+      ]
+    },
+    {
       "key": "drone",
       "textureKeys": [
         "drone0",

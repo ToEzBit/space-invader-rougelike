@@ -62,7 +62,7 @@ async function draw({ screen, images, insets, layout, opts }) {
   await document.fonts.load(`bold 16px Thonburi`, 'ทดสอบ');
   const has = (k) => !!img[k];
   const css = (n) => `#${n.toString(16).padStart(6, '0')}`;
-  const C = { ink: 0x0d0b26, white: 0xffffff, cyan: 0x46f0ff, pink: 0xff6ec7, red: 0xff3d5a, orange: 0xff9b30, yellow: 0xffe84a, gold: 0xffb31a, green: 0x5dff9b, violet: 0xa66bff, steel: 0x8a96c8 };
+  const C = { ink: 0x0d0b26, white: 0xffffff, cyan: 0x46f0ff, pink: 0xff6ec7, red: 0xff3d5a, orange: 0xff9b30, yellow: 0xffe84a, gold: 0xffb31a, green: 0x5dff9b, violet: 0xa66bff, steel: 0x8a96c8, lime: 0x90ff40, cornflower: 0x7094ff };
 
   // ui/text.ts label(): y is the top of the text box, which carries ceil(size*0.35) of top padding.
   function label(x, y, text, { size = 14, color = '#ffffff', bold = false, align = 'left', stroke, wrap } = {}) {
@@ -142,7 +142,7 @@ async function draw({ screen, images, insets, layout, opts }) {
   }
 
   const L = layout;
-  const BRANCH = { rapid: { color: C.orange, icon: 'iconRapid', frame: (opts.perk ?? 'perkCard') + 'Rapid' }, laser: { color: C.cyan, icon: 'iconLaser', frame: (opts.perk ?? 'perkCard') + 'Laser' }, ram: { color: C.pink, icon: 'iconRam', frame: opts.perk ?? 'perkCard' } };
+  const BRANCH = { rapid: { color: C.orange, icon: 'iconRapid', frame: (opts.perk ?? 'perkCard') + 'Rapid' }, laser: { color: C.cyan, icon: 'iconLaser', frame: (opts.perk ?? 'perkCard') + 'Laser' }, ram: { color: C.pink, icon: 'iconRam', frame: opts.perk ?? 'perkCard' }, graze: { color: C.lime, icon: 'iconGraze', frame: 'perkCardGraze' }, summon: { color: C.cornflower, icon: 'iconSummon', frame: 'perkCardSummon' } };
   const ITEM = { repairKit: { color: C.green, icon: 'itemRepairKit' }, nitro: { color: C.violet, icon: 'itemNitro' }, powerCell: { color: C.red, icon: 'itemPowerCell' }, overclock: { color: C.yellow, icon: 'itemOverclock' }, barrierCapsule: { color: C.cyan, icon: 'itemBarrier' } };
   const iconKey = (k, small) => (small && has(`${k}Small`) ? `${k}Small` : k);
 
@@ -230,7 +230,7 @@ async function draw({ screen, images, insets, layout, opts }) {
     return w;
   }
   function chipFrame(color) {
-    return { [C.orange]: 'chipRapid', [C.cyan]: 'chipLaser', [C.pink]: 'chipRam', [C.gold]: 'chipGold' }[color] ?? 'chip';
+    return { [C.orange]: 'chipRapid', [C.cyan]: 'chipLaser', [C.pink]: 'chipRam', [C.lime]: 'chipGraze', [C.cornflower]: 'chipSummon', [C.gold]: 'chipGold' }[color] ?? 'chip';
   }
 
   function slot(x, y, def, state) {
@@ -257,9 +257,12 @@ async function draw({ screen, images, insets, layout, opts }) {
     backdrop();
     label(240, 12, 'UPGRADE SHOP', { size: 26, bold: true, color: css(C.yellow), align: 'center', stroke: '#5a22b0' });
     label(240, 54, 'ร้านอัปเกรด · ผ่านด่าน 2 แล้ว', { size: 13, color: '#e3c6ff', align: 'center' });
-    perkCard(0, { branch: 'rapid', tier: 1, name: 'Hair Trigger', level: 0, branchLabel: 'Bullet Storm · สายยิงรัว', desc: 'ยิงเร็วขึ้น ช่วงห่างกระสุนเหลือ 85%', cost: 20, affordable: true });
-    perkCard(1, { branch: 'laser', tier: 1, name: 'Prism Lance', level: 1, branchLabel: 'Prism Lance · สายเลเซอร์', desc: 'ปลดล็อกเลเซอร์ ยิงลำแสงทะลุทั้งแนวอัตโนมัติ ทุก 3.4 วิ', cost: 30, affordable: true });
-    itemCard(2, { id: 'repairKit', name: 'Repair Kit', held: 1, key: 1, desc: 'ซ่อมยาน ฟื้น 1 HP (ใช้ไม่ได้ตอน HP เต็ม)', cost: 25, affordable: false });
+    if (opts.perks) opts.perks.forEach((p, i) => perkCard(i, p));
+    else {
+      perkCard(0, { branch: 'rapid', tier: 1, name: 'Hair Trigger', level: 0, branchLabel: 'Bullet Storm · สายยิงรัว', desc: 'ยิงเร็วขึ้น ช่วงห่างกระสุนเหลือ 85%', cost: 20, affordable: true });
+      perkCard(1, { branch: 'laser', tier: 1, name: 'Prism Lance', level: 1, branchLabel: 'Prism Lance · สายเลเซอร์', desc: 'ปลดล็อกเลเซอร์ ยิงลำแสงทะลุทั้งแนวอัตโนมัติ ทุก 3.4 วิ', cost: 30, affordable: true });
+      itemCard(2, { id: 'repairKit', name: 'Repair Kit', held: 1, key: 1, desc: 'ซ่อมยาน ฟื้น 1 HP (ใช้ไม่ได้ตอน HP เต็ม)', cost: 25, affordable: false });
+    }
     button(130, 'R · รีเฟรช  5', 'button', C.violet);
     button(350, 'ENTER · ไปต่อ ▶', 'buttonAccent', C.green);
     const [px, py, pw, ph] = L.shop.status.rect;
@@ -269,7 +272,8 @@ async function draw({ screen, images, insets, layout, opts }) {
     label(426, py + 7, '23', { size: 17, bold: true, color: css(C.yellow), align: 'right' });
     let cx = 34;
     let cy = py + 36;
-    for (const [t, col] of [['Heavy Caliber 2', C.orange], ['Twin Cannons 1', C.orange], ['Prism Lance 1', C.cyan], ['Reinforced Hull 1', C.pink], ['Afterburner Dash 1', C.pink], ['Repair Kit x1', C.gold], ['Nitro x2', C.gold]]) {
+    const owned = opts.chips?.map(([t, col]) => [t, C[col]]) ?? [['Heavy Caliber 2', C.orange], ['Twin Cannons 1', C.orange], ['Prism Lance 1', C.cyan], ['Reinforced Hull 1', C.pink], ['Afterburner Dash 1', C.pink], ['Repair Kit x1', C.gold], ['Nitro x2', C.gold]];
+    for (const [t, col] of owned) {
       g.font = `bold 10px ${FONT}`;
       const w = g.measureText(t).width + 10;
       if (cx + w > 450) (cx = 34), (cy += 18);
@@ -294,6 +298,7 @@ async function draw({ screen, images, insets, layout, opts }) {
     for (const [x, y] of [[170, 300], [330, 260]]) (g.fillStyle = '#ff6ec7'), g.beginPath(), g.arc(x, y, 3, 0, 7), g.fill();
     sprite('chibi:player', 240, 572);
     sprite('chibi:optionDrone', 204, 580), sprite('chibi:optionDrone', 276, 580);
+    for (const [x, y] of opts.familiars ?? []) sprite('chibi:familiar', x, y);
     const bar = L.hud.topBar.rect;
     if (!nine('hudBar', -2, -2, bar[2] + 4, bar[3] + 4)) {
       g.fillStyle = 'rgba(13,11,38,.72)', g.fillRect(0, 0, 480, 34);
@@ -304,9 +309,8 @@ async function draw({ screen, images, insets, layout, opts }) {
     coin(452, 16);
     label(438, 7, '47', { size: 14, bold: true, align: 'right' });
     const t = L.hud.tray;
-    slot(t.skillX0, t.y, { icon: 'iconRam', color: C.pink, hint: 'SHIFT' }, { kind: 'cooling', progress: 0.6, text: '1.8' });
-    slot(t.skillX0 + t.gap, t.y, { icon: 'iconLaser', color: C.cyan, hint: 'AUTO' }, { kind: 'ready' });
-    slot(t.skillX0 + 2 * t.gap, t.y, { icon: 'iconOrbital', color: C.yellow, hint: 'AUTO' }, { kind: 'ready' });
+    const skills = opts.skills?.map(([icon, col, hint]) => ({ icon, color: C[col], hint })) ?? [{ icon: 'iconRam', color: C.pink, hint: 'SHIFT' }, { icon: 'iconLaser', color: C.cyan, hint: 'AUTO' }, { icon: 'iconOrbital', color: C.yellow, hint: 'AUTO' }];
+    skills.forEach((def, i) => slot(t.skillX0 + i * t.gap, t.y, def, i === 0 ? { kind: 'cooling', progress: 0.6, text: '1.8' } : { kind: 'ready' }));
     slot(t.itemRight - t.gap, t.y, { icon: 'itemRepairKit', color: C.green, hint: '1' }, { kind: 'ready', count: 1 });
     slot(t.itemRight, t.y, { icon: 'itemNitro', color: C.violet, hint: '2' }, { kind: 'ready', count: 0 });
   }

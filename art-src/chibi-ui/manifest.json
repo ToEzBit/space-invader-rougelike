@@ -116,6 +116,76 @@
       }
     },
     {
+      "key": "perkCardGraze",
+      "file": "out/perkCardGraze.png",
+      "kind": "nineSlice",
+      "w": 24,
+      "h": 20,
+      "insets": {
+        "left": 10,
+        "right": 10,
+        "top": 8,
+        "bottom": 8
+      },
+      "border": {
+        "top": 7,
+        "bottom": 7,
+        "left": 7,
+        "right": 7
+      },
+      "suggestedUse": "ShopScene.drawPerk, graze branch (lime).",
+      "raw": "raw/perkCard-v2.png",
+      "colors": 10,
+      "keying": {
+        "background": [
+          13,
+          249,
+          11
+        ],
+        "trimmed": [
+          2080,
+          557
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "perkCardSummon",
+      "file": "out/perkCardSummon.png",
+      "kind": "nineSlice",
+      "w": 24,
+      "h": 20,
+      "insets": {
+        "left": 10,
+        "right": 10,
+        "top": 8,
+        "bottom": 8
+      },
+      "border": {
+        "top": 7,
+        "bottom": 7,
+        "left": 7,
+        "right": 7
+      },
+      "suggestedUse": "ShopScene.drawPerk, summon branch (cornflower blue).",
+      "raw": "raw/perkCard-v2.png",
+      "colors": 10,
+      "keying": {
+        "background": [
+          13,
+          249,
+          11
+        ],
+        "trimmed": [
+          2080,
+          557
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
       "key": "itemCard",
       "file": "out/itemCard.png",
       "kind": "nineSlice",
@@ -536,6 +606,76 @@
       }
     },
     {
+      "key": "chipGraze",
+      "file": "out/chipGraze.png",
+      "kind": "nineSlice",
+      "w": 14,
+      "h": 14,
+      "insets": {
+        "left": 5,
+        "right": 5,
+        "top": 5,
+        "bottom": 5
+      },
+      "border": {
+        "top": 2,
+        "bottom": 2,
+        "left": 2,
+        "right": 2
+      },
+      "suggestedUse": "Owned chip, graze branch.",
+      "raw": "raw/chip-v1.png",
+      "colors": 6,
+      "keying": {
+        "background": [
+          6,
+          249,
+          4
+        ],
+        "trimmed": [
+          2062,
+          394
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
+      "key": "chipSummon",
+      "file": "out/chipSummon.png",
+      "kind": "nineSlice",
+      "w": 14,
+      "h": 14,
+      "insets": {
+        "left": 5,
+        "right": 5,
+        "top": 5,
+        "bottom": 5
+      },
+      "border": {
+        "top": 2,
+        "bottom": 2,
+        "left": 2,
+        "right": 2
+      },
+      "suggestedUse": "Owned chip, summon branch.",
+      "raw": "raw/chip-v1.png",
+      "colors": 6,
+      "keying": {
+        "background": [
+          6,
+          249,
+          4
+        ],
+        "trimmed": [
+          2062,
+          394
+        ],
+        "parts": 1,
+        "partsKept": 1
+      }
+    },
+    {
       "key": "chipGold",
       "file": "out/chipGold.png",
       "kind": "nineSlice",
@@ -645,6 +785,26 @@
       "replaces": "iconOrbital",
       "raw": "raw/icons-skill-v1.png",
       "colors": 12
+    },
+    {
+      "key": "iconSummon",
+      "file": "out/iconSummon.png",
+      "kind": "icon",
+      "w": 28,
+      "h": 28,
+      "suggestedUse": "Perk card stripe and skill slot, summon branch (cornflower blue).",
+      "raw": "raw/icons-branch-v1.png",
+      "colors": 9
+    },
+    {
+      "key": "iconGraze",
+      "file": "out/iconGraze.png",
+      "kind": "icon",
+      "w": 28,
+      "h": 28,
+      "suggestedUse": "Perk card stripe and skill slot, graze branch (lime).",
+      "raw": "raw/icons-graze-v4.png",
+      "colors": 9
     },
     {
       "key": "itemRepairKit",
