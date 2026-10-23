@@ -28,3 +28,13 @@ export function onAudio(fn: (ctx: AudioContext) => void): void {
   if (ctx) fn(ctx);
   else ready.push(fn);
 }
+
+export async function fetchAudio(ctx: BaseAudioContext, url: string): Promise<AudioBuffer | string> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return `HTTP ${res.status}`;
+    return await ctx.decodeAudioData(await res.arrayBuffer());
+  } catch (e) {
+    return e instanceof Error ? e.name : String(e);
+  }
+}

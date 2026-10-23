@@ -4,7 +4,7 @@ TRANS-AM's six active seconds have their own sound. A hit lands on the release f
 
 ## Sub-features
 
-- `press` is unchanged. The `transAm` sweep plays at the press, then the cut-in and the pilot's line (see [cut-in](./cut-in.md) and [voice](./voice.md)). Nothing in this feature plays during the cut-in.
+- `press` is unchanged. The `transAm` sweep and the Newtype flash play at the press, then the cut-in and the pilot's line (see [cut-in](./cut-in.md) and [voice](./voice.md)). Nothing in this feature plays during the cut-in.
 - `release` is a sub drop, a short punch and a bright noise whoosh on the release frame, the loudest TRANS-AM sound. The whoosh sweeps down from 9 kHz to 1.8 kHz under the pilot's shout, which lands on the same frame. In the render's spectrogram the shout's harmonics stay clear over it. Its noise is synth's seeded buffer, so nothing draws from `Math.random`.
 - `hum` starts on the release frame. A sub saw and a detuned saw an octave up run through a resonant lowpass with a tremolo. It fades in over `fadeInMs`. Its pitch climbs a fifth (55 to 82.4 Hz) and its cutoff rises from 320 to 1900 Hz over `activeMs`. `humAt` gives those targets for the time since the release, and every frame steers the oscillators towards them on game time.
 - `shot` is a 30 ms triangle zip from 2.6 kHz to 1.2 kHz, once per `Gun` volley while active, quieter than `pop`.
@@ -44,15 +44,15 @@ Run `drive.mjs <run-id> trans-am-sound`. An init script taps the game's `AudioCo
 .claude/skills/verify-space-invader/scripts/trans-am-sound.mjs <run-id> [--out <dir>]
 ```
 
-Renders a full TRANS-AM offline in Chrome through the game's own `TransAmSound`, `blip`, `playLine`, `playStep` and `openLowpass`. The frame loop copies `World.update` by hand (the release, the tick, the gun at the active fire interval, then the look), so a change to that order needs the same change here. It runs at 60 fps from the press: the sweep, the first voice line with its shout on the release, the release hit, the hum, the zips, the ticks and `powerDown`, over `boss1` through the muffle. It writes these files to `.verify/<run-id>/evidence/trans-am-sound-render/`, and also to `--out` when given:
+Renders a full TRANS-AM offline in Chrome through the game's own `TransAmSound`, `blip`, `playFlash`, `playLine`, `playStep` and `openLowpass`. The frame loop copies `World.update` by hand (the release, the tick, the gun at the active fire interval, then the look), so a change to that order needs the same change here. It runs at 60 fps from the press: the sweep, the Newtype flash, the first voice line with its shout on the release, the release hit, the hum, the zips, the ticks and `powerDown`, over `boss1` through the muffle. It writes these files to `.verify/<run-id>/evidence/trans-am-sound-render/`, and also to `--out` when given:
 
 - `transam-sequence.wav` is the sequence at the in-game level.
-- `transam-sequence-preview.wav` and `transam-before-preview.wav` are the sequence and the same span with only today's sweep, voice and `powerDown` over open music. Both share one gain, normalized to a 0.9 peak, so they compare by ear.
+- `transam-sequence-preview.wav` and `transam-before-preview.wav` are the sequence and the same span with only the sweep, the flash, the voice and `powerDown` over open music. Both share one gain, normalized to a 0.9 peak, so they compare by ear.
 - `stem-<layer>-preview.wav` is each layer alone, normalized.
 - `boss1-open.wav` and `boss1-muffled.wav` are the music under the active time, without and with the muffle.
 - `report.json` holds every number.
 
-It prints peak, `loud95` and `loudMax` (the 95th-percentile and loudest RMS over 50 ms windows) for each sfx, the voice line, `boss1` and each layer. A sound shorter than one window, the zip and a tick, is compared by its RMS over its own length. It also prints the music's level above 2 kHz with and without the muffle, and the worst-case sum of peaks.
+It prints peak, `loud95` and `loudMax` (the 95th-percentile and loudest RMS over 50 ms windows) for each sfx, the Newtype flash, the voice line, `boss1` and each layer. A sound shorter than one window, the zip and a tick, is compared by its RMS over its own length. It also prints the music's level above 2 kHz with and without the muffle, and the worst-case sum of peaks.
 
 It fails on a console error and when any of these holds:
 
@@ -60,7 +60,7 @@ It fails on a console error and when any of these holds:
 - The hum's `loud95` is not under 0.75 times `boss1`'s and 0.5 times the voice's.
 - A zip's peak or RMS is not under `pop`'s.
 - The ticks are not five inside the last 1.5 s.
-- The peaks of `boss2`, the hum, the release hit, the loudest sfx and the voice add up to 1 or more, or the rendered sequence peaks at 1.
+- The peaks of `boss2`, the hum, the release hit, the loudest sfx, the Newtype flash and the voice add up to 1 or more, or the rendered sequence peaks at 1.
 - The muffle drops `boss1` above 2 kHz by less than 12 dB.
 
 ## Gotchas

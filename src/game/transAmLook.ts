@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { newtypeFlash } from '../audio/newtypeFlash';
 import { sfx } from '../audio/sfx';
 import { TransAmSound } from '../audio/transAmSound';
 import { COLORS } from '../art/palette';
@@ -40,8 +41,10 @@ export class TransAmLook {
   }
 
   enter(kind: TransAm['kind']): void {
-    if (kind === 'active') sfx('transAm');
-    else this.sound.endActive();
+    if (kind === 'active') {
+      sfx('transAm');
+      newtypeFlash();
+    } else this.sound.endActive();
     if (kind === 'depleted') sfx('powerDown');
   }
 

@@ -177,6 +177,7 @@ function harness(page, outDir) {
 }
 
 const VOICE_FILES = '**/transam-*.mp3';
+const FLASH_FILE = '**/newtype-flash.mp3';
 const TONE_RATE = 44100;
 const TONE_LOOP_SEC = 4;
 const TONE_HZ = 110;
@@ -1196,7 +1197,12 @@ const JOURNEYS = {
 
   async voice(h) {
     const warnings = [];
+    const flashWarnings = [];
     h.page.on('console', (m) => m.type() === 'warning' && m.text().startsWith('voice:') && warnings.push(m.text()));
+    h.page.on('console', (m) => m.type() === 'warning' && m.text().startsWith('newtypeFlash:') && flashWarnings.push(m.text()));
+    // The flash rings through the pause before a short line's shout, so the tap hears only the sweep and the voice
+    // until the last phase, which lets it play.
+    await h.serve404(FLASH_FILE);
     await h.page.addInitScript(() => {
       const connect = AudioNode.prototype.connect;
       const taps = new Map();
@@ -1278,7 +1284,7 @@ const JOURNEYS = {
     };
 
     await h.page.keyboard.press('Shift');
-    const ready = await h.waitFor('both voice lines decoded', (x) => x.voice.lines.every((l) => l.status === 'ready'), 8000);
+    const ready = await h.waitFor('both voice lines decoded and the flash failed', (x) => x.voice.lines.every((l) => l.status === 'ready') && x.newtypeFlash.status === 'failed', 8000);
     const lines = ready.voice.lines;
     await h.page.evaluate(async () => (window.__gameAudio = (await import('/src/audio/context.ts')).audioContext()));
     h.log.steps.push({ action: 'decoded the voice lines', lines: lines.map(({ url, segments, slices, shoutAtMs, gain }) => ({ url, segments, slices, shoutAtMs, gain })) });
@@ -1324,6 +1330,8 @@ const JOURNEYS = {
       await sleep(400);
     }
     h.check('the lines alternate and both play', said.every((l, i) => i === 0 || l !== said[i - 1]) && new Set(said).size === 2, { said });
+    const unflashed = (await h.state()).newtypeFlash;
+    h.check('a missing Newtype flash file warns once and four presses play no flash', unflashed.status === 'failed' && unflashed.why === 'HTTP 404' && unflashed.played === 0 && flashWarnings.length === 1 && flashWarnings[0].includes('/newtype-flash.mp3'), { flash: unflashed, warnings: [...flashWarnings] });
 
     await h.game('transAmGauge', TA.gaugeMax);
     const midBand = h.frameWhen(`s.life === 'cutIn' && s.cutInMs >= s.cutInTotalMs / 2`, true);
@@ -1356,9 +1364,25 @@ const JOURNEYS = {
     const cut = frames.filter((f) => f.life === 'cutIn');
     const tail = cut.filter((f) => f.cutInMs >= 600).map((f) => f.rms);
     const release = frames.find((f) => f.released);
-    h.log.steps.push({ action: 'Space with the voice files missing', totalMs: cut[0].cutInTotalMs, tailRms: tail, spoken: release.spoken, frames: frames.map(({ shots, foeSpots, ...f }) => f) });
+    h.log.steps.push({ action: 'Space with the voice and flash files missing', totalMs: cut[0].cutInTotalMs, tailRms: tail, spoken: release.spoken, frames: frames.map(({ shots, foeSpots, ...f }) => f) });
     h.check('without a voice line the cut-in is the silent 1000 ms', cut[0].cutInTotalMs === CUT.total && release.spoken === 0 && release.last === null, { totalMs: cut[0].cutInTotalMs, spoken: release.spoken });
     h.check('and nothing but the fading sweep is heard under it', tail.length > 0 && Math.max(...tail) < 0.001, { loudest: Math.max(...tail) });
+
+    await h.page.unroute(FLASH_FILE);
+    await h.page.reload();
+    await h.waitFor('Title with only the voice files missing', (x) => x.scenes.includes('Title'), 15000);
+    await h.page.keyboard.press('Shift');
+    await h.waitFor('the flash decoded and both voice lines failed', (x) => x.newtypeFlash.status === 'ready' && x.voice.lines.every((l) => l.status === 'failed'), 8000);
+    await h.page.evaluate(async () => (window.__gameAudio = (await import('/src/audio/context.ts')).audioContext()));
+    await h.startAt(4);
+    await h.game('god', true);
+    await sleep(500);
+    const flashFrames = await recordActivationFrames();
+    const flashCut = flashFrames.filter((f) => f.life === 'cutIn');
+    const ringing = flashCut.filter((f) => f.cutInMs >= 600).map((f) => f.rms);
+    const flashed = await h.state();
+    h.log.steps.push({ action: 'Space with only the voice files missing', totalMs: flashCut[0].cutInTotalMs, tailRms: ringing, flash: flashed.newtypeFlash, frames: flashFrames.map(({ shots, foeSpots, ...f }) => f) });
+    h.check('with the flash loaded it rings on the output through the silent cut-in after the sweep fades', flashed.newtypeFlash.played === 1 && flashCut[0].cutInTotalMs === CUT.total && ringing.length > 0 && Math.min(...ringing) > 0.005, { flash: flashed.newtypeFlash, quietest: Math.min(...ringing), loudest: Math.max(...ringing) });
   },
 
   async 'trans-am-sound'(h) {
@@ -3172,6 +3196,7 @@ const JOURNEYS = {
                 interval: s.stats?.fireIntervalMs,
                 laserFiring: s.laserFiring,
                 played: s.sfx.played,
+                flash: s.newtypeFlash.played,
                 beam: s.sfx.beam,
                 zips: s.transAmSound.shots,
                 stance: s.boss?.stance,
@@ -3206,6 +3231,8 @@ const JOURNEYS = {
       });
     })();
     await h.page.keyboard.press('Shift');
+    const decoded = await h.waitFor('the Newtype flash decoded', (s) => s.newtypeFlash.status === 'ready', 8000);
+    h.check('the Newtype flash sample decodes once the audio starts', decoded.newtypeFlash.gain > 0, decoded.newtypeFlash);
 
     const volleysMatch = async (label) => {
       const rec = await record(3000);
@@ -3225,9 +3252,20 @@ const JOURNEYS = {
     await h.waitFor('Overclock running', (s) => s.buffs.some((b) => b.buff === 'overclock'), 2000);
     await volleysMatch('Hair Trigger III with Overclock');
 
-    await h.game('transAmGauge', gaugeMax);
+    const empty = await h.page.evaluate(() => (window.__game.transAmGauge(0), window.__game.state()));
+    await h.page.keyboard.press('Space');
+    await sleep(60);
+    const refused = await h.state();
+    const flashes = [empty.newtypeFlash.played, refused.newtypeFlash.played];
+    const sweeps = [n(empty.sfx, 'transAm'), n(refused.sfx, 'transAm')];
+    h.check('Space on a gauge short of full plays no Newtype flash or sweep', refused.transAm.kind === 'charging' && flashes[0] === flashes[1] && sweeps[0] === sweeps[1], { transAm: refused.transAm, flashes, sweeps });
+    const full = await h.page.evaluate((max) => (window.__game.transAmGauge(max), window.__game.state()), gaugeMax);
     await h.page.keyboard.press('Space');
     const ta = await record(12000, `s.transAm.kind === 'depleted' && s.transAm.msLeft < 3000`);
+    const flashFrames = ta.filter((x, i) => x.flash !== (ta[i - 1]?.flash ?? full.newtypeFlash.played)).map((x) => ({ ms: x.ms, transAm: x.transAm, flash: x.flash }));
+    const flashed = ta.at(-1).flash - full.newtypeFlash.played;
+    const swept = n(ta.at(-1), 'transAm') - n(full.sfx, 'transAm');
+    h.check('Space on a full gauge plays the Newtype flash once, beside the TRANS-AM sweep', flashed === 1 && flashFrames.length === 1 && swept === 1, { flashed, flashFrames, swept });
     let [activeFrames, shotsActive, zips] = [0, 0, 0];
     for (let i = 1; i < ta.length; i++) {
       if (ta[i].transAm !== 'active' || ta[i - 1].transAm !== 'active') continue;

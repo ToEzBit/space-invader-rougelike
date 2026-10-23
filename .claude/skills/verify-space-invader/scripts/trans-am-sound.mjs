@@ -32,6 +32,7 @@ const result = await page.evaluate(async () => {
   const { MUSIC_VOLUME, TRACK_LEVEL, openLowpass } = await import('/src/audio/music.ts');
   const { blip } = await import('/src/audio/sfx.ts');
   const { VOICE_URLS, decodeLine, playLine } = await import('/src/audio/voice.ts');
+  const { FLASH_URL, decodeFlash, playFlash } = await import('/src/audio/newtypeFlash.ts');
   const { CUT_IN, SILENT_CUT_IN_MS } = await import('/src/core/cutIn.ts');
   const { deriveStats } = await import('/src/core/perks.ts');
   const RATE = 44100;
@@ -104,6 +105,14 @@ const result = await page.evaluate(async () => {
     sfx[name] = { ...stats(data), ...ownRms(data) };
   }
 
+  const flash = await decodeFlash(new OfflineAudioContext(1, 1, RATE), FLASH_URL);
+  if (typeof flash === 'string') throw new Error(`newtype flash ${FLASH_URL}: ${flash}`);
+  const flashAlone = await (async () => {
+    const c = new OfflineAudioContext(1, Math.ceil(flash.buffer.duration * RATE), RATE);
+    playFlash(c, c.destination, flash, 0);
+    return stats((await c.startRendering()).getChannelData(0));
+  })();
+
   const line = await decodeLine(new OfflineAudioContext(1, 1, RATE), VOICE_URLS[0]);
   if (typeof line === 'string') throw new Error(`voice line ${VOICE_URLS[0]}: ${line}`);
   const cutInSec = Math.max(SILENT_CUT_IN_MS, CUT_IN.dimMs + line.shoutAtMs) / 1000;
@@ -138,6 +147,7 @@ const result = await page.evaluate(async () => {
   for (let step = 0; step * song.stepSec < seqSec; step++) for (const bus of [muffled, open]) playStep(ctx, bus, song, step, step * song.stepSec);
 
   blip(ctx, stemOut.sfx, 'transAm', PRESS_SEC);
+  playFlash(ctx, stemOut.sfx, flash, PRESS_SEC);
   const lineAtSec = PRESS_SEC + cutInSec - line.shoutAtMs / 1000;
   const lastSlice = line.slices.at(-1);
   const lineSec = lastSlice.lineAtSec + lastSlice.toSec - lastSlice.fromSec;
@@ -253,6 +263,7 @@ const result = await page.evaluate(async () => {
     timeline: { pressSec: PRESS_SEC, releaseSec: +releaseSec.toFixed(3), depletedSec: +endSec.toFixed(3), seqSec: +seqSec.toFixed(3), voice: VOICE_URLS[0], cutInSec, fireIntervalMs, volleys },
     tickStartsAfterReleaseMs: tickStarts.map((s) => Math.round((s - releaseSec) * 1000)),
     sfx,
+    flash: flashAlone,
     voice: stats(slice(stem.voice, lineAtSec, lineAtSec + lineSec)),
     music: { boss1: loops.boss1, boss2: loops.boss2, boss1Muffled: stats(active(stem.music)), boss1OpenSameWindow: stats(active(stem.openMusic)) },
     layers: {
@@ -269,10 +280,10 @@ const result = await page.evaluate(async () => {
 await browser.close();
 
 const db = (a, b) => +(20 * Math.log10(a / b)).toFixed(1);
-const { sfx, layers, music, voice, hf, mix } = result;
+const { sfx, flash, layers, music, voice, hf, mix } = result;
 const loudestSfx = Object.entries(sfx).sort(([, a], [, b]) => b.loudMax - a.loudMax)[0];
 const otherTransAm = { sweep: sfx.transAm.loudMax, powerDown: sfx.powerDown.loudMax, hum: layers.hum.loudMax, tick: layers.tick.ownRms, shot: layers.shot.loudMax };
-const worstPeaks = { boss2Music: music.boss2.peak, hum: layers.hum.peak, release: layers.release.peak, loudestSfx: Math.max(...Object.values(sfx).map((s) => s.peak)), voice: voice.peak };
+const worstPeaks = { boss2Music: music.boss2.peak, hum: layers.hum.peak, release: layers.release.peak, loudestSfx: Math.max(...Object.values(sfx).map((s) => s.peak)), newtypeFlash: flash.peak, voice: voice.peak };
 const peakSum = +Object.values(worstPeaks).reduce((a, b) => a + b, 0).toFixed(4);
 const hfDropDb = db(hf.muffled.hf.rms, hf.open.hf.rms);
 const fullDropDb = db(hf.muffled.full.loud95, hf.open.full.loud95);
@@ -284,7 +295,7 @@ want(layers.hum.loud95 < 0.75 * music.boss1.loud95, `hum loud95 ${layers.hum.lou
 want(layers.hum.loud95 < 0.5 * voice.loud95, `hum loud95 ${layers.hum.loud95} is not clearly under the voice at ${voice.loud95}`);
 want(layers.shot.peak < sfx.pop.peak && layers.shot.ownRms < sfx.pop.ownRms, `shot peak ${layers.shot.peak} / rms ${layers.shot.ownRms} is not under pop's ${sfx.pop.peak} / ${sfx.pop.ownRms}`);
 want(result.tickStartsAfterReleaseMs.length === 5 && result.tickStartsAfterReleaseMs.every((ms) => ms >= 6000 - 1500 - 20), `ticks at ${result.tickStartsAfterReleaseMs} ms after the release are not five inside the last 1.5 s`);
-want(peakSum < 1, `boss2 music, hum, release, the loudest sfx and the voice peak at ${peakSum} together`);
+want(peakSum < 1, `boss2 music, hum, release, the loudest sfx, the Newtype flash and the voice peak at ${peakSum} together`);
 want(mix.full.peak < 1, `the rendered sequence peaks at ${mix.full.peak}`);
 want(hfDropDb <= -12, `the muffle only drops boss1 above ${hf.hz} Hz by ${hfDropDb} dB`);
 
@@ -299,6 +310,7 @@ if (copyTo) {
 const row = (name, s) => `${name.padEnd(14)} peak ${String(s.peak).padEnd(7)} loud95 ${String(s.loud95).padEnd(7)} loudMax ${String(s.loudMax).padEnd(7)}${s.ownRms !== undefined ? ` ownRms ${s.ownRms} over ${s.sec}s` : ''}`;
 console.log(`timeline ${JSON.stringify(result.timeline)}`);
 for (const [n, s] of Object.entries(sfx)) console.log(row(`sfx ${n}`, s));
+console.log(row('newtype flash', flash));
 console.log(row('voice', voice));
 console.log(row('boss1', music.boss1));
 console.log(row('release hit', layers.release));
