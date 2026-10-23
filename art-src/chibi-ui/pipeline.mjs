@@ -305,9 +305,11 @@ function processIconSheet(a) {
   a.icons.forEach((icon, i) => {
     const box = boxes[i];
     const pal = palette(k, box, icon.colors ?? a.colors);
+    // Snap against the generated colors, then recolor, so a hue too close to the green key can still ship.
+    const shown = icon.recolor ? recolor(pal, icon.recolor) : pal;
     for (const v of icon.sizes) {
       const grid = iconGrid(k, box, pal, v.size, icon.darkWeight ?? a.darkWeight ?? 1.5);
-      out.push({ key: v.key, icon, v, grid, pal, box });
+      out.push({ key: v.key, icon, v, grid, pal: shown, box });
     }
   });
   return { k, boxes, out };

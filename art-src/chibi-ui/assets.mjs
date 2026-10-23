@@ -2,6 +2,8 @@
 const branchVariants = (base, from) => [
   { suffix: 'Rapid', recolor: { from, to: 28, sat: 1 }, use: `${base}, rapid branch (orange).` },
   { suffix: 'Laser', recolor: { from, to: 186, sat: 1 }, use: `${base}, laser branch (cyan).` },
+  { suffix: 'Graze', recolor: { from, to: 95, sat: 1 }, use: `${base}, graze branch (lime).` },
+  { suffix: 'Summon', recolor: { from, to: 225, sat: 1 }, use: `${base}, summon branch (cornflower blue).` },
 ];
 export const ASSETS = [
   { key: 'perkCard', kind: 'nineSlice', raw: 'perkCard-v2', pitch: 16, colors: 14, scale: 1, centerAlpha: 0.94, use: 'ShopScene.drawPerk, ram branch (pink). 440x116 cards.', variants: branchVariants('ShopScene.drawPerk', 325) },
@@ -29,6 +31,8 @@ ASSETS.push({
     { suffix: 'Rapid', recolor: { from: 268, to: 28, width: 50, sat: 1, minL: 0.3 }, use: 'Owned chip, rapid branch.' },
     { suffix: 'Laser', recolor: { from: 268, to: 186, width: 50, sat: 1, minL: 0.3 }, use: 'Owned chip, laser branch.' },
     { suffix: 'Ram', recolor: { from: 268, to: 325, width: 50, sat: 1, minL: 0.3 }, use: 'Owned chip, ram branch.' },
+    { suffix: 'Graze', recolor: { from: 268, to: 95, width: 50, sat: 1, minL: 0.3 }, use: 'Owned chip, graze branch.' },
+    { suffix: 'Summon', recolor: { from: 268, to: 225, width: 50, sat: 1, minL: 0.3 }, use: 'Owned chip, summon branch.' },
     { suffix: 'Gold', recolor: { from: 268, to: 40, width: 50, sat: 1, minL: 0.3 }, use: 'Owned chip, items.' },
   ],
 });
@@ -55,6 +59,21 @@ ASSETS.push(
       { name: 'laser', sizes: [tray('iconLaser', 'Laser skill slot and perk card stripe, laser branch.', 'iconLaser')] },
       { name: 'ram', sizes: [tray('iconRam', 'Dash skill slot and perk card stripe, ram branch.', 'iconRam')] },
       { name: 'orbital', sizes: [tray('iconOrbital', 'Orbital skill slot.', 'iconOrbital')] },
+    ],
+  },
+  {
+    kind: 'iconSheet', raw: 'icons-branch-v1', colors: 14, mergeGap: 60,
+    icons: [
+      // This sheet's graze read as a sword at tray size; icons-graze-v4 replaces it.
+      { name: 'graze', sizes: [] },
+      { name: 'summon', sizes: [tray('iconSummon', 'Perk card stripe and skill slot, summon branch (cornflower blue).')] },
+    ],
+  },
+  {
+    kind: 'iconSheet', raw: 'icons-graze-v4', colors: 14, mergeGap: 60,
+    icons: [
+      // Drawn in gold because lime sits too close to the green key; the snapped gold turns lime.
+      { name: 'graze', recolor: { from: 50, to: 95, width: 30, sat: 1 }, darkWeight: 1, sizes: [tray('iconGraze', 'Perk card stripe and skill slot, graze branch (lime).')] },
     ],
   },
   {

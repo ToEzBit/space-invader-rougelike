@@ -37,8 +37,10 @@ for f in out/*.png; do [ "$f" = out/chip.png ] || cp "$f" ../../src/assets/ui/; 
 
 `gen-all.mjs` skips any raw that already exists. To regenerate one, add a new `raw` name in `prompts.json` and point its entry in `assets.mjs` at it, so the old raw stays.
 
+A prompt entry's `overrides` replaces parts of its `common` block, such as `avoid`. Lime cannot be generated on the green key, because the keyer fades or despills it. The graze icon is drawn in gold, and its `recolor` in `assets.mjs` turns the snapped gold to lime.
+
 ## Review helpers
 
-- `mockup.mjs [title shop hud end icons]` renders the screens at the game's layout from `layout.json`, using the real character PNGs and `out/`, into `mockups/` at x2. It drives the system Chrome through the repo's Playwright. `MOCK_OPTS` sets variants. The approved mockups used `{"keyArt":true,"logo":"image"}` for the title, `{"suffix":"-victory"}` and `{"defeat":true,"suffix":"-defeat"}` for the end screens, and no options for the shop and HUD. Those settings reproduce them byte for byte.
+- `mockup.mjs [title shop hud end icons]` renders the screens at the game's layout from `layout.json`, using the real character PNGs and `out/`, into `mockups/` at x2. It drives the system Chrome through the repo's Playwright. `MOCK_OPTS` sets variants. The approved mockups used `{"keyArt":true,"logo":"image"}` for the title, `{"suffix":"-victory"}` and `{"defeat":true,"suffix":"-defeat"}` for the end screens, and no options for the shop and HUD. Those settings reproduce them byte for byte. For the five-branch review, `perks` and `chips` replace the shop's cards and owned chips, and `skills` and `familiars` replace the HUD's skill slots and add familiars beside the ship.
 - `inspect.mjs raw/x.png` prints a raw's keyed trim box and pixel pitch.
 - `peek.mjs out.png scale in.png...` stacks images, downscaled, for a quick look.

@@ -16,7 +16,7 @@ const rawHashes = () =>
 
 export function promptFor(a) {
   if (a.edit) return a.request;
-  const c = common[a.common];
+  const c = { ...common[a.common], ...a.overrides };
   return [c.head, a.request, c.style, c.framing, a.palette ?? '', c.constraints, c.avoid].filter(Boolean).join('\n');
 }
 
