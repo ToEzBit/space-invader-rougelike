@@ -299,7 +299,8 @@ const JOURNEYS = {
     });
     h.check('Enter in the hangar launches stage 1 with the perk bought there', playing.run.stage === 1 && playing.run.phase.kind === 'playing' && playing.run.money === 0 && JSON.stringify(playing.run.perks) === JSON.stringify(bought), summarize(playing).run);
     h.check('stage 1 formation is 3 rows x 8', playing.foes === 24, { foes: playing.foes });
-    h.check('full HP', playing.run.hp === 3, { hp: playing.run.hp });
+    const maxHp = await h.core(`perks.deriveStats(${JSON.stringify(playing.run.perks)}).maxHp`);
+    h.check('full HP for the perks bought', playing.run.hp === maxHp, { hp: playing.run.hp, maxHp });
     await h.shot('stage1');
   },
 
