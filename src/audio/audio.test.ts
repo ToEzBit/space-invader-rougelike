@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STAGES } from '../core/stages';
-import { cueFor, sourceFor, WAVE_MUSIC, type BossView, type FileLoad, type StageMoment } from './director';
+import { cueFor, sourceFor, WAVE_MUSIC, type BossView, type StageMoment } from './director';
+import type { FileLoad } from './fileLoad';
 import { BOSS1_PRE_BUS_LOUD95, gainToMatch } from './loudness';
 import { fillRhythm, freqOf, midiOf, octaveUp, parseBars } from './score';
 import { TRACKS, type ScoreId, type Track } from './tracks';
@@ -140,9 +141,9 @@ describe('the track for the moment', () => {
   ];
   const LOADS: Record<FileLoad['status'], FileLoad> = {
     idle: { status: 'idle' },
-    loading: { status: 'loading' },
+    loading: { status: 'loading', attempt: 1 },
     ready: { status: 'ready', url: '/music/void-empress.ogg', buffer: {} as AudioBuffer, gain: 0.5 },
-    failed: { status: 'failed', tried: [] },
+    failed: { status: 'failed', attempt: 1, tried: [], retryAt: 2000 },
   };
   const at = (boss: BossView | null, empress: FileLoad['status'] = 'ready', moment: Partial<StageMoment> = {}) => {
     const source = sourceFor(cueFor({ stage: boss?.id === 'voidEmpress' ? 10 : boss ? 5 : 1, boss, phase: 'playing', ...moment }), () => LOADS[empress]);

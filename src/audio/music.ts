@@ -1,5 +1,6 @@
 import { onAudio } from './context';
-import { sourceFor, type Cue, type FileLoad, type ReadyFile, type Source } from './director';
+import { sourceFor, type Cue, type Source } from './director';
+import { attemptDue, attemptFailed, type FileLoad, type LoadingFile, type ReadyFile } from './fileLoad';
 import { gainToMatch } from './loudness';
 import { compile, playStep, type Song } from './synth';
 import { FILE_TRACKS, type FileId, type JingleId, type ScoreId, type TrackId } from './tracks';
@@ -94,10 +95,11 @@ export function isMuted(): boolean {
 
 export function musicState(): Record<string, unknown> {
   const file = fileOf(wanted);
+  const source = sourceFor(wanted, fileLoad);
   return {
     track: file ?? wanted,
-    source: sourceLabel(sourceFor(wanted, fileLoad)),
-    fellBack: file !== null && files[file].status === 'failed',
+    source: sourceLabel(source),
+    fellBack: file !== null && source.kind === 'score',
     playing: current?.id ?? null,
     url: current?.kind === 'file' ? current.url : null,
     trackGain: current?.gain.gain.value ?? null,
@@ -144,8 +146,11 @@ function sourceLabel(source: Source): string | null {
 
 function scheduleAheadOfAudioClock(ctx: AudioContext): void {
   const now = ctx.currentTime;
-  const file = fileOf(wanted);
-  if (file && files[file].status === 'idle') void load(ctx, file);
+  // Every song starts loading with the first gesture, minutes before its fight, and retries on the wall clock.
+  for (const id of Object.keys(files) as FileId[]) {
+    const attempt = attemptDue(files[id], performance.now());
+    if (attempt) void load(ctx, id, attempt);
+  }
   const target = sourceFor(wanted, fileLoad);
   if (target.kind !== 'holdWhileLoading' && (target.kind === 'silence' ? null : target.id) !== (current?.id ?? null)) crossfade(ctx, now, target);
   for (const p of current ? [current, ...fading] : fading) if (p.kind === 'score') schedule(ctx, p, now);
@@ -221,11 +226,10 @@ function fadeIn(gain: GainNode, at: number, level: number): void {
   gain.gain.linearRampToValueAtTime(level, at + FADE_SEC);
 }
 
-async function load(ctx: AudioContext, id: FileId): Promise<void> {
-  files[id] = { status: 'loading' };
-  const { title, urls } = FILE_TRACKS[id];
+async function load(ctx: AudioContext, id: FileId, attempt: LoadingFile): Promise<void> {
+  files[id] = attempt;
   const tried: string[] = [];
-  for (const url of urls) {
+  for (const url of playableUrls(id)) {
     const got = await decoded(ctx, url);
     if (typeof got === 'string') {
       tried.push(`${url} (${got})`);
@@ -238,8 +242,20 @@ async function load(ctx: AudioContext, id: FileId): Promise<void> {
     }
     tried.push(`${url} (silent)`);
   }
-  files[id] = { status: 'failed', tried };
-  console.warn(`music: no playable audio at ${tried.join(' or ')}, so the ${title} fight plays the synth boss tracks instead`);
+  files[id] = attemptFailed(attempt, tried, performance.now());
+  if (attempt.attempt === 1) console.warn(`music: no playable audio at ${tried.join(' or ')}, so the ${FILE_TRACKS[id].title} fight plays the synth boss tracks until a retry loads it`);
+}
+
+const playable = new Map<FileId, readonly string[]>();
+
+// Safari may not decode Ogg Vorbis, so a format the browser says it cannot play is never downloaded.
+function playableUrls(id: FileId): readonly string[] {
+  let urls = playable.get(id);
+  if (!urls) {
+    const probe = document.createElement('audio');
+    playable.set(id, (urls = FILE_TRACKS[id].sources.filter((s) => probe.canPlayType(s.type) !== '').map((s) => s.url)));
+  }
+  return urls;
 }
 
 async function decoded(ctx: AudioContext, url: string): Promise<AudioBuffer | string> {

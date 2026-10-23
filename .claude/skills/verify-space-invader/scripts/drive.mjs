@@ -1876,8 +1876,10 @@ const JOURNEYS = {
     const warnings = [];
     h.page.on('console', (m) => m.type() === 'warning' && m.text().startsWith('music:') && warnings.push(m.text()));
     const served = [];
+    const servedAt = [];
     const serveMissing = async (route) => {
       served.push(new URL(route.request().url()).pathname);
+      servedAt.push(Date.now());
       await route.fulfill({ response: await route.fetch({ url: `${APP_URL}music/no-such-song.ogg` }) });
     };
     await h.page.route(SONG, serveMissing);
@@ -1930,9 +1932,11 @@ const JOURNEYS = {
 
     const title = await h.state();
     h.check('Title asks for Starlane Patrol before any key, with no audio context yet', title.music.track === 'normal' && title.music.ctx === null && title.music.playing === null, { music: title.music });
+    h.check("nothing fetches the Empress's song before the first gesture", title.music.files.empress.status === 'idle' && served.length === 0, { files: title.music.files, served: [...served] });
     await h.step('press Shift on Title (a gesture that starts nothing)', () => h.page.keyboard.press('Shift'));
     const first = await h.waitFor('normal track playing', (x) => x.music.ctx === 'running' && x.music.playing === 'normal' && x.music.step > 8, 4000);
     h.check('the first gesture starts Starlane Patrol on a running context, unmuted', first.music.plays === 1 && !first.music.muted && Math.abs(first.music.busGain - VOLUME) < 1e-3, { music: first.music });
+    h.check("the first gesture starts loading the Empress's song, long before stage 10", first.music.files.empress.status !== 'idle' && served[0] === '/music/void-empress.ogg', { files: first.music.files, served: [...served] });
     await h.shot('title');
     await h.shot('title-music-hint', { x: 0, y: 0, w: 240, h: 40 });
 
@@ -2033,13 +2037,20 @@ const JOURNEYS = {
     endsOnJingle('Crimson Seraph down', seraphDown, 'clear', beforeSeraph);
     h.check('the dead Seraph never asks for silence over her clear jingle', seraphDown.every((f) => f.track !== null), { tracks: [...new Set(seraphDown.map((f) => f.track))] });
     h.check('the shop after the boss plays Hangar Lounge', seraphDown.at(-1).track === 'shop', { last: seraphDown.at(-1) });
-    h.check('no song file is fetched before the Empress wants it', served.length === 0, { served: [...served] });
 
     const fellBack = await fight(10, 'Void Empress', [{ track: 'empress', playing: 'boss1' }, { track: 'empress', playing: 'boss2' }], true);
+    const oggAt = servedAt.filter((_, i) => served[i].endsWith('.ogg'));
+    const retryGaps = oggAt.slice(1).map((t, i) => t - oggAt[i]);
+    const MAX_ATTEMPTS = await h.page.evaluate(async () => (await import('/src/audio/fileLoad.ts')).MAX_ATTEMPTS);
     h.check(
       'with no song file the Empress falls back to Crimson Verdict, then Crimson Verdict II, and says so once',
-      fellBack.entering.music.fellBack && fellBack.after.music.fellBack && fellBack.after.music.files.empress.status === 'failed' && warnings.length === 1 && warnings[0].includes('/music/void-empress.ogg') && warnings[0].includes('/music/void-empress.mp3') && served.join() === '/music/void-empress.ogg,/music/void-empress.mp3',
-      { warnings: [...warnings], served: [...served], files: fellBack.after.music.files },
+      fellBack.entering.music.fellBack && fellBack.after.music.fellBack && ['failed', 'loading'].includes(fellBack.after.music.files.empress.status) && warnings.length === 1 && warnings[0].includes('/music/void-empress.ogg') && warnings[0].includes('/music/void-empress.mp3'),
+      { warnings: [...warnings], files: fellBack.after.music.files },
+    );
+    h.check(
+      'the missing song is retried, .ogg then .mp3 each time, at least 2 s apart and never more than the attempt cap',
+      oggAt.length >= 2 && oggAt.length <= MAX_ATTEMPTS && served.every((p, i) => p === (i % 2 ? '/music/void-empress.mp3' : '/music/void-empress.ogg')) && retryGaps.every((ms) => ms >= 1900),
+      { served: [...served], retryGaps, maxAttempts: MAX_ATTEMPTS },
     );
     const beforeVictory = (await h.state()).music.jingles;
     await h.game('kill');
@@ -2067,11 +2078,12 @@ const JOURNEYS = {
     const tone = loopingTone();
     const toneWav = wavStereo16(tone, TONE_RATE);
     const toneLoud95 = loud95(tone, TONE_RATE);
+    let songUp = true;
     await h.page.unroute(SONG);
     served.length = 0;
     warnings.length = 0;
     await h.page.route(SONG, async (route) => {
-      if (!route.request().url().endsWith('.ogg')) return serveMissing(route);
+      if (!songUp || !route.request().url().endsWith('.ogg')) return serveMissing(route);
       served.push(new URL(route.request().url()).pathname);
       await route.fulfill({ status: 200, contentType: 'audio/wav', body: toneWav });
     });
@@ -2107,6 +2119,8 @@ const JOURNEYS = {
     await h.waitFor('Title with the song file served', (x) => x.scenes.includes('Title'), 15000);
     await h.page.keyboard.press('Shift');
     await h.waitFor('normal track playing', (x) => x.music.playing === 'normal', 4000);
+    const preloaded = await h.waitFor('song loaded on Title', (x) => x.music.files.empress.status === 'ready', 4000);
+    h.check('the song is decoded on Title, before any stage asks for it', preloaded.scenes.includes('Title') && preloaded.music.files.empress.url === '/music/void-empress.ogg', { scenes: preloaded.scenes, files: preloaded.music.files });
 
     await fight(5, 'Crimson Seraph', SERAPH, false);
     const own = await fight(10, 'Void Empress', [{ track: 'empress', playing: 'empress' }, { track: 'empress', playing: 'empress' }], false);
@@ -2181,6 +2195,34 @@ const JOURNEYS = {
     await h.waitFor('music bus ramped to silence', (x) => x.music.busGain < 1e-4, 1000);
     const mutedClear = await clearHeard('muted');
     h.check('M silences a jingle like any track', mutedClear.rms < 1e-4 && mutedClear.music.ringing === 'clear' && mutedClear.music.muted, mutedClear);
+
+    songUp = false;
+    served.length = 0;
+    warnings.length = 0;
+    await h.page.reload();
+    await h.waitFor('Title with the song failing', (x) => x.scenes.includes('Title'), 15000);
+    await h.page.keyboard.press('Shift');
+    await h.waitFor("the song's first attempt failed", (x) => x.music.files.empress.status === 'failed', 4000);
+    await h.startAt(10);
+    await h.game('god', true);
+    const onSynth = await h.waitFor('Empress on the synth fallback', (x) => x.run?.stage === 10 && x.music.playing === 'boss1', 4000);
+    h.check('while the latest attempt has failed, the Empress fight starts on Crimson Verdict', onSynth.music.fellBack && onSynth.music.track === 'empress', { music: onSynth.music });
+    await h.waitFor('a retry scheduled', (x) => x.music.files.empress.status === 'failed', 10000);
+    songUp = true;
+    const retryInMs = await h.page.evaluate(() => {
+      const f = window.__game.state().music.files.empress;
+      return f.status === 'failed' && f.retryAt !== null ? f.retryAt - performance.now() : 0;
+    });
+    h.log.steps.push({ action: 'serve the song from now on', retryInMs, served: [...served] });
+    const flippedAt = Date.now();
+    // A retry that started just before the flip still fails, and the one after it can be up to a minute away.
+    const healed = await h.waitFor('song after a retry', (x) => x.music.playing === 'empress', 70000);
+    h.log.steps.push({ action: 'song playing after the flip', ms: Date.now() - flippedAt, retryInMs });
+    h.check(
+      'once a retry loads the song, the fight crossfades from Crimson Verdict to it, with the Empress still fighting',
+      healed.run?.stage === 10 && healed.boss?.stance !== 'dead' && !healed.music.fellBack && healed.music.url === '/music/void-empress.ogg' && healed.music.files.empress.status === 'ready' && healed.music.plays === onSynth.music.plays + 1 && served.at(-1) === '/music/void-empress.ogg' && served.length >= 3 && warnings.length === 1,
+      { before: onSynth.music, after: healed.music, served: [...served], warnings: [...warnings] },
+    );
   },
   async mobile(h) {
     const outDir = join(ROOT, '.verify', runId, 'evidence', 'mobile');

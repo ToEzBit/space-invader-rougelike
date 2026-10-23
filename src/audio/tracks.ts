@@ -6,7 +6,8 @@ export type FileId = 'empress';
 export type TrackId = ScoreId | FileId;
 export type Voice = 'pulse50' | 'vibrato' | 'pulse25' | 'pulse12' | 'triangle' | 'kick' | 'snare' | 'hat';
 export type Channel = { name: string; voice: Voice; gain: number; bars: readonly string[] };
-export type FileTrack = { title: string; urls: readonly string[] };
+// sources are tried in order; type is what canPlayType is asked before a source is fetched.
+export type FileTrack = { title: string; sources: readonly { url: string; type: string }[] };
 export type Chord = { root: string; triad: readonly [string, string, string] };
 export type Mode = 'major' | 'minor' | 'dorian' | 'phrygian' | 'mixolydian';
 // Borrowed chords may bring notes from outside the mode, but only in the bars they harmonize.
@@ -715,5 +716,11 @@ export const TRACKS: Record<ScoreId, Track> = { normal: NORMAL, act1: ACT1, act2
 const MUSIC_DIR = `${import.meta.env.BASE_URL}music/`;
 
 export const FILE_TRACKS: Record<FileId, FileTrack> = {
-  empress: { title: 'Void Empress', urls: [`${MUSIC_DIR}void-empress.ogg`, `${MUSIC_DIR}void-empress.mp3`] },
+  empress: {
+    title: 'Void Empress',
+    sources: [
+      { url: `${MUSIC_DIR}void-empress.ogg`, type: 'audio/ogg; codecs="vorbis"' },
+      { url: `${MUSIC_DIR}void-empress.mp3`, type: 'audio/mpeg' },
+    ],
+  },
 };
