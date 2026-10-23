@@ -8,7 +8,7 @@ The perks and their numbers live in `src/core/perks.ts` (`docs/PERKS.md` lists t
 
 - `graze-shop` offers graze perks once Close Call is owned.
 - `graze-spark` launches Close Call's spark, plus Spark Split's fan, from between the ship and the grazed bullet, and the sparks home in and damage a foe (`tally.dealt.spark`).
-- `graze-static-skin` erases the grazed bullet every N grazes (every graze at level 3).
+- `graze-static-skin` releases a static pulse on every 8th counted graze (6th at level 2, 4th at level 3). It erases every enemy bullet whose centre is within 48 px of the ship's centre, with no randomness, under a lime ring.
 - `graze-wide-halo` counts grazes outside the base ring.
 - `graze-phase-skin` raises the ship's one-hit shield for 4 s on every Nth graze in a row without a landed hit; a landed hit resets the streak.
 - `graze-adrenaline` shortens the fire interval for 1.2 s after each graze.
@@ -28,22 +28,22 @@ Preconditions:
 - The journey sets loadouts with `__game.start`, holds the boss above her transformation with `bossHp(1)` whenever she drops below 70%, and turns on `god(true)` so the weave survives. God mode still counts landed hits, and they still reset the streak.
 
 - **Shop.** Run `drive.mjs <run-id> graze`. Stage 4 with Close Call and 2000 coins is cleared with `kill()`. `R` is pressed until a card from the graze branch shows (`perks.PERKS[id].branch`).
-- **Weave.** Stage 5 with Close Call 3, Wide Halo 3, Adrenaline 3, Spark Split 3, Static Skin 3, Phase Skin 2 and Bullet Time 2. Real arrow keys weave left and right under the boss. At first the weave sidesteps any bullet whose straight course passes within 10 px of the core, so grazes build a streak. Once the Phase Skin shield has shown, the sidestep stops until a bullet lands. A requestAnimationFrame recorder reads `state()` and `shots()` in the same frame for the whole weave. The weave lasts until the spark and shield shots are taken, a hit has broken a streak and 15 grazes have counted, for up to 60 s.
+- **Weave.** Stage 5 with Close Call 3, Wide Halo 3, Adrenaline 3, Spark Split 3, Static Skin 3, Phase Skin 2 and Bullet Time 2. Real arrow keys weave left and right under the boss. At first the weave sidesteps any bullet whose straight course passes within 10 px of the core, so grazes build a streak. Once the Phase Skin shield has shown, the sidestep stops until a bullet lands. A requestAnimationFrame recorder reads `state()` and `shots()` in the same frame for the whole weave. The weave lasts until the spark, pulse and shield shots are taken, a hit has broken a streak and 15 grazes have counted, for up to 60 s.
 - **Checks.** These run over the recorded frames:
   - TRANS-AM stays `charging`, so every slow and fire rate change is the graze branch.
   - On a frame where `tally.grazes` rises, `graze.sparks` grows by 4.
   - `tally.dealt.spark` rises after the first graze.
-  - `graze.lastErasedId` names a bullet that was in `shots()` the frame before, on screen and within the ring. It is gone from that frame on.
-  - Most erased bullets sat beyond the base ring (core + `TRANS_AM.grazePadPx`) plus a bullet radius and a frame of travel.
+  - `graze.pulses` rises exactly when `graze.grazes` crosses a multiple of 4, and on no other frame.
+  - For each pulse, every id in `graze.lastPulse.erased` was in `shots()` the frame before and never shows again, and each sat within 48 px of the pulse's centre. No bullet within 48 px less 12 px of slack (a frame of bullet and ship travel) the frame before survives it, and every bullet beyond 48 px plus that slack does. At least one pulse had such a far bullet to keep.
+  - Most grazed bullets (`graze.lastGrazedId`) sat beyond the base ring (core + `TRANS_AM.grazePadPx`) plus that slack the frame before, so only Wide Halo's wider ring could have counted them.
   - `shieldMs` rises to 4000 only on the frame where `graze.streak` reaches a multiple of 8.
   - Every frame where `tally.hits` rises leaves `graze.streak` no higher than the grazes counted in that same frame.
   - `stats.fireIntervalMs` is the base times 0.65 exactly while `graze.rushMs` is above 0, and the base otherwise.
   - Each bullet's speed between frames is compared across frames where Bullet Time ran through the whole step and frames where it ran at neither end. The median ratio over bullets is 0.5.
-- **Proof.** `01-shop-graze-card.png` shows a graze card in lime with the branch label `Close Call · สายเฉียดกระสุน` and the `Close Call 1` chip. `02-sparks-in-flight.png` and its close-up are paused once a full fan of sparks has flown 60 px clear of the ship, and show the lime sparks. `04-phase-shield.png` and its close-up show the cyan shield ring around the ship and the lime `PHASE` float.
+- **Proof.** `01-shop-graze-card.png` shows a graze card in lime with the branch label `Close Call · สายเฉียดกระสุน` and the `Close Call 1` chip. `02-sparks-in-flight.png` and its close-up are paused once a full fan of sparks has flown 60 px clear of the ship, and show the lime sparks. `04-static-pulse.png` and its close-up are paused on the frame of a pulse and show the lime ring around the ship. `06-phase-shield.png` and its close-up show the cyan shield ring around the ship and the lime `PHASE` float.
 
 ## Gotchas
 
-- The graze art is still placeholder. The branch uses the orbital icon, the plain perk card frame and the gold chip until the graze set lands.
 - Sparks spawn under the ship and are drawn beneath it, so a screenshot right after a graze shows none.
 - Bullet Time's slow rides the enemy clock, so it also slows boss beams and the Void Empress's well, as TRANS-AM's does.
 - A plain weave without the sidestep is not enough for Phase Skin. In four probes of 20 to 60 s it landed 4 to 22 hits and its longest streak was 3 to 9 grazes.

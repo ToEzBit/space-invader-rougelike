@@ -18,7 +18,7 @@ export const TIER_BASE_COST: Record<Tier, number> = { 1: 20, 2: 35, 3: 55, 4: 80
 
 export const OVERDRIVE_CALM_MS = 3000;
 
-export const GRAZE = { adrenalineMs: 1200, phaseShieldMs: 4000, flashpointEvery: 5, bulletTimeScale: 0.5 } as const;
+export const GRAZE = { adrenalineMs: 1200, phaseShieldMs: 4000, flashpointEvery: 5, bulletTimeScale: 0.5, staticPulsePx: 48 } as const;
 
 export const SUMMON = { maxFamiliars: 3, wispDamage: 4, soulBurstShare: 0.5, hauntMs: 2000, greatSpiritDamage: 30 } as const;
 
@@ -257,8 +257,8 @@ const PERK_SPECS = {
   },
   staticSkin: {
     branch: 'graze', tier: 2, name: 'Static Skin', requires: 'closeCall',
-    values: [3, 2, 1],
-    desc: (v) => (v === 1 ? 'ทุกครั้งที่เฉียด ลบกระสุนลูกที่เฉียดทิ้ง' : `ทุก ${v} ครั้งที่เฉียด ลบกระสุนลูกที่เฉียดทิ้ง`),
+    values: [8, 6, 4],
+    desc: (v) => `ทุก ${v} ครั้งที่เฉียด ปล่อยคลื่นไฟฟ้าสถิต ลบกระสุนศัตรูทั้งหมดในรัศมี ${GRAZE.staticPulsePx}px รอบยาน`,
     apply: (s, v) => { s.staticSkinEvery = v; },
   },
   phaseSkin: {

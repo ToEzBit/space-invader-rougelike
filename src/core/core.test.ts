@@ -74,7 +74,7 @@ describe('graze perks', () => {
       adrenalineIntervalScale: 0.85,
       grazeExtraSparks: 2,
       grazeGainBonus: 1.5,
-      staticSkinEvery: 1,
+      staticSkinEvery: 4,
       phaseSkinEvery: 8,
       flashpointRadius: 40,
       lastStandDamageScale: 3,

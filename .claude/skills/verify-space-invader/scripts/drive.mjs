@@ -1471,6 +1471,7 @@ const JOURNEYS = {
   async graze(h) {
     const SPARK_SPLIT = 3;
     const PHASE_EVERY = 8;
+    const PULSE_EVERY = 4;
     const loadout = { closeCall: 3, wideHalo: 3, adrenaline: 3, sparkSplit: SPARK_SPLIT, staticSkin: 3, phaseSkin: 2, bulletTime: 2 };
     const pausedShot = async (name, region) => {
       await h.game('pause');
@@ -1514,7 +1515,10 @@ const JOURNEYS = {
             streak: s.graze.streak,
             slowMs: s.graze.slowMs,
             rushMs: s.graze.rushMs,
-            erasedId: s.graze.lastErasedId,
+            counted: s.graze.grazes,
+            grazedId: s.graze.lastGrazedId,
+            pulses: s.graze.pulses,
+            pulse: s.graze.lastPulse,
             sparks: s.graze.sparks.length,
             shieldMs: s.shieldMs,
             fireMs: s.stats.fireIntervalMs,
@@ -1551,13 +1555,23 @@ const JOURNEYS = {
       return near;
     };
     let weave = 'ArrowRight';
-    const seen = { sparkShot: false, shieldShot: false, streakHit: false };
+    const seen = { sparkShot: false, shieldShot: false, streakHit: false, pulseShot: false };
     let { s, shots } = await snap();
     const first = s;
     let prev = { ms: s.clock.fightMs, at: new Map() };
     const end = Date.now() + 60000;
-    while (Date.now() < end && !(seen.sparkShot && seen.shieldShot && seen.streakHit && s.tally.grazes - first.tally.grazes >= 15)) {
+    while (Date.now() < end && !(seen.sparkShot && seen.shieldShot && seen.streakHit && seen.pulseShot && s.tally.grazes - first.tally.grazes >= 15)) {
       if (s.boss.hpRatio < 0.7) await h.game('bossHp', 1);
+      if (!seen.pulseShot && s.graze.pulses >= 1) {
+        const pulsed = await h.frameWhen(`s.graze.pulses > ${s.graze.pulses} && !s.flashing`, true, 3000).catch(() => null);
+        if (pulsed) {
+          seen.pulseShot = true;
+          h.log.steps.push({ action: 'paused on a Static Skin pulse', pulse: pulsed.s.graze.lastPulse, player: pulsed.s.player });
+          await h.shot('static-pulse');
+          await h.shot('static-pulse-closeup', around(pulsed.s.player));
+          await h.game('resume');
+        }
+      }
       if (!seen.sparkShot && s.graze.sparks.length >= SPARK_SPLIT + 1) {
         // Sparks launch under the ship, so the shot waits until a whole fan has flown clear of it.
         const clear = `s.graze.sparks.length >= ${SPARK_SPLIT + 1} && s.graze.sparks.every((p) => Math.hypot(p.x - s.player.x, p.y - s.player.y) > 60)`;
@@ -1605,19 +1619,40 @@ const JOURNEYS = {
     });
 
     const ring = core + TA.grazePadPx + base.grazeHaloPx;
-    const erasures = grazed.map(({ a, b }) => {
-      const id = b.erasedId;
-      const before = a.shots.find(([sid]) => sid === id);
-      const gone = id !== a.erasedId && before && frames.filter((f) => f.ms >= b.ms).every((f) => !f.shots.some(([sid]) => sid === id));
-      const d = before && Math.hypot(before[1] - a.player.x, before[2] - a.player.y);
-      return { id, gone: Boolean(gone), distance: d && Math.round(d), onScreen: Boolean(before && before[1] > 0 && before[1] < 480 && before[2] > 0 && before[2] < 640) };
+    const pulsePairs = pairs.filter(({ a, b }) => b.pulses > a.pulses);
+    const pulsesDue = (a, b) => Math.floor(b.counted / PULSE_EVERY) - Math.floor(a.counted / PULSE_EVERY);
+    h.check(`Static Skin 3 pulses on every ${PULSE_EVERY}th counted graze and never otherwise`, pulsePairs.length >= 2 && pairs.every(({ a, b }) => b.pulses - a.pulses === pulsesDue(a, b)), {
+      pulses: frames.at(-1).pulses,
+      counted: frames.at(-1).counted,
+      off: pairs.filter(({ a, b }) => b.pulses - a.pulses !== pulsesDue(a, b)).slice(0, 3).map(({ a, b }) => ({ counted: [a.counted, b.counted], pulses: [a.pulses, b.pulses] })),
     });
-    const proved = erasures.filter((e) => e.gone && e.onScreen && e.distance <= ring + 20);
-    h.check('Static Skin 3 erases the grazed bullet on every graze: its id leaves shots() on that frame, on screen and beside the ship', proved.length >= grazed.length * 0.9, { ring, grazeFrames: grazed.length, proved: proved.length, erasures: erasures.slice(0, 8) });
+    // A bullet and the ship each move a few px in a frame, so the frame before is judged with this much slack.
+    const SLACK = 12;
+    const pulses = pulsePairs.filter(({ a, b }) => b.pulses === a.pulses + 1).map(({ a, b }) => {
+      const erased = new Set(b.pulse.erased.map((e) => e.id));
+      const later = frames.filter((f) => f.ms >= b.ms);
+      const near = a.shots.filter(([, x, y]) => Math.hypot(x - a.player.x, y - a.player.y) <= GRAZE.staticPulsePx - SLACK);
+      const far = a.shots.filter(([, x, y]) => Math.hypot(x - a.player.x, y - a.player.y) > GRAZE.staticPulsePx + SLACK && y > 0 && y < 640);
+      return {
+        ms: b.ms,
+        erased: erased.size,
+        withinRadius: b.pulse.erased.every((e) => Math.hypot(e.x - b.pulse.x, e.y - b.pulse.y) <= GRAZE.staticPulsePx + 1e-6),
+        erasedGone: [...erased].every((id) => a.shots.some(([sid]) => sid === id) && later.every((f) => !f.shots.some(([sid]) => sid === id))),
+        nearMissed: near.filter(([id]) => !erased.has(id) && b.shots.some(([sid]) => sid === id)).length,
+        far: far.length,
+        farKept: far.filter(([id]) => !erased.has(id) && b.shots.some(([sid]) => sid === id)).length,
+      };
+    });
+    h.check(`each pulse erases every enemy bullet within ${GRAZE.staticPulsePx} px of the ship (their ids leave shots() for good) and leaves the bullets beyond it`, pulses.length >= 2 && pulses.every((p) => p.erased >= 1 && p.withinRadius && p.erasedGone && p.nearMissed === 0 && p.farKept === p.far) && pulses.some((p) => p.far > 0), { pulses });
+
     // A counted bullet sat inside the ring a frame before, so past the base ring plus a bullet radius and a frame of
     // travel only the wider ring could have counted it.
-    const outside = proved.filter((e) => e.distance > core + TA.grazePadPx + 12);
-    h.check('Wide Halo 3 counts grazes outside the base ring', outside.length >= proved.length / 2, { baseRing: core + TA.grazePadPx, ring, distances: proved.map((e) => e.distance) });
+    const grazedAt = grazed.flatMap(({ a, b }) => {
+      const before = a.shots.find(([id]) => id === b.grazedId);
+      return before ? [Math.round(Math.hypot(before[1] - a.player.x, before[2] - a.player.y))] : [];
+    });
+    const outside = grazedAt.filter((d) => d > core + TA.grazePadPx + SLACK);
+    h.check('Wide Halo 3 counts grazes outside the base ring', grazedAt.length >= grazed.length * 0.8 && grazedAt.every((d) => d <= ring + 2 * SLACK) && outside.length >= grazedAt.length / 2, { baseRing: core + TA.grazePadPx, ring, distances: grazedAt });
 
     const shields = pairs.filter(({ a, b }) => b.streak > a.streak && b.streak % PHASE_EVERY === 0 && b.shieldMs > a.shieldMs && b.shieldMs >= GRAZE.phaseShieldMs - 50);
     const unshielded = pairs.filter(({ a, b }) => b.shieldMs > a.shieldMs && !(b.streak > a.streak && b.streak % PHASE_EVERY === 0));

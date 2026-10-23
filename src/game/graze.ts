@@ -1,4 +1,5 @@
 import { COLORS } from '../art/palette';
+import { DEPTH } from './layout';
 import { GRAZE } from '../core/perks';
 import { TRANS_AM } from '../core/transAm';
 import type { Bullet } from './bullets';
@@ -16,7 +17,9 @@ export class Graze {
   private streak = 0;
   private rushMs = 0;
   private slowMs = 0;
-  private erased: Bullet | null = null;
+  private pulses = 0;
+  private grazed: Bullet | null = null;
+  private pulse: { at: Point; erased: { bullet: Bullet; at: Point }[] } | null = null;
 
   constructor(private readonly world: World) {}
 
@@ -39,21 +42,22 @@ export class Graze {
 
   // Dev-only.
   get debug() {
-    return { grazes: this.grazes, streak: this.streak, rushMs: this.rushMs, slowMs: this.slowMs };
+    return { grazes: this.grazes, streak: this.streak, rushMs: this.rushMs, slowMs: this.slowMs, pulses: this.pulses };
   }
 
-  // Dev-only: the bullet Static Skin erased last.
-  get lastErased(): Bullet | null {
-    return this.erased;
+  // Dev-only: the bullet counted last, and Static Skin's last pulse.
+  get last() {
+    return { grazed: this.grazed, pulse: this.pulse };
   }
 
   onGraze(b: Bullet): void {
     const { stats } = this.world;
     this.grazes++;
     this.streak++;
+    this.grazed = b;
     const at = { x: (this.world.player.x + b.sprite.x) / 2, y: (this.world.player.y + b.sprite.y) / 2 };
     if (stats.grazeSparkDamage > 0) this.launchSparks(at, this.grazes % GRAZE.flashpointEvery === 0 ? stats.flashpointRadius : 0);
-    if (stats.staticSkinEvery > 0 && this.grazes % stats.staticSkinEvery === 0) this.erase(b);
+    if (stats.staticSkinEvery > 0 && this.grazes % stats.staticSkinEvery === 0) this.staticPulse();
     if (stats.phaseSkinEvery > 0 && this.streak % stats.phaseSkinEvery === 0) this.phaseShield();
     const on = this.timersOn;
     if (stats.adrenalineIntervalScale > 0) this.rushMs = GRAZE.adrenalineMs;
@@ -92,10 +96,17 @@ export class Graze {
     }
   }
 
-  private erase(b: Bullet): void {
-    this.world.enemyShots.kill(b);
-    this.erased = b;
-    this.world.fx.spark(b.sprite.x, b.sprite.y, 4);
+  // No particles, so the pulse draws nothing from Math.random.
+  private staticPulse(): void {
+    const { player, enemyShots, scene } = this.world;
+    const at = { x: player.x, y: player.y };
+    const erased = enemyShots.list.filter((b) => b.alive && (b.sprite.x - at.x) ** 2 + (b.sprite.y - at.y) ** 2 <= GRAZE.staticPulsePx ** 2);
+    for (const b of erased) enemyShots.kill(b);
+    this.pulses++;
+    this.pulse = { at, erased: erased.map((bullet) => ({ bullet, at: { x: bullet.sprite.x, y: bullet.sprite.y } })) };
+    const ring = scene.add.circle(at.x, at.y, GRAZE.staticPulsePx, COLORS.lime, 0.16).setStrokeStyle(3, COLORS.lime, 0.95).setDepth(DEPTH.fx);
+    ring.setScale(0.4);
+    scene.tweens.add({ targets: ring, scale: 1, alpha: 0, duration: 280, onComplete: () => ring.destroy() });
   }
 
   private phaseShield(): void {
