@@ -27,8 +27,11 @@ const names = rest.filter((a, i) => !a.startsWith('--') && rest[i - 1] !== '--ru
 
 // Budgets come from the stage table plus the hangar's 20 opening coins: entering stage 5 a run holds at most 386
 // coins (every kill plus rewards), entering stage 10 at most 1286. Loadouts are priced at the rising shop prices, the
-// first level in the earliest shop that offers its tier and each later level one shop after the last: typical costs
-// 170 of 386 and 465 of 1286, strong 305 and 805.
+// first level in the earliest shop that offers its tier (from the shop after stage 1, and never before its unlock) and
+// each later level one shop after the last: typical costs 170 of 386 and 465 of 1286, strong 305 and 805. The graze and
+// summon cells build around their branch and pad with the typical cells' generic picks at about the typical cost:
+// s5-graze 170, s5-summon 170, s10-graze 485, s10-summon 455. The weave grazes far more than a careful human, so the
+// graze cells kill faster than a human with the same build would.
 const CELLS = {
   's5-typical': { stage: 5, perks: { hairTrigger: 2, heavyCaliber: 1, twinCannons: 1, prismLance: 1, reinforcedHull: 1 } },
   's5-strong': { stage: 5, perks: { hairTrigger: 3, heavyCaliber: 2, twinCannons: 1, prismLance: 1, focusLens: 1 } },
@@ -40,6 +43,10 @@ const CELLS = {
     stage: 10,
     perks: { hairTrigger: 3, heavyCaliber: 2, twinCannons: 2, spreadFan: 1, prismLance: 2, focusLens: 1, capacitorBank: 1, reinforcedHull: 2, luckyStar: 1, seekerMissiles: 1 },
   },
+  's5-graze': { stage: 5, perks: { closeCall: 2, sparkSplit: 1, adrenaline: 1, heavyCaliber: 1, reinforcedHull: 1 } },
+  's5-summon': { stage: 5, perks: { familiar: 2, packCall: 1, kinship: 1, heavyCaliber: 1, reinforcedHull: 1 } },
+  's10-graze': { stage: 10, perks: { closeCall: 3, sparkSplit: 2, flashpoint: 1, heavyCaliber: 1, reinforcedHull: 2 } },
+  's10-summon': { stage: 10, perks: { familiar: 3, kinship: 2, packCall: 2, heavyCaliber: 1, reinforcedHull: 2 } },
 };
 // The ship turns back once it is this far past the boss on either side, or at a wall.
 const WEAVE_PX = 110;
@@ -114,6 +121,7 @@ async function fight(page, cell) {
     contacts: tally.contacts,
     contactsPerMin: +(tally.contacts / min).toFixed(1),
     shotHitRatio: +(shotDealt / Math.max(1, tally.fired)).toFixed(3),
+    grazesPerMin: +(tally.grazes / min).toFixed(1),
     dealt: Object.fromEntries(Object.entries(tally.dealt).map(([k, v]) => [k, Math.round(v)])),
     meanFrameMs: +(clock.fightMs / clock.frames).toFixed(2),
     cappedPct: +((100 * clock.capped) / clock.frames).toFixed(2),
@@ -240,7 +248,7 @@ for (const name of selected) {
   }
   const pick = (k) => results.map((r) => r[k]);
   const span = (k) => `${median(pick(k))} [${Math.min(...pick(k))}-${Math.max(...pick(k))}]`;
-  console.log(`SUMMARY ${name}: ttkS ${span('ttkS')} hitsPerMin ${span('hitsPerMin')} contactsPerMin ${span('contactsPerMin')} shotHitRatio ${span('shotHitRatio')} cappedPct ${span('cappedPct')}`);
+  console.log(`SUMMARY ${name}: ttkS ${span('ttkS')} hitsPerMin ${span('hitsPerMin')} contactsPerMin ${span('contactsPerMin')} shotHitRatio ${span('shotHitRatio')} grazesPerMin ${span('grazesPerMin')} cappedPct ${span('cappedPct')}`);
   if (useTransAm) {
     const ta = (k) => results.map((r) => r.transAm[k]).filter((v) => v !== null);
     const taSpan = (k) => (ta(k).length ? `${median(ta(k))} [${Math.min(...ta(k))}-${Math.max(...ta(k))}]` : 'n/a');
