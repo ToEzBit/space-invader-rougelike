@@ -92,6 +92,16 @@ function harness(page, outDir) {
     return waitFor(`stage ${stage} fighting`, (s) => s.scenes.includes('Stage') && s.run?.stage === stage && s.life === 'fighting');
   }
 
+  // Title to stage 1 fighting through the hangar with real input. `title` and `go(hangar)` default to Enter;
+  // `atHangar(hangar)` runs in the hangar before the launch.
+  async function throughHangar({ title = () => page.keyboard.press('Enter'), go = () => page.keyboard.press('Enter'), atHangar } = {}) {
+    await step('start a run from Title', title);
+    const hangar = await waitFor('hangar before stage 1', (s) => s.scenes.includes('Shop') && s.run?.stage === 0, 8000);
+    await atHangar?.(hangar);
+    await step('launch from the hangar', () => go(hangar));
+    return waitFor('stage 1 fighting', (s) => s.scenes.includes('Stage') && s.run?.stage === 1 && s.life === 'fighting', 8000);
+  }
+
   async function openTitle() {
     await page.goto(APP_URL);
     return waitFor('Title scene', (s) => s.scenes.includes('Title'), 15000);
@@ -143,7 +153,7 @@ function harness(page, outDir) {
       [pred, pause, timeoutMs],
     );
 
-  return { log, state, game, core, waitFor, frameWhen, check, step, shot, hold, startAt, openTitle, steer, track, serve404, page };
+  return { log, state, game, core, waitFor, frameWhen, check, step, shot, hold, startAt, throughHangar, openTitle, steer, track, serve404, page };
 }
 
 const VOICE_FILES = '**/transam-*.mp3';
@@ -215,18 +225,44 @@ const JOURNEYS = {
   async 'title-start'(h) {
     await h.openTitle();
     await h.shot('title');
-    const s = await h.step('press Enter on title', () => h.page.keyboard.press('Enter'));
-    const playing = await h.waitFor('stage 1 fighting', (x) => x.scenes.includes('Stage') && x.life === 'fighting');
-    h.check('Enter starts a fresh run at stage 1', playing.run.stage === 1 && playing.run.phase.kind === 'playing' && playing.run.money === 0, summarize(playing).run);
+    let bought;
+    const playing = await h.throughHangar({
+      atHangar: async (hangar) => {
+        h.check('Enter on Title opens the hangar before stage 1 holding 20 coins', hangar.run.phase.kind === 'shop' && hangar.run.money === 20, summarize(hangar).run);
+        const offers = await h.core(`${JSON.stringify(hangar.cards)}.map((o) => ({ ...o, branch: perks.PERKS[o.id]?.branch, tier: perks.PERKS[o.id]?.tier, cost: run.offerCost(${JSON.stringify(hangar.run)}, o) }))`);
+        h.check(
+          'the hangar offers three tier 1 perks, rapid, laser and ram in that order, each priced 20',
+          offers.length === 3 && offers.every((o) => o.kind === 'perk' && o.tier === 1 && o.cost === 20) && offers.map((o) => o.branch).join() === 'rapid,laser,ram',
+          { offers },
+        );
+        await sleep(400);
+        await h.shot('hangar');
+
+        const denies = hangar.sfx.played.deny ?? 0;
+        await h.step('press R in the hangar', () => h.page.keyboard.press('r'));
+        const refused = await h.waitFor('refresh denied', (x) => (x.sfx.played.deny ?? 0) === denies + 1, 2000);
+        await sleep(300);
+        const after = await h.state();
+        h.check('R in the hangar is refused and leaves money and offers unchanged', after.run.money === 20 && JSON.stringify(after.cards) === JSON.stringify(hangar.cards), { denies: refused.sfx.played.deny, before: hangar.cards, after: after.cards, money: after.run.money });
+
+        const laser = hangar.cards[1].id;
+        await h.step('press 2 to buy the laser card', () => h.page.keyboard.press('2'));
+        const paid = await h.waitFor('laser card bought', (x) => x.run.perks[laser] === 1, 2000);
+        h.check('2 buys the laser card for all 20 coins', paid.run.money === 0 && paid.cards[1] === null, summarize(paid).run);
+        bought = { [laser]: 1 };
+        await sleep(1000);
+        await h.shot('hangar-bought');
+      },
+    });
+    h.check('Enter in the hangar launches stage 1 with the perk bought there', playing.run.stage === 1 && playing.run.phase.kind === 'playing' && playing.run.money === 0 && JSON.stringify(playing.run.perks) === JSON.stringify(bought), summarize(playing).run);
     h.check('stage 1 formation is 3 rows x 8', playing.foes === 24, { foes: playing.foes });
-    h.check('full HP', playing.run.hp === 3, { hp: playing.run.hp, afterEnter: s.scenes });
+    h.check('full HP', playing.run.hp === 3, { hp: playing.run.hp });
     await h.shot('stage1');
   },
 
   async combat(h) {
     await h.openTitle();
-    await h.page.keyboard.press('Enter');
-    const s0 = await h.waitFor('stage 1 fighting', (x) => x.life === 'fighting');
+    const s0 = await h.throughHangar();
     const left = await h.step('hold ArrowLeft 500ms', () => h.hold('ArrowLeft', 500));
     h.check('ArrowLeft moves the ship left', left.player.x < s0.player.x, { from: s0.player.x, to: left.player.x });
     const right = await h.step('hold D 900ms', () => h.hold('d', 900));
@@ -1656,8 +1692,13 @@ const JOURNEYS = {
         await sleep(300);
         await fits(`${name} title`, v.page);
         await v.shot(`${name}-title`);
-        await v.step('press Enter on title', () => v.page.keyboard.press('Enter'));
-        await v.waitFor('stage 1 fighting', (x) => x.scenes.includes('Stage') && x.life === 'fighting');
+        await v.throughHangar({
+          atHangar: async () => {
+            await sleep(300);
+            await fits(`${name} hangar`, v.page);
+            await v.shot(`${name}-hangar`);
+          },
+        });
         await sleep(1500);
         await v.game('pause');
         await fits(`${name} stage 1`, v.page);
@@ -1686,8 +1727,7 @@ const JOURNEYS = {
     await h.page.keyboard.press('f');
     await h.page.waitForTimeout(400);
     h.check('F again leaves fullscreen', (await fullscreenId()) === null, { fullscreenElement: await fullscreenId() });
-    await h.page.keyboard.press('Enter');
-    await h.waitFor('stage 1 fighting', (x) => x.scenes.includes('Stage') && x.life === 'fighting');
+    await h.throughHangar();
     await sleep(1500);
     await fits('live-resized 1600x900 stage 1', h.page);
     await h.shot('live-1600x900-stage1');
@@ -1758,9 +1798,10 @@ const JOURNEYS = {
     await h.shot('title');
     await h.shot('title-music-hint', { x: 0, y: 0, w: 240, h: 40 });
 
-    await h.step('press Enter on Title', () => h.page.keyboard.press('Enter'));
-    const s1 = await h.waitFor('stage 1 fighting on act 1', (x) => x.scenes.includes('Stage') && x.life === 'fighting' && x.music.playing === 'act1', 4000);
-    h.check("stage 1 swaps the title's Starlane Patrol for the first act's track", s1.music.track === 'act1' && s1.music.playing === 'act1' && s1.music.plays === 2, { title: first.music, stage: s1.music });
+    let hangar;
+    const s1 = await h.throughHangar({ atHangar: async () => (hangar = await h.waitFor('hangar plays the shop track', (x) => x.music.playing === 'shop', 4000)) });
+    h.check("the hangar swaps the title's Starlane Patrol for the shop track", hangar.music.track === 'shop' && hangar.music.plays === 2, { title: first.music, hangar: hangar.music });
+    h.check("stage 1 swaps the hangar's shop track for the first act's track", s1.music.track === 'act1' && s1.music.playing === 'act1' && s1.music.plays === 3, { hangar: hangar.music, stage: s1.music });
 
     await h.game('transAmGauge', 100);
     const stepSec = await h.page.evaluate(async () => {
@@ -2073,9 +2114,19 @@ const JOURNEYS = {
       m.check('a coarse pointer puts the game in touch mode', title.input === 'touch', { input: title.input });
       await sleep(400);
       await m.shot('title');
-      await m.step('tap the title screen', () => tap(1, { x: 240, y: 330 }));
-      const s1 = await m.waitFor('stage 1 fighting', (x) => x.scenes.includes('Stage') && x.life === 'fighting', 8000);
-      m.check('a tap on Title starts a fresh run at stage 1', s1.run.stage === 1 && s1.run.money === 0 && Object.keys(s1.run.perks).length === 0, { run: s1.run });
+      const s1 = await m.throughHangar({
+        title: () => tap(1, { x: 240, y: 330 }),
+        atHangar: async () => {
+          await sleep(400);
+          await m.shot('hangar');
+        },
+        go: (hangar) => {
+          const go = hangar.targets.find((t) => t.id === 'go');
+          return tap(1, { x: go.x + go.w / 2, y: go.y + go.h / 2 });
+        },
+      });
+      const opening = await m.core('run.OPENING_COINS');
+      m.check('a tap on Title and a tap on the hangar go button start a fresh run at stage 1 holding the opening coins', s1.run.stage === 1 && s1.run.money === opening && Object.keys(s1.run.perks).length === 0, { run: s1.run, opening });
 
       const w = s1.view.world;
       const band = { top: 640, bottom: w.y + w.height };
