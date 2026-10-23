@@ -1,6 +1,6 @@
 import { onAudio } from './context';
 import { sourceFor, type Cue, type Source } from './director';
-import { attemptDue, attemptFailed, type FileLoad, type LoadingFile, type ReadyFile } from './fileLoad';
+import { attemptDue, attemptFailed, decodeDue, type Attempt, type FetchedFile, type FileLoad, type ReadyFile } from './fileLoad';
 import { gainToMatch } from './loudness';
 import { compile, playStep, type Song } from './synth';
 import { FILE_TRACKS, type FileId, type JingleId, type ScoreId, type TrackId } from './tracks';
@@ -40,6 +40,8 @@ type Playing =
 const songs = new Map<ScoreId, Song>();
 const files: Record<FileId, FileLoad> = { empress: { status: 'idle' } };
 let wanted: Cue | null = null;
+// What plays once the current scene moves on, as far as the scene knows: the shop names the next stage's cue.
+let upNext: Cue | null = null;
 let current: Playing | null = null;
 let fading: Playing[] = [];
 let bus: GainNode | null = null;
@@ -56,8 +58,9 @@ onAudio((ctx) => {
   setInterval(() => scheduleAheadOfAudioClock(ctx), TICK_MS);
 });
 
-export function want(cue: Cue | null): void {
+export function want(cue: Cue | null, next: Cue | null = null): void {
   wanted = cue;
+  upNext = next;
 }
 
 export function toggleMute(): void {
@@ -103,7 +106,7 @@ export function musicState(): Record<string, unknown> {
     playing: current?.id ?? null,
     url: current?.kind === 'file' ? current.url : null,
     trackGain: current?.gain.gain.value ?? null,
-    files: Object.fromEntries(Object.entries(files).map(([id, f]) => [id, f.status === 'ready' ? { status: f.status, url: f.url, gain: f.gain } : f])),
+    files: Object.fromEntries(Object.entries(files).map(([id, f]) => [id, fileView(f)])),
     muted,
     ctx: bus?.context.state ?? null,
     busGain: bus?.gain.value ?? null,
@@ -132,6 +135,17 @@ function fileLoad(id: FileId): FileLoad {
   return files[id];
 }
 
+function fileView(f: FileLoad): Record<string, unknown> {
+  switch (f.status) {
+    case 'ready':
+      return { status: f.status, url: f.url, gain: f.gain, samples: f.buffer.length, sampleRate: f.buffer.sampleRate };
+    case 'fetched':
+      return { ...f, bytes: f.bytes.byteLength };
+    default:
+      return f;
+  }
+}
+
 function sourceLabel(source: Source): string | null {
   switch (source.kind) {
     case 'score':
@@ -146,10 +160,13 @@ function sourceLabel(source: Source): string | null {
 
 function scheduleAheadOfAudioClock(ctx: AudioContext): void {
   const now = ctx.currentTime;
-  // Every song starts loading with the first gesture, minutes before its fight, and retries on the wall clock.
+  // Every song is fetched from the first gesture, minutes before its fight, and retries on the wall clock. Its decoded
+  // PCM takes over 30 times the memory, so it is decoded only once the run nears the fight.
   for (const id of Object.keys(files) as FileId[]) {
     const attempt = attemptDue(files[id], performance.now());
-    if (attempt) void load(ctx, id, attempt);
+    if (attempt) void fetchFrom(id, 0, attempt);
+    const fetched = decodeDue(files[id], fileOf(wanted) === id || fileOf(upNext) === id);
+    if (fetched) void decode(ctx, id, fetched);
   }
   const target = sourceFor(wanted, fileLoad);
   if (target.kind !== 'holdWhileLoading' && (target.kind === 'silence' ? null : target.id) !== (current?.id ?? null)) crossfade(ctx, now, target);
@@ -226,24 +243,38 @@ function fadeIn(gain: GainNode, at: number, level: number): void {
   gain.gain.linearRampToValueAtTime(level, at + FADE_SEC);
 }
 
-async function load(ctx: AudioContext, id: FileId, attempt: LoadingFile): Promise<void> {
-  files[id] = attempt;
-  const tried: string[] = [];
-  for (const url of playableUrls(id)) {
-    const got = await decoded(ctx, url);
-    if (typeof got === 'string') {
-      tried.push(`${url} (${got})`);
-      continue;
-    }
-    const gain = gainToMatch(Array.from({ length: got.numberOfChannels }, (_, i) => got.getChannelData(i)), got.sampleRate);
-    if (gain !== null) {
-      files[id] = { status: 'ready', url, buffer: got, gain };
+async function fetchFrom(id: FileId, from: number, attempt: Attempt): Promise<void> {
+  const urls = playableUrls(id);
+  const tried = [...attempt.tried];
+  for (const url of urls.slice(from)) {
+    files[id] = { status: 'fetching', url, ...attempt, tried };
+    const got = await fetchBytes(url);
+    if (typeof got !== 'string') {
+      files[id] = { status: 'fetched', url, bytes: got, ...attempt, tried };
       return;
     }
-    tried.push(`${url} (silent)`);
+    tried.push(`${url} (${got})`);
   }
   files[id] = attemptFailed(attempt, tried, performance.now());
   if (attempt.attempt === 1) console.warn(`music: no playable audio at ${tried.join(' or ')}, so the ${FILE_TRACKS[id].title} fight plays the synth boss tracks until a retry loads it`);
+}
+
+// decodeAudioData detaches the bytes, so the fetched state is left first and a failed decode refetches.
+async function decode(ctx: AudioContext, id: FileId, { status: _, url, bytes, ...attempt }: FetchedFile): Promise<void> {
+  files[id] = { status: 'decoding', url, ...attempt };
+  let why: string;
+  try {
+    const buffer = await ctx.decodeAudioData(bytes);
+    const gain = gainToMatch(Array.from({ length: buffer.numberOfChannels }, (_, i) => buffer.getChannelData(i)), buffer.sampleRate);
+    if (gain !== null) {
+      files[id] = { status: 'ready', url, buffer, gain };
+      return;
+    }
+    why = 'silent';
+  } catch (e) {
+    why = e instanceof Error ? e.name : String(e);
+  }
+  void fetchFrom(id, playableUrls(id).indexOf(url) + 1, { ...attempt, tried: [...attempt.tried, `${url} (${why})`] });
 }
 
 const playable = new Map<FileId, readonly string[]>();
@@ -258,10 +289,14 @@ function playableUrls(id: FileId): readonly string[] {
   return urls;
 }
 
-async function decoded(ctx: AudioContext, url: string): Promise<AudioBuffer | string> {
+// A host that answers a missing file with its index page sends HTML with a 200. Caught here, it fails the attempt at
+// the first gesture instead of at the decode near the fight, so the retries run while the run is still young.
+async function fetchBytes(url: string): Promise<ArrayBuffer | string> {
   try {
     const res = await fetch(url);
-    return res.ok ? await ctx.decodeAudioData(await res.arrayBuffer()) : `HTTP ${res.status}`;
+    if (!res.ok) return `HTTP ${res.status}`;
+    const type = res.headers.get('content-type') ?? '';
+    return type.startsWith('text/') ? type : await res.arrayBuffer();
   } catch (e) {
     return e instanceof Error ? e.name : String(e);
   }

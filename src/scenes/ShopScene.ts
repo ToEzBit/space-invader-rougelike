@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { openingCue } from '../audio/director';
 import { want } from '../audio/music';
 import { sfx } from '../audio/sfx';
 import { ITEM_IDS, ITEM_STACK_MAX, ITEMS, type ItemDef, type ItemId } from '../core/items';
@@ -76,7 +77,7 @@ export class ShopScene extends Phaser.Scene {
 
   create(): void {
     fitCamera(this);
-    want('shop');
+    want('shop', openingCue(this.run.stage + 1));
     this.leaving = false;
     this.backdrop = new Backdrop(this);
     label(this, VIEW.w / 2, 12, 'UPGRADE SHOP', { size: 26, bold: true, color: css(COLORS.yellow), align: 'center', stroke: '#5a22b0' });

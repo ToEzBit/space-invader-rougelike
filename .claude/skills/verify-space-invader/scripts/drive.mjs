@@ -2004,12 +2004,12 @@ const JOURNEYS = {
     waitsForJingle('defeat', downed, 'defeat', 'normal');
     h.check('the End screen after a defeat plays Starlane Patrol', downed.at(-1).track === 'normal', { last: downed.at(-1) });
 
-    const fight = async (stage, name, [first, second], shot) => {
+    const fight = async (stage, name, [first, second], shot, enter = () => h.startAt(stage)) => {
       const atHpRatio = await h.page.evaluate(async (stage) => {
         const stages = await import('/src/core/stages.ts');
         return stages.BOSSES[stage === 5 ? 'crimsonSeraph' : 'voidEmpress'].transform.atHpRatio;
       }, stage);
-      await h.startAt(stage);
+      await enter();
       await h.game('god', true);
       const entering = await h.waitFor(`${name}: ${first.playing}`, (x) => x.music.playing === first.playing, 3000);
       h.check(`${name}: the boss stage starts on ${first.playing}`, entering.music.track === first.track && entering.boss.form === 0, { music: entering.music, boss: entering.boss });
@@ -2044,7 +2044,7 @@ const JOURNEYS = {
     const MAX_ATTEMPTS = await h.page.evaluate(async () => (await import('/src/audio/fileLoad.ts')).MAX_ATTEMPTS);
     h.check(
       'with no song file the Empress falls back to Crimson Verdict, then Crimson Verdict II, and says so once',
-      fellBack.entering.music.fellBack && fellBack.after.music.fellBack && ['failed', 'loading'].includes(fellBack.after.music.files.empress.status) && warnings.length === 1 && warnings[0].includes('/music/void-empress.ogg') && warnings[0].includes('/music/void-empress.mp3'),
+      fellBack.entering.music.fellBack && fellBack.after.music.fellBack && ['failed', 'fetching'].includes(fellBack.after.music.files.empress.status) && warnings.length === 1 && warnings[0].includes('/music/void-empress.ogg') && warnings[0].includes('/music/void-empress.mp3'),
       { warnings: [...warnings], files: fellBack.after.music.files },
     );
     h.check(
@@ -2119,11 +2119,26 @@ const JOURNEYS = {
     await h.waitFor('Title with the song file served', (x) => x.scenes.includes('Title'), 15000);
     await h.page.keyboard.press('Shift');
     await h.waitFor('normal track playing', (x) => x.music.playing === 'normal', 4000);
-    const preloaded = await h.waitFor('song loaded on Title', (x) => x.music.files.empress.status === 'ready', 4000);
-    h.check('the song is decoded on Title, before any stage asks for it', preloaded.scenes.includes('Title') && preloaded.music.files.empress.url === '/music/void-empress.ogg', { scenes: preloaded.scenes, files: preloaded.music.files });
+    const preloaded = await h.waitFor('song fetched on Title', (x) => x.music.files.empress.status === 'fetched', 4000);
+    h.check(
+      'the song is fetched on Title and kept compressed, not decoded',
+      preloaded.scenes.includes('Title') && preloaded.music.files.empress.url === '/music/void-empress.ogg' && preloaded.music.files.empress.bytes === toneWav.length,
+      { scenes: preloaded.scenes, files: preloaded.music.files },
+    );
 
     await fight(5, 'Crimson Seraph', SERAPH, false);
-    const own = await fight(10, 'Void Empress', [{ track: 'empress', playing: 'empress' }, { track: 'empress', playing: 'empress' }], false);
+    const nine = await h.startAt(9);
+    h.check('the song is still compressed through stage 5 and on stage 9', nine.music.files.empress.status === 'fetched', { files: nine.music.files });
+    await h.game('kill');
+    const decodedAt = await h.waitFor('song decoded in the shop after stage 9', (x) => x.music.files.empress.status === 'ready', 8000);
+    h.check(
+      'the shop after stage 9 decodes the song, before stage 10 starts',
+      decodedAt.scenes.includes('Shop') && decodedAt.run?.stage === 9 && decodedAt.music.files.empress.url === '/music/void-empress.ogg',
+      { scenes: decodedAt.scenes, stage: decodedAt.run?.stage, files: decodedAt.music.files },
+    );
+    const own = await fight(10, 'Void Empress', [{ track: 'empress', playing: 'empress' }, { track: 'empress', playing: 'empress' }], false, () =>
+      h.step('press Enter in the shop after stage 9', () => h.page.keyboard.press('Enter')),
+    );
     const url = '/music/void-empress.ogg';
     h.check(
       "with the song file the Empress plays it through her transformation on one source, never restarted",

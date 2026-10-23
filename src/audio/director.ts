@@ -1,5 +1,5 @@
 import type { RunPhase } from '../core/run';
-import type { BossId, FormIndex } from '../core/stages';
+import { stageDef, type BossId, type FormIndex } from '../core/stages';
 import type { BossFight } from '../game/boss';
 import type { FileLoad, ReadyFile } from './fileLoad';
 import type { FileId, JingleId, ScoreId } from './tracks';
@@ -43,11 +43,19 @@ export function sourceFor(cue: Cue | null, load: (id: FileId) => FileLoad): Sour
     case 'failed':
       return { kind: 'score', id: cue.fallback };
     // A retry follows a failed attempt, so the fallback keeps standing in until the song is ready.
-    case 'loading':
+    case 'fetching':
+    case 'fetched':
+    case 'decoding':
       return file.attempt === 1 ? { kind: 'holdWhileLoading' } : { kind: 'score', id: cue.fallback };
     case 'idle':
       return { kind: 'holdWhileLoading' };
   }
+}
+
+// What a stage asks for as it starts, so the shop before it can get its song ready.
+export function openingCue(stage: number): Cue | null {
+  const def = stageDef(stage);
+  return cueFor({ stage, boss: def.kind === 'boss' ? { id: def.boss, form: 0, stanceKind: 'entering' } : null, phase: 'playing' });
 }
 
 function secondFormStarted(boss: BossView): boolean {
