@@ -288,6 +288,124 @@ const JOURNEYS = {
     h.check('kills drop coins', fired.coins > 0, { coins: fired.coins });
   },
 
+  async 'gunner-fan'(h) {
+    const SAMPLES = 6;
+    // Every needle seen until `minVolleys` frames have spawned one, with its first SAMPLES positions and the ship
+    // and foes on the frame it appeared. State and bullets are read in the same animation frame.
+    const recordNeedles = (minVolleys, timeoutMs) =>
+      h.page.evaluate(
+        ([minVolleys, timeoutMs, SAMPLES]) =>
+          new Promise((resolve) => {
+            const g = window.__game;
+            const needles = new Map();
+            const volleys = new Set();
+            const until = performance.now() + timeoutMs;
+            let frame = 0;
+            const tick = () => {
+              const s = g.state();
+              frame++;
+              for (const b of g.shots()) {
+                if (b.kind !== 'needle') continue;
+                const n = needles.get(b.id);
+                if (!n) {
+                  needles.set(b.id, { id: b.id, frame, lastFrame: frame, at: [{ x: b.x, y: b.y }], player: s.player, spots: s.foeSpots });
+                  volleys.add(frame);
+                } else if (n.at.length < SAMPLES) {
+                  n.at.push({ x: b.x, y: b.y });
+                  n.lastFrame = frame;
+                } else n.lastFrame = frame;
+              }
+              const settled = [...needles.values()].every((n) => n.at.length >= SAMPLES || n.lastFrame < frame);
+              if ((volleys.size >= minVolleys && settled) || performance.now() > until) return resolve({ frames: frame, needles: [...needles.values()] });
+              requestAnimationFrame(tick);
+            };
+            tick();
+          }),
+        [minVolleys, timeoutMs, SAMPLES],
+      );
+    // Needles born on the same frame within a few pixels of each other left one gunner together.
+    const volleysOf = (needles) => {
+      const groups = [];
+      for (const n of needles) {
+        const g = groups.find((v) => v.frame === n.frame && Math.hypot(v.needles[0].at[0].x - n.at[0].x, v.needles[0].at[0].y - n.at[0].y) < 12);
+        if (g) g.needles.push(n);
+        else groups.push({ frame: n.frame, needles: [n] });
+      }
+      return groups.map(({ frame, needles }) => {
+        const origin = { x: needles.reduce((a, n) => a + n.at[0].x, 0) / needles.length, y: needles.reduce((a, n) => a + n.at[0].y, 0) / needles.length };
+        const { player, spots } = needles[0];
+        const aim = Math.atan2(player.y - origin.y, player.x - origin.x);
+        const offsets = needles
+          .filter((n) => n.at.length >= 4)
+          .map((n) => {
+            const [a, b] = [n.at[0], n.at.at(-1)];
+            return Math.atan2(b.y - a.y, b.x - a.x) - aim;
+          })
+          .sort((a, b) => a - b);
+        const shooterPx = Math.min(...spots.map((f) => Math.hypot(f.x - origin.x, f.y + 10 - origin.y)));
+        return { frame, size: needles.length, origin, player, offsets: offsets.map((o) => +o.toFixed(4)), shooterPx: +shooterPx.toFixed(1) };
+      });
+    };
+    const near = (a, b) => Math.abs(a - b) <= 0.03;
+    // One-shot drones open the columns over the gunners sooner; the ship holds still so every needle aims at one point.
+    await h.startAt(4, { heavyCaliber: 1 });
+    await h.game('god', true);
+    const FAN_SPREAD = await h.page.evaluate(() => import('/src/game/formation.ts').then((m) => m.FAN_SPREAD));
+    const fan = await h.page.evaluate(() => import('/src/core/stages.ts').then((m) => [m.stageDef(2).gunnerFan, m.stageDef(4).gunnerFan]));
+    h.check('stage 2 gunners fire 1 needle and stage 4 gunners 3', fan[0] === 1 && fan[1] === 3, { stage2: fan[0], stage4: fan[1], FAN_SPREAD });
+
+    const four = await recordNeedles(4, 30000);
+    const fans = volleysOf(four.needles);
+    h.log.steps.push({ action: 'stage 4: record needles live', frames: four.frames, needles: four.needles.length, volleys: fans });
+    h.check('stage 4: gunners fired at least 4 volleys', fans.length >= 4, { volleys: fans.length, frames: four.frames });
+    h.check('stage 4: every volley is 3 needles from one gunner on one frame', fans.every((v) => v.size === 3 && v.shooterPx <= 16), { volleys: fans.map(({ frame, size, shooterPx }) => ({ frame, size, shooterPx })) });
+    h.check(
+      'stage 4: the middle needle aims at the ship and the outer two fan out by FAN_SPREAD',
+      fans.every((v) => v.offsets.length === 3 && near(v.offsets[0], -FAN_SPREAD) && near(v.offsets[1], 0) && near(v.offsets[2], FAN_SPREAD)),
+      { FAN_SPREAD, offsets: fans.map((v) => v.offsets) },
+    );
+
+    // About 300 ms after a fan leaves, its outer needles are far enough apart to see as three.
+    const inFlight = await h.page.evaluate(
+      () =>
+        new Promise((resolve, reject) => {
+          const g = window.__game;
+          const born = new Map();
+          let frame = 0;
+          const until = performance.now() + 20000;
+          const tick = () => {
+            frame++;
+            const needles = g.shots().filter((b) => b.kind === 'needle');
+            for (const b of needles) if (!born.has(b.id)) born.set(b.id, frame);
+            const old = needles.filter((b) => frame - born.get(b.id) === 18);
+            if (old.length === 3) {
+              g.pause();
+              return resolve(old);
+            }
+            if (performance.now() > until) return reject(new Error('no fan in flight within 20s'));
+            requestAnimationFrame(tick);
+          };
+          tick();
+        }),
+    );
+    h.log.steps.push({ action: 'stage 4: pause with a fan 18 frames out', needles: inFlight });
+    await h.shot('stage4-fan');
+    const xs = inFlight.map((b) => b.x);
+    const ys = inFlight.map((b) => b.y);
+    await h.shot('stage4-fan-closeup', { x: Math.max(0, Math.min(...xs) - 50), y: Math.max(0, Math.min(...ys) - 70), w: Math.max(...xs) - Math.min(...xs) + 100, h: Math.max(...ys) - Math.min(...ys) + 120 });
+    await h.game('resume');
+
+    await h.startAt(2, { heavyCaliber: 1 });
+    await h.game('god', true);
+    const two = await recordNeedles(5, 40000);
+    const singles = volleysOf(two.needles);
+    h.log.steps.push({ action: 'stage 2: record needles live', frames: two.frames, needles: two.needles.length, volleys: singles });
+    h.check('stage 2: gunners fired at least 5 needles', two.needles.length >= 5, { needles: two.needles.length, frames: two.frames });
+    h.check('stage 2: every needle leaves its gunner alone, aimed at the ship', singles.every((v) => v.size === 1 && v.shooterPx <= 16 && v.offsets.length === 1 && near(v.offsets[0], 0)), {
+      volleys: singles.map(({ frame, size, shooterPx, offsets }) => ({ frame, size, shooterPx, offsets })),
+    });
+  },
+
   async movement(h) {
     const shipBox = (s) => ({ x: s.player.x - 40, y: s.player.y - 40, w: 80, h: 90 });
     const s0 = await h.startAt(1);
@@ -2524,7 +2642,7 @@ const JOURNEYS = {
 };
 
 // Close-ups of small HUD art need the canvas's full backing resolution.
-const CONTEXT = { 'boss-forms': { deviceScaleFactor: 2 }, 'skill-hud': { deviceScaleFactor: 2 }, items: { deviceScaleFactor: 2 }, movement: { deviceScaleFactor: 2 }, 'enemy-hp': { deviceScaleFactor: 2 }, 'shop-tooltip': { deviceScaleFactor: 2 }, 'trans-am': { deviceScaleFactor: 2 }, 'cut-in': { deviceScaleFactor: 2 }, voice: { deviceScaleFactor: 2 } };
+const CONTEXT = { 'gunner-fan': { deviceScaleFactor: 2 }, 'boss-forms': { deviceScaleFactor: 2 }, 'skill-hud': { deviceScaleFactor: 2 }, items: { deviceScaleFactor: 2 }, movement: { deviceScaleFactor: 2 }, 'enemy-hp': { deviceScaleFactor: 2 }, 'shop-tooltip': { deviceScaleFactor: 2 }, 'trans-am': { deviceScaleFactor: 2 }, 'cut-in': { deviceScaleFactor: 2 }, voice: { deviceScaleFactor: 2 } };
 
 const selected = names.includes('all') ? Object.keys(JOURNEYS).filter((n) => n !== 'doctor') : names;
 const unknown = selected.filter((n) => !JOURNEYS[n]);
