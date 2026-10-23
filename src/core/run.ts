@@ -101,13 +101,15 @@ export function refreshShop(run: RunState): ShopResult {
   return { ok: true, run: { ...run, money: run.money - cost, rng, phase: { kind: 'shop', shop } } };
 }
 
+export const PRICE_RISE_PER_STAGE = 0.2;
+
+export function priceScale(stageCleared: number): number {
+  return 1 + PRICE_RISE_PER_STAGE * (Math.max(stageCleared, 1) - 1);
+}
+
 export function offerCost(run: RunState, offer: Offer): number {
-  switch (offer.kind) {
-    case 'perk':
-      return perkCost(PERKS[offer.id], (run.perks[offer.id] ?? 0) + 1);
-    case 'item':
-      return ITEMS[offer.id].cost;
-  }
+  const base = offer.kind === 'perk' ? perkCost(PERKS[offer.id], (run.perks[offer.id] ?? 0) + 1) : ITEMS[offer.id].cost;
+  return Math.max(5, Math.round((base * priceScale(run.stage)) / 5) * 5);
 }
 
 export function buyOffer(run: RunState, slot: number): ShopResult {

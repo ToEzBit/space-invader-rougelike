@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BASE_STATS } from './stats';
 import { ITEMS, ITEM_IDS, ITEM_STACK_MAX, itemForCode, withBuffs, type ItemId, type OwnedItems } from './items';
-import { PERKS, PERK_IDS, deriveStats, describePerk, type OwnedPerks, type PerkId } from './perks';
+import { PERKS, PERK_IDS, deriveStats, describePerk, perkCost, type OwnedPerks, type PerkId } from './perks';
 import { STAGES } from './stages';
 import { buyOffer, carryTransAm, clearStage, heal, leaveShop, newRun, offerCost, refreshCost, refreshShop, rollOffers, takeHit, useItem, type Offer, type RunState } from './run';
 
@@ -240,6 +240,53 @@ describe('run loop', () => {
     const run = takeHit(newRun(3), 2);
     expect(heal(run, 1).hp).toBe(run.hp + 1);
     expect(heal(run, 99).hp).toBe(deriveStats(run.perks).maxHp);
+  });
+});
+
+describe('shop prices', () => {
+  const shopAfter = (stage: number, money = 0) => ({ ...clearStage({ ...newRun(1), stage }, 0), money });
+
+  it('the shop after stage 1 charges base prices', () => {
+    const run = shopAfter(1);
+    for (const id of PERK_IDS) expect(offerCost(run, perk(id))).toBe(perkCost(PERKS[id], 1));
+    for (const id of ITEM_IDS) expect(offerCost(run, item(id))).toBe(ITEMS[id].cost);
+  });
+
+  it('after stage 6 a level 1 tier 1 perk costs 40 and a 25-coin item costs 50', () => {
+    const run = shopAfter(6);
+    expect(PERKS.hairTrigger.tier).toBe(1);
+    expect(offerCost(run, perk('hairTrigger'))).toBe(40);
+    expect(ITEMS.repairKit.cost).toBe(25);
+    expect(offerCost(run, item('repairKit'))).toBe(50);
+  });
+
+  it('every price at every stage and level is a multiple of 5', () => {
+    for (let stage = 1; stage <= 9; stage++) {
+      const prices = [
+        ...ITEM_IDS.map((id) => offerCost(shopAfter(stage), item(id))),
+        ...PERK_IDS.flatMap((id) => Array.from({ length: PERKS[id].maxLevel }, (_, lv) => offerCost({ ...shopAfter(stage), perks: { [id]: lv } }, perk(id)))),
+      ];
+      for (const price of prices) {
+        expect(price % 5).toBe(0);
+        expect(price).toBeGreaterThanOrEqual(5);
+      }
+    }
+  });
+
+  it('buying charges exactly the shown price', () => {
+    const run = withOffers(shopAfter(6), [perk('hairTrigger'), item('nitro'), null], 200);
+    const perkBought = buyOffer(run, 0);
+    if (!perkBought.ok) throw new Error(perkBought.reason);
+    expect(run.money - perkBought.run.money).toBe(40);
+    const itemBought = buyOffer(perkBought.run, 1);
+    if (!itemBought.ok) throw new Error(itemBought.reason);
+    expect(perkBought.run.money - itemBought.run.money).toBe(offerCost(run, item('nitro')));
+    expect(offerCost(run, item('nitro'))).toBeGreaterThan(ITEMS.nitro.cost);
+  });
+
+  it('refuses a buy the money covers at base price but not at the risen price', () => {
+    const run = withOffers(shopAfter(6), [perk('hairTrigger')], 39);
+    expect(buyOffer(run, 0)).toEqual({ ok: false, reason: 'notEnoughMoney' });
   });
 });
 
