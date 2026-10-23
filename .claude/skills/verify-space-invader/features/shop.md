@@ -1,6 +1,6 @@
 # Perk shop
 
-After clearing a stage the player gets the stage reward plus kill coins and lands in the upgrade shop. It shows 3 random offer cards, a Refresh button whose cost rises each use, the player's owned perks and held items, HP and money, and Continue. Each card is a perk (branch, tier, level, Thai description, cost) or, with a 20% chance per slot, a consumable item (gold frame, round icon well, `ถืออยู่ n/3`, cost). Items have their own feature file, [items.md](./items.md). `offerCost` in `src/core/run.ts` prices every card: the base price in the shop after stage 1, rising by `PRICE_RISE_PER_STAGE` (20%) for each stage cleared after that, rounded to the nearest 5.
+After clearing a stage the player gets the stage reward plus kill coins and lands in the upgrade shop. The same scene opens once before stage 1 as the hangar, covered in [title-start.md](./title-start.md). It shows 3 random offer cards, a Refresh button whose cost rises each use, the player's owned perks and held items, HP and money, and Continue. Each card is a perk (branch, tier, level, Thai description, cost) or, with a 20% chance per slot, a consumable item (gold frame, round icon well, `ถืออยู่ n/3`, cost). Items have their own feature file, [items.md](./items.md). `offerCost` in `src/core/run.ts` prices every card: the base price in the shop after stage 1, rising by `PRICE_RISE_PER_STAGE` (20%) for each stage cleared after that, rounded to the nearest 5.
 
 ## Sub-features
 

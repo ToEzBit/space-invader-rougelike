@@ -22,10 +22,10 @@ Preconditions:
 
 - `doctor.sh <run-id>` passes.
 
-- **Fill and fit.** Run `drive.mjs <run-id> viewport`. It opens fresh contexts at 1920x1080, 1366x768 with `deviceScaleFactor: 2`, and 800x1280, goes Title then Enter into stage 1, and at each screen checks the canvas box, the scroll size, the backing store size, and `state().view` (`canvas`, `zoom`, `world` from the camera's worldView).
-- **Live resize.** The same journey loads at 1280x720, resizes the page to 1600x900, waits for `view.canvas` to change, and checks the fit again on Title and on stage 1.
+- **Fill and fit.** Run `drive.mjs <run-id> viewport`. It opens fresh contexts at 1920x1080, 1366x768 with `deviceScaleFactor: 2`, and 800x1280, goes Title, the hangar, then stage 1, and at each screen checks the canvas box, the scroll size, the backing store size, and `state().view` (`canvas`, `zoom`, `world` from the camera's worldView).
+- **Live resize.** The same journey loads at 1280x720, resizes the page to 1600x900, waits for `view.canvas` to change, and checks the fit again on Title and on stage 1 (through the hangar).
 - **Fullscreen key.** The journey presses `F` and checks `document.fullscreenElement` is `#game`, then presses `F` again and checks it is cleared.
-- **Proof.** Open each `<viewport>-title.png` and `<viewport>-stage1.png` plus the `live-*` shots. Stars and nebula reach every edge, the violet frame marks the playfield walls (sides in landscape, top and bottom in portrait), and HUD and Thai text are crisp.
+- **Proof.** Open each `<viewport>-title.png`, `<viewport>-hangar.png` and `<viewport>-stage1.png` plus the `live-*` shots. Stars and nebula reach every edge, the violet frame marks the playfield walls (sides in landscape, top and bottom in portrait), and HUD and Thai text are crisp.
 
 ## Gotchas
 

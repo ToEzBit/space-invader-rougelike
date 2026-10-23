@@ -24,7 +24,7 @@ This directory is the maintained source for verifying what a player can do in th
 
 ## Features
 
-- [Title and run start](./title-start.md) covers booting, the title screen, and starting a fresh run.
+- [Title and run start](./title-start.md) covers booting, the title screen, the hangar before stage 1, and starting a fresh run.
 - [Stage combat](./combat.md) covers moving, shooting, kills and coins.
 - [Ship movement](./movement.md) covers flying up and down inside the bottom zone, its clamp, normalized diagonals and dashing from a raised y.
 - [Perk shop](./shop.md) covers offers, refresh, buying, sold-out cards, continuing, and the owned-chip tooltips (journey `shop-tooltip`).

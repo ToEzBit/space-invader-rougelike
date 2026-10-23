@@ -12,7 +12,7 @@ In a wave stage the player moves the ship around the bottom of the playfield whi
 
 ## How to get to it (user POV)
 
-- Start a run from the title and wait for the `STAGE 1` banner to fade.
+- Start a run from the title, launch from the hangar, and wait for the `STAGE 1` banner to fade.
 - Use the arrow keys or WASD to move. Firing is automatic.
 
 ## Driving it with drive.mjs

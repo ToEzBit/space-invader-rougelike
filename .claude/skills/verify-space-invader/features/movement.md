@@ -10,7 +10,7 @@ The ship flies in two dimensions inside a band at the bottom of the playfield. I
 
 ## How to get to it (user POV)
 
-- Start a run and hold the arrow keys or WASD once the `STAGE 1` banner fades. The title's controls panel lists `← → ↑ ↓ / W A S D`.
+- Start a run, launch from the hangar, and hold the arrow keys or WASD once the `STAGE 1` banner fades. The title's controls panel lists `← → ↑ ↓ / W A S D`.
 
 ## Driving it with drive.mjs
 

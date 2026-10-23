@@ -10,7 +10,7 @@ Eight looping chiptune tracks and three jingles synthesized with WebAudio, plus 
 - `act3` (Hollow Signal, F# minor with a borrowed G and C#, 120 bpm, 32 bars, 64 s) plays on stages 6 and 7. It is a sparse half-time beat, two bars a chord, with a `vibrato` lead and its dotted-eighth echo on `pulse12`.
 - `act4` (Umbral Drive, C minor with a borrowed G, 146 bpm, 32 bars, 53 s) plays on stages 8 and 9. A galloping bass and a 3-3-2 kick drive it, and a `pulse50` doubles the `pulse25` lead an octave down from the B section on.
 - Each act runs A, A', B, a four-bar breakdown and a four-bar turnaround back into bar 1.
-- `shop` (Hangar Lounge, F major, 96 bpm, 32 bars, 80 s) plays in the shop. It has a `triangle` lead, offbeat `pulse12` chords, and a soft kick, snare and hat.
+- `shop` (Hangar Lounge, F major, 96 bpm, 32 bars, 80 s) plays in the shop, the hangar before stage 1 included. It has a `triangle` lead, offbeat `pulse12` chords, and a soft kick, snare and hat.
 - `clear` (Stage Clear, F major, 1.5 s), `victory` (Victory Fanfare, C major with a borrowed Ab and Bb, 3.6 s) and `defeat` (Ship Down, A minor, 2 s, on the `vibrato` voice) are jingles. Each plays once, from the frame a stage ends. `clear` ends every stage that leads to the shop, the Seraph's included, and resolves into the shop's F major. `victory` ends stage 10, and `defeat` any stage the ship goes down on. Both lead into the A minor main theme on End.
 - `boss1` (Crimson Verdict, E minor, 150 bpm, 16 bars) plays from the start of stage 5 while the Crimson Seraph is in her first form.
 - `boss2` (Crimson Verdict II, F minor, 172 bpm, 16 bars) takes over the moment the Seraph starts transforming, before her form flips at the reveal, and plays until she dies. It has a 16th-note lead, a rolling arpeggio, nonstop octave bass and about twice the drum hits per bar of `boss1`.
@@ -26,7 +26,7 @@ Eight looping chiptune tracks and three jingles synthesized with WebAudio, plus 
 ## How to get to it (user POV)
 
 - Press any key or click on Title. Browsers start audio only after a gesture, so Title is silent until then.
-- Play stage 1 for `act1`, and clear it for `clear` and then `shop`. Each later wave stage plays its act. Lose the ship for `defeat`, and beat the Empress for `victory`.
+- Start a run for `shop` in the hangar, launch stage 1 for `act1`, and clear it for `clear` and then `shop`. Each later wave stage plays its act. Lose the ship for `defeat`, and beat the Empress for `victory`.
 - Reach stage 5 for the boss tracks, and bring the Seraph down to her transformation threshold for `boss2`.
 - Drop a song into `public/music/` as `void-empress.ogg` or `void-empress.mp3` and reach stage 10 for `empress`. Without one, stage 10 plays `boss1` and `boss2`.
 
@@ -40,7 +40,7 @@ Preconditions:
 Run `drive.mjs <run-id> music`.
 
 - **Gesture.** On Title before any key `track` is `normal` and `ctx` is `null`. `Shift` starts `normal` on a `running` context at `MUSIC_VOLUME`.
-- **Acts.** `Enter` into stage 1 swaps `normal` for `act1`, with `plays` 2.
+- **Acts.** `Enter` on Title opens the hangar, which swaps `normal` for `shop` with `plays` 2. `Enter` there starts stage 1, which swaps `shop` for `act1` with `plays` 3.
 - **Cut-in.** With a full gauge, `Space` starts the cut-in. Across it the first foe does not move and `step` advances by at least 80% of the steps that fit in the frozen time.
 - **Clear.** `kill()` on stage 1. Every frame from the end of the stage through the camera fade asks for `clear`. `jingles.clear` rises by exactly 1, and from 200 ms after the jingle starts ringing `fadingGain` is under 1e-3. The shop plays `shop`, at a gain under 1e-3 while the jingle still rings. `Enter` from the shop plays `act1` on stage 2, and stages 3, 6 and 8 play `act2`, `act3` and `act4`.
 - **Defeat.** `hurt()` on stage 8 until the ship goes down. The same checks hold for `defeat`, and End's `normal` holds a gain of 0 until `defeat` has rung out.
