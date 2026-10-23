@@ -80,7 +80,7 @@ export const BOSSES: Record<BossId, BossDef> = {
     transform: { atHpRatio: 0.5, healRatio: 0, summon: 2, durationMs: 2200 },
   },
   voidEmpress: {
-    hp: 4600,
+    hp: 2900,
     forms: [
       {
         name: 'Void Empress',

@@ -92,4 +92,4 @@
 | 7 | 5x10 | Bulwark, Bulwark, Kamikaze Kitsune, Gunner Girl, Pico Drone | 40 | 1.6 | 1.6 | 60 |
 | 8 | 6x10 | Bulwark, Kamikaze Kitsune, Gunner Girl, Gunner Girl, Kamikaze Kitsune, Pico Drone | 44 | 1.8 | 1.8 | 65 |
 | 9 | 6x11 | Bulwark, Bulwark, Kamikaze Kitsune, Gunner Girl, Gunner Girl, Kamikaze Kitsune | 48 | 2 | 2 | 70 |
-| 10 | **BOSS** | Void Empress (HP 4600, 2 เฟส) แปลงร่างที่ HP 50% เป็น Void Empress · Eclipse (2 เฟส) | - | - | - | 0 |
+| 10 | **BOSS** | Void Empress (HP 2900, 2 เฟส) แปลงร่างที่ HP 50% เป็น Void Empress · Eclipse (2 เฟส) | - | - | - | 0 |
