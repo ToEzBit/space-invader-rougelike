@@ -14,7 +14,7 @@ for (const event of ['keydown', 'pointerdown', 'pointerup', 'touchend'] as const
     else if (ctx.state === 'suspended') void ctx.resume();
   });
 
-// A held context stays suspended through taps, so every sound, the laser buzz included, freezes with the game.
+// A held context stays suspended through taps, so every sound freezes with the game.
 export function holdAudio(on: boolean): void {
   held = on;
   if (ctx) void (on ? ctx.suspend() : ctx.resume());

@@ -77,6 +77,10 @@ export function seededNoise(ctx: BaseAudioContext): AudioBuffer {
   return kitFor(ctx).noise;
 }
 
+export function pulse25(ctx: BaseAudioContext): PeriodicWave {
+  return kitFor(ctx).pulse25;
+}
+
 function kitFor(ctx: BaseAudioContext): Kit {
   let kit = kits.get(ctx);
   if (!kit) {
