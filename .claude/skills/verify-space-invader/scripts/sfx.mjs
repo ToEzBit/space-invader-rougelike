@@ -25,14 +25,12 @@ await page.goto(`http://127.0.0.1:${port}/`);
 const result = await page.evaluate(async () => {
   const { blip } = await import('/src/audio/sfx.ts');
   const { SOUNDS, CAST_PITCH, recipeMs, shotPitch } = await import('/src/audio/sfxRecipes.ts');
-  const { LaserSound } = await import('/src/audio/laserSound.ts');
   const { loud95 } = await import('/src/audio/loudness.ts');
   const { compile, playStep } = await import('/src/audio/synth.ts');
   const { TRACKS } = await import('/src/audio/tracks.ts');
   const { MUSIC_VOLUME, TRACK_LEVEL } = await import('/src/audio/music.ts');
   const { deriveStats, OVERDRIVE_CALM_MS, PERKS } = await import('/src/core/perks.ts');
   const { withBuffs } = await import('/src/core/items.ts');
-  const { BASE_STATS } = await import('/src/core/stats.ts');
   const { fireInterval } = await import('/src/game/volley.ts');
   const RATE = 44100;
   const WINDOW = Math.round(RATE * 0.05);
@@ -112,20 +110,6 @@ const result = await page.evaluate(async () => {
     for (const name of ['castLight', 'castHeavy', 'castUltimate'])
       keep(`${name}-${boss}`, await render(recipeMs(SOUNDS[name]) / 1000 + 0.1, (ctx) => blip(ctx, ctx.destination, name, 0, pitch)), { kind: 'cast', pitch });
 
-  // The beam as Laser plays it: the zap and the buzz on the fire frame, the buzz held every frame, stopped at the end.
-  const beam = async (durationMs) => {
-    let now = 0;
-    return render(durationMs / 1000 + 0.4, (ctx) => {
-      const sound = new LaserSound(() => ({ ctx, out: ctx.destination, now: () => now }));
-      blip(ctx, ctx.destination, 'laser', 0);
-      for (; now < durationMs / 1000; now += FRAME_SEC) sound.hold();
-      sound.stop();
-    });
-  };
-  const longDischarge = PERKS.longDischarge.values.at(-1);
-  keep('beam-default', await beam(BASE_STATS.laserDurationMs), { kind: 'beam', durationMs: BASE_STATS.laserDurationMs });
-  keep('beam-longest', await beam(BASE_STATS.laserDurationMs + longDischarge), { kind: 'beam', durationMs: BASE_STATS.laserDurationMs + longDischarge });
-
   // Gun volleys land on frames: each one fires on the first frame its cooldown has run out.
   const gun = async (intervalMs, sec) => {
     const at = [];
@@ -166,6 +150,7 @@ const [loudTrack, { peak: trackPeak }] = Object.entries(tracks).sort(([, a], [, 
 const pop = renders.pop;
 const bossLoud = Math.max(...Object.values(tracks).map((t) => t.loud95));
 const OVER_BOSS_MUSIC = 1.5;
+const LASER_OVER_POP = 1.6;
 const report = { tracks, loudestBossTrack: loudTrack, renders: {} };
 console.log(`${'name'.padEnd(26)} ${'sec'.padStart(6)} ${'peak'.padStart(7)} ${'ownRms'.padStart(7)} ${'loud95'.padStart(7)} ${'loudMax'.padStart(7)}  vs pop loudMax  +${loudTrack} peak`);
 for (const [name, r] of Object.entries(renders)) {
@@ -182,10 +167,11 @@ for (const [name, r] of Object.entries(renders)) {
   if (headroom >= 1) failures.push(`${name}: peak ${r.peak} plus ${loudTrack}'s ${trackPeak} can clip`);
   if (r.kind === 'sound' && r.sec * 1000 > r.recipeMs + 20) failures.push(`${name} sounds for ${r.sec}s, past its recipe's ${r.recipeMs} ms`);
   if (/^cast/.test(name) && r.loudMax < OVER_BOSS_MUSIC * bossLoud) failures.push(`${name}: loudMax ${r.loudMax} is not ${OVER_BOSS_MUSIC} times the boss music's loud95 ${bossLoud}, and it only plays over that music`);
-  if (r.kind === 'beam' && Math.abs(r.sec * 1000 - r.durationMs) > 120) failures.push(`${name} sounds for ${r.sec}s, not with its ${r.durationMs} ms beam`);
 }
 const shot = renders.shot;
 if (!(shot.loudMax < pop.loudMax && shot.peak < pop.peak)) failures.push(`shot loudMax ${shot.loudMax} / peak ${shot.peak} is not under pop's ${pop.loudMax} / ${pop.peak}`);
+const laser = renders.laser;
+if (!(laser.loudMax < LASER_OVER_POP * pop.loudMax)) failures.push(`laser loudMax ${laser.loudMax} is not under ${LASER_OVER_POP} times pop's ${pop.loudMax}, and it plays on every beam, every few seconds`);
 for (const [id, t] of Object.entries(tracks)) console.log(`${id} at its in-game level: peak ${t.peak} loud95 ${t.loud95}`);
 writeFileSync(join(outDir, 'report.json'), JSON.stringify({ ...report, failures }, null, 2));
 for (const f of failures) console.log(`FAIL ${f}`);

@@ -3197,7 +3197,6 @@ const JOURNEYS = {
                 laserFiring: s.laserFiring,
                 played: s.sfx.played,
                 flash: s.newtypeFlash.played,
-                beam: s.sfx.beam,
                 zips: s.transAmSound.shots,
                 stance: s.boss?.stance,
                 castMsLeft: s.boss?.castMsLeft,
@@ -3291,18 +3290,11 @@ const JOURNEYS = {
     const beams = beamsOf(lr).filter((b) => b.off !== undefined);
     h.check('the laser fired at least twice', beams.length >= 2, { beams: beams.length });
     for (const [k, { on, off }] of beams.slice(0, 2).entries()) {
-      const before = lr[on - 1];
-      const firing = lr.slice(on, off);
-      const after = lr.slice(off).filter((x) => x.ms - lr[off].ms >= 250 && x.ms - lr[off].ms < 600);
-      h.check(`beam ${k + 1}: the zap plays once and the buzz starts as it fires`, n(firing.at(-1), 'laser') - n(before, 'laser') === 1 && lr[on].beam.starts - before.beam.starts === 1 && firing.slice(2).every((x) => x.beam.live === 1), {
-        zaps: n(firing.at(-1), 'laser') - n(before, 'laser'),
-        starts: lr[on].beam.starts - before.beam.starts,
-        live: firing.map((x) => x.beam.live),
-      });
-      h.check(`beam ${k + 1}: the buzz stops when the beam ends and its nodes are gone 250 ms later`, lr[off].beam.stops - before.beam.stops === 1 && after.length > 0 && after.every((x) => x.beam.live === 0 && x.beam.starts === lr[on].beam.starts), {
-        stops: lr[off].beam.stops - before.beam.stops,
-        after: after.map((x) => x.beam),
-        firedForMs: lr[off].ms - lr[on].ms,
+      const [before, fired, last] = [lr[on - 1], lr[on], lr[off]];
+      h.check(`beam ${k + 1}: the zap plays once, on the frame it fires, and nothing more while it burns`, n(fired, 'laser') - n(before, 'laser') === 1 && n(last, 'laser') === n(fired, 'laser'), {
+        onFireFrame: n(fired, 'laser') - n(before, 'laser'),
+        whileBurning: n(last, 'laser') - n(fired, 'laser'),
+        firedForMs: last.ms - fired.ms,
       });
     }
     await h.shot('laser-stage');
@@ -3313,39 +3305,14 @@ const JOURNEYS = {
     await h.game('transAmGauge', gaugeMax);
     const pre = await h.state();
     await h.page.keyboard.press('Space');
-    const ci = await record(6000, `s.life === 'fighting' && !s.laserFiring && s.sfx.beam.live === 0`);
+    const ci = await record(6000, `s.life === 'fighting' && !s.laserFiring`);
     const cut = ci.filter((x) => x.life === 'cutIn');
-    const cutQuiet = cut.filter((x) => x.ms - cut[0].ms >= 250);
     const back = ci.filter((x, i) => i > ci.indexOf(cut.at(-1)) && x.life === 'fighting' && x.laserFiring);
-    h.check('the TRANS-AM cut-in stops the buzz while it freezes the beam', cut.length > 0 && cutQuiet.length > 0 && cutQuiet.every((x) => x.beam.live === 0 && x.laserFiring) && cut.at(-1).beam.stops === pre.sfx.beam.stops + 1, {
+    h.check('the beam left burning after the TRANS-AM cut-in plays no second zap', cut.length > 0 && back.length > 0 && n(ci.at(-1), 'laser') === n(pre.sfx, 'laser'), {
       cutFrames: cut.length,
-      live: cutQuiet.map((x) => x.beam.live),
-    });
-    h.check('the beam left after the cut-in buzzes again without a second zap', back.length > 0 && back.at(-1).beam.starts === cut.at(-1).beam.starts + 1 && n(ci.at(-1), 'laser') === n(pre.sfx, 'laser') && back.slice(2).every((x) => x.beam.live === 1), {
-      startsBefore: cut.at(-1).beam.starts,
-      startsAfter: back.at(-1)?.beam.starts,
+      burningAfter: back.length,
       zaps: n(ci.at(-1), 'laser') - n(pre.sfx, 'laser'),
     });
-    h.check('and stops when that beam ends', ci.at(-1).beam.live === 0 && ci.at(-1).beam.stops === back.at(-1).beam.stops + 1, { end: ci.at(-1).beam });
-
-    for (const [how, stage, end] of [
-      ['a stage clear', 1, async () => h.game('kill')],
-      ['a defeat', 2, async () => { for (let i = 0; i < 12; i++) await h.game('hurt'); }],
-    ]) {
-      await h.startAt(stage, { prismLance: 1, longDischarge: 3 });
-      await h.frameWhen('s.laserFiring', false, 8000);
-      const pre = await h.state();
-      await end();
-      const er = await record(1500, `!s.scenes.includes('Stage')`);
-      const ending = er.filter((x) => x.life === 'ending');
-      const settled = ending.filter((x) => x.ms - ending[0].ms >= 250);
-      h.check(`${how} mid-beam stops the buzz for good while the beam burns on through the outro`, ending.length > 0 && ending.some((x) => x.laserFiring) && settled.length > 0 && settled.every((x) => x.beam.live === 0) && ending.at(-1).beam.starts === pre.sfx.beam.starts && ending.at(-1).beam.stops === pre.sfx.beam.stops + 1, {
-        endingFrames: ending.length,
-        firingInOutro: ending.filter((x) => x.laserFiring).length,
-        first: pre.sfx.beam,
-        last: ending.at(-1)?.beam,
-      });
-    }
 
     await h.startAt(3, { orbitalCannon: 1 });
     await h.game('god', true);

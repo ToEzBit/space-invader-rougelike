@@ -1,6 +1,6 @@
 import { audioContext } from './context';
-import { SOUNDS, type Layer, type Sound } from './sfxRecipes';
-import { seededNoise } from './synth';
+import { SOUNDS, type Layer, type Sound, type Wave } from './sfxRecipes';
+import { pulse25, seededNoise } from './synth';
 
 export type { Sound } from './sfxRecipes';
 
@@ -40,8 +40,13 @@ function play(ctx: BaseAudioContext, out: AudioNode, layer: Layer, at: number, p
   env.gain.exponentialRampToValueAtTime(SILENT, end);
   env.connect(out);
   const { source, hz } = layer.kind === 'tone' ? oscillator(ctx, layer.wave, env) : filteredNoise(ctx, layer, env);
-  hz.setValueAtTime(layer.hz.from * pitch, at);
-  hz.exponentialRampToValueAtTime(layer.hz.to * pitch, end);
+  const { from, to } = layer.hz;
+  const steps = layer.kind === 'tone' ? layer.steps : undefined;
+  if (steps) for (let i = 0; i < steps; i++) hz.setValueAtTime(from * (to / from) ** (i / (steps - 1)) * pitch, at + (i * layer.ms) / steps / 1000);
+  else {
+    hz.setValueAtTime(from * pitch, at);
+    hz.exponentialRampToValueAtTime(to * pitch, end);
+  }
   source.start(at);
   source.stop(end);
   source.onended = () => env.disconnect();
@@ -49,9 +54,10 @@ function play(ctx: BaseAudioContext, out: AudioNode, layer: Layer, at: number, p
 
 type Voice = { source: AudioScheduledSourceNode; hz: AudioParam };
 
-function oscillator(ctx: BaseAudioContext, wave: OscillatorType, out: AudioNode): Voice {
+function oscillator(ctx: BaseAudioContext, wave: Wave, out: AudioNode): Voice {
   const osc = ctx.createOscillator();
-  osc.type = wave;
+  if (wave === 'pulse25') osc.setPeriodicWave(pulse25(ctx));
+  else osc.type = wave;
   osc.connect(out);
   return { source: osc, hz: osc.frequency };
 }

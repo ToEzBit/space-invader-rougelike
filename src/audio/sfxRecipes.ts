@@ -20,16 +20,18 @@ export type Sound =
 
 type Sweep = { readonly from: number; readonly to: number };
 
+export type Wave = OscillatorType | 'pulse25';
+
 // A layer with no attackMs starts at full gain, the way every sound did before layers existed.
 type Envelope = { readonly ms: number; readonly gain: number; readonly attackMs?: number; readonly delayMs?: number };
 
 export type Layer =
-  | ({ readonly kind: 'tone'; readonly wave: OscillatorType; readonly hz: Sweep } & Envelope)
+  | ({ readonly kind: 'tone'; readonly wave: Wave; readonly hz: Sweep; readonly steps?: number } & Envelope)
   | ({ readonly kind: 'noise'; readonly filter: BiquadFilterType; readonly hz: Sweep; readonly q: number } & Envelope);
 
 export type Recipe = { readonly layers: readonly Layer[]; readonly minGapMs: number };
 
-const tone = (wave: OscillatorType, from: number, to: number, ms: number, gain: number, more: Partial<Envelope> = {}): Layer => ({
+const tone = (wave: Wave, from: number, to: number, ms: number, gain: number, more: Partial<Envelope> & { steps?: number } = {}): Layer => ({
   kind: 'tone',
   wave,
   hz: { from, to },
@@ -63,13 +65,9 @@ export const SOUNDS: Record<Sound, Recipe> = {
     layers: [tone('triangle', 1500, 560, 55, 0.034, { attackMs: 2 }), noise('highpass', 5200, 3000, 0.7, 20, 0.018, { attackMs: 1 })],
     minGapMs: 35,
   },
-  // The zap that opens the beam; the buzz under the rest of it is LaserSound's.
+  // The zap as Prism Lance fires, a chiptune step-down; the beam burns silently after it.
   laser: {
-    layers: [
-      tone('sawtooth', 1900, 240, 150, 0.045, { attackMs: 2 }),
-      noise('bandpass', 7000, 1600, 1.2, 170, 0.22, { attackMs: 2 }),
-      tone('sine', 170, 55, 200, 0.08, { attackMs: 3 }),
-    ],
+    layers: [tone('pulse25', 1760, 523, 130, 0.03, { attackMs: 2, steps: 8 }), tone('triangle', 220, 110, 80, 0.07, { attackMs: 3 })],
     minGapMs: 200,
   },
   orbital: {
