@@ -1,70 +1,70 @@
 # Space Invader Roguelike
 
-เกมยิงยานอวกาศแนว Space Invaders ผสมโร้กไลก์ ภาพพิกเซลอาร์ต เพลงแนว chiptune เล่นบนเบราว์เซอร์ได้ทั้งคอมพิวเตอร์และมือถือ ผู้เล่นต้องผ่าน 10 ด่าน สู้บอส 2 ตัว และอัปเกรดยานจากร้านค้าระหว่างด่าน แต่ละรอบจะได้ build ไม่ซ้ำกัน
+A Space Invaders-style shooter with roguelike upgrades, pixel art, and chiptune music. It runs in the browser on desktop and mobile. You fight through 10 stages and 2 bosses, and between stages you upgrade your ship in a shop, so no two runs play out the same way. The in-game text is in Thai.
 
-**เล่นได้ที่ https://space-invader-rougelike.netlify.app/**
+**Play it at https://space-invader-rougelike.netlify.app/**
 
 <p align="center">
-  <img src="docs/screenshots/title.png" width="400" alt="หน้าเริ่มเกม พร้อมตารางปุ่มควบคุม">
-  <img src="docs/screenshots/fight.png" width="400" alt="ด่าน 3 ยานยิงเลเซอร์ Prism Lance แยกเป็นสามลำใส่ฝูงศัตรู">
+  <img src="docs/screenshots/title.png" width="400" alt="Title screen with the controls table">
+  <img src="docs/screenshots/fight.png" width="400" alt="Stage 3, the ship firing a Prism Lance laser split into three beams at the enemy formation">
 </p>
 <p align="center">
-  <img src="docs/screenshots/shop.png" width="400" alt="ร้านอัปเกรดหลังผ่านด่าน 3 มีการ์ดเพิร์กให้เลือก 3 ใบ">
-  <img src="docs/screenshots/boss.png" width="400" alt="ด่าน 5 สู้บอส Crimson Seraph">
+  <img src="docs/screenshots/shop.png" width="400" alt="Upgrade shop after stage 3, offering three perk cards">
+  <img src="docs/screenshots/boss.png" width="400" alt="Stage 5, fighting the Crimson Seraph boss">
 </p>
 
-## วิธีเล่น
+## How to play
 
-ยานยิงเองตลอดเวลา ผู้เล่นมีหน้าที่หลบกระสุน เก็บเหรียญ และเลือกอัปเกรด
+Your ship fires on its own. Your job is to dodge bullets, collect coins, and pick upgrades.
 
-| ปุ่ม | การทำงาน |
+| Key | Action |
 | --- | --- |
-| `←` `→` `↑` `↓` หรือ `W` `A` `S` `D` | เคลื่อนที่ |
-| `Space` | เปิด TRANS-AM เมื่อเกจเต็ม |
-| `Shift` | พุ่งชนทะลุฝูงศัตรู เมื่อปลดล็อก Afterburner Dash แล้ว |
-| `Z` `X` `C` `V` `B` | ใช้ไอเทมที่ซื้อมา ระหว่างอยู่ในด่าน |
-| `1` `2` `3` | ซื้อการ์ดในร้านค้า |
-| `R` | รีเฟรชการ์ดในร้านค้า |
-| `Enter` | เริ่มเกม ไปด่านต่อไป หรือเล่นใหม่ |
-| `M` | เปิดหรือปิดเพลง |
-| `F` | เต็มจอ |
+| `←` `→` `↑` `↓` or `W` `A` `S` `D` | Move |
+| `Space` | Start TRANS-AM when the gauge is full |
+| `Shift` | Dash through the enemy formation, once you unlock Afterburner Dash |
+| `Z` `X` `C` `V` `B` | Use a held item during a stage |
+| `1` `2` `3` | Buy a card in the shop |
+| `R` | Refresh the shop's cards |
+| `Enter` | Start the game, go to the next stage, or play again |
+| `M` | Turn the music on or off |
+| `F` | Toggle fullscreen |
 
-บนมือถือ ให้ลากนิ้วตรงไหนบนจอก็ได้เพื่อบังคับยาน แล้วแตะไอคอนด้านล่างจอเพื่อใช้ TRANS-AM, พุ่งชน และไอเทม
+On a phone, drag anywhere on the screen to steer. Tap the icons under the playfield to use TRANS-AM, the dash, and items.
 
-## ระบบในเกม
+## Game systems
 
-- **ด่าน.** มีทั้งหมด 10 ด่าน ด่าน 5 เป็นบอส Crimson Seraph และด่าน 10 เป็นบอส Void Empress บอสทั้งสองตัวมีร่างที่สอง พร้อมท่าพิเศษที่ต้องชาร์จก่อนปล่อย
-- **ร้านค้า.** ก่อนออกบินและหลังจบทุกด่าน จะได้เลือกซื้อการ์ดเพิร์กหรือไอเทมด้วยเหรียญที่เก็บมา ราคาเพิ่ม 20% ทุกครั้งที่ผ่านด่าน
-- **เพิร์ก 50 แบบ.** แบ่งเป็น 5 สาย
-  - Bullet Storm (สายยิงรัว)
-  - Prism Lance (สายเลเซอร์)
-  - Comet Strike (สายพุ่งชน)
-  - Close Call (สายเฉียดกระสุน)
-  - Spirit Call (สาย Summoner)
+- **Stages.** There are 10 stages. Stage 5 is the Crimson Seraph boss and stage 10 is the Void Empress. Both bosses have a second form with charged special attacks.
+- **Shop.** Before launch and after every stage, you spend the coins you collected on perk cards or items. Prices go up 20% for each stage you clear.
+- **50 perks.** They come in 5 branches:
+  - Bullet Storm (rapid fire)
+  - Prism Lance (laser)
+  - Comet Strike (ramming)
+  - Close Call (grazing bullets)
+  - Spirit Call (summoner)
 
-  สายที่ลงเลเวลไว้จะมีโอกาสออกในร้านบ่อยขึ้น ทำให้ build ชัดขึ้นเรื่อยๆ ตารางเพิร์ก ไอเทม และด่านแบบเต็มอยู่ใน [docs/PERKS.md](docs/PERKS.md)
-- **ไอเทม.** ซื้อเก็บไว้ใช้ทีหลังได้ มี Repair Kit, Nitro, Power Cell, Overclock และ Barrier Capsule
-- **TRANS-AM.** เกจจะเต็มขึ้นเมื่อเฉียดกระสุน ฆ่าศัตรู หรือทำดาเมจใส่บอส และจะลดลงทุกครั้งที่โดนยิง เมื่อเปิดใช้ ยานจะยิงเร็วขึ้นสองเท่า บินเร็วขึ้น กระสุนทะลุศัตรูได้เพิ่ม 1 ตัว และกระสุนของศัตรูช้าลงครึ่งหนึ่ง เป็นเวลา 6 วินาที หลังจากนั้นยานจะอ่อนแรงลงอีก 4 วินาที
+  Perks from branches you already hold levels in show up in the shop more often, so your build sharpens as the run goes on. The full tables of perks, items, and stages are in [docs/PERKS.md](docs/PERKS.md) (in Thai).
+- **Items.** You can buy them and save them for later. They are the Repair Kit, Nitro, Power Cell, Overclock, and Barrier Capsule.
+- **TRANS-AM.** The gauge fills when you graze bullets, kill enemies, or damage a boss, and drops each time you get hit. For 6 seconds after you start it, your ship fires twice as fast, moves faster, and its shots pierce one more enemy, while enemy bullets slow to half speed. Your ship is then weakened for 4 seconds.
 
-## พัฒนาต่อ
+## Development
 
-ต้องมี Node.js กับ npm
+You need Node.js and npm.
 
 ```bash
-npm ci          # ติดตั้ง dependency
-npm run dev     # เปิด dev server ของ Vite
-npm test        # รันเทสต์ด้วย Vitest
-npm run build   # เช็ก type แล้ว build ไปไว้ที่ dist/
-npm run docs    # สร้าง docs/PERKS.md ใหม่จากโค้ด
+npm ci          # install dependencies
+npm run dev     # start the Vite dev server
+npm test        # run the tests with Vitest
+npm run build   # type-check, then build to dist/
+npm run docs    # regenerate docs/PERKS.md from the code
 ```
 
-เกมเขียนด้วย TypeScript บน [Phaser 4](https://phaser.io/) และ build ด้วย Vite ทุกเสียงทั้งเพลงและเอฟเฟกต์สังเคราะห์สดด้วย Web Audio ยกเว้นเพลงของ Void Empress เสียงพากย์ TRANS-AM และเสียง Newtype flash ซึ่งเป็นไฟล์เสียง
+The game is written in TypeScript on [Phaser 4](https://phaser.io/) and built with Vite. Web Audio synthesizes all the music and sound effects live, except the Void Empress's song, the TRANS-AM voice lines, and the Newtype flash, which are audio files.
 
-| โฟลเดอร์ | เก็บอะไร |
+| Folder | Contents |
 | --- | --- |
-| `src/core/` | กติกาเกมที่ไม่ผูกกับ Phaser ได้แก่ ด่าน เพิร์ก ไอเทม ค่าสเตตัสยาน และ TRANS-AM |
-| `src/game/` | สิ่งที่เกิดขึ้นในด่าน ได้แก่ ยาน ปืน เลเซอร์ ศัตรู บอส และรูปแบบกระสุน |
-| `src/scenes/` | ฉากต่างๆ ของ Phaser ได้แก่ Title, Stage, Shop และ End |
-| `src/audio/` | ตัวสังเคราะห์เพลง โน้ตเพลงของแต่ละด่าน และเสียงเอฟเฟกต์ |
-| `src/art/`, `src/assets/` | สไปรต์ พาเลตสี และภาพ UI |
-| `.claude/skills/verify-space-invader/` | สคริปต์ Playwright ที่เปิดเกมใน Chrome จริง แล้วเล่นตามสถานการณ์ต่างๆ เพื่อตรวจว่าแต่ละฟีเจอร์ทำงานถูก |
+| `src/core/` | Game rules with no Phaser dependency: stages, perks, items, ship stats, and TRANS-AM |
+| `src/game/` | What happens inside a stage: the ship, gun, laser, enemies, bosses, and bullet patterns |
+| `src/scenes/` | The Phaser scenes: Title, Stage, Shop, and End |
+| `src/audio/` | The music synthesizer, each stage's score, and the sound effects |
+| `src/art/`, `src/assets/` | Sprites, the palette, and UI images |
+| `.claude/skills/verify-space-invader/` | Playwright scripts that open the game in real Chrome and play through scenarios to check that each feature works |
